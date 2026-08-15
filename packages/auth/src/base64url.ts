@@ -18,8 +18,13 @@ export function toBase64Url(bytes: Uint8Array): string {
  * Decodes base64url. Standard base64 (`+`, `/`, padding) is accepted too so an
  * `openssl rand -base64 32` key works verbatim.
  * Returns null instead of throwing: callers turn that into a generic denial.
+ *
+ * The buffer generic is spelled out because the result is fed straight to
+ * WebCrypto: under the DOM lib (which `apps/web` compiles with) `BufferSource`
+ * is `ArrayBufferView<ArrayBuffer>`, and a bare `Uint8Array` widens to
+ * `ArrayBufferLike`, which includes `SharedArrayBuffer` and is rejected.
  */
-export function fromBase64Url(value: string): Uint8Array | null {
+export function fromBase64Url(value: string): Uint8Array<ArrayBuffer> | null {
   if (typeof value !== "string") return null
   if (value.length === 0) return new Uint8Array(0)
   let normalized = value.replaceAll("-", "+").replaceAll("_", "/")

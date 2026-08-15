@@ -16,8 +16,21 @@ describe("upstream tool mapping", () => {
     }
   })
 
-  test("resolves a known action", () => {
-    expect(resolveTool("careerpack.profile.read")).toBe("get_profile")
+  /**
+   * Transcribed from the live server's tool definitions, not from memory:
+   * convex/mcp/tools/profile.ts declares `profile_get` and
+   * convex/mcp/tools/applications.ts declares `applications_create`.
+   * The connector originally shipped the verb-first spellings, which no CareerPack
+   * deployment has ever published.
+   */
+  test("resolves to the tool names CareerPack actually publishes", () => {
+    expect(resolveTool("careerpack.profile.read")).toBe("profile_get")
+    expect(resolveTool("careerpack.application.create")).toBe("applications_create")
+  })
+
+  test("the verb-first spellings are gone for good", () => {
+    expect(Object.values(UPSTREAM_TOOL)).not.toContain("get_profile")
+    expect(Object.values(UPSTREAM_TOOL)).not.toContain("create_application")
   })
 
   test("an unknown action throws ACTION_NOT_FOUND without echoing the id", () => {

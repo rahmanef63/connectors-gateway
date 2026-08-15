@@ -57,7 +57,7 @@ describe("careerpackAdapter happy paths", () => {
 
     const result = await careerpackAdapter.execute(
       ACTION_APPLICATION_CREATE,
-      { role: "Backend engineer", company: "Acme", status: "applied" },
+      { company: "Acme", position: "Backend engineer", location: "Jakarta", source: "LinkedIn", status: "applied" },
       context(),
     )
 
@@ -69,7 +69,7 @@ describe("careerpackAdapter happy paths", () => {
 
     const result = await careerpackAdapter.execute(
       ACTION_APPLICATION_CREATE,
-      { role: "Backend engineer", company: "Acme" },
+      { company: "Acme", position: "Backend engineer", location: "Remote", source: "referral" },
       context(),
     )
 
@@ -79,7 +79,11 @@ describe("careerpackAdapter happy paths", () => {
   test("maps the action onto the upstream tool name and sends MCP headers", async () => {
     stubFetch(rpc({ structuredContent: {} }))
 
-    await careerpackAdapter.execute(ACTION_APPLICATION_CREATE, { role: "SRE", company: "Acme", notes: "referred" }, context())
+    await careerpackAdapter.execute(
+      ACTION_APPLICATION_CREATE,
+      { company: "Acme", position: "SRE", location: "Jakarta", source: "LinkedIn", notes: "referred" },
+      context(),
+    )
 
     const call = calls[0]
     expect(call).toBeDefined()
@@ -93,8 +97,8 @@ describe("careerpackAdapter happy paths", () => {
     expect(body["jsonrpc"]).toBe("2.0")
     expect(body["method"]).toBe("tools/call")
     expect(body["params"]).toEqual({
-      name: "create_application",
-      arguments: { role: "SRE", company: "Acme", notes: "referred" },
+      name: "applications_create",
+      arguments: { company: "Acme", position: "SRE", location: "Jakarta", source: "LinkedIn", notes: "referred" },
     })
   })
 })
@@ -132,15 +136,41 @@ describe("careerpackAdapter failure paths", () => {
     expect(calls).toHaveLength(0)
   })
 
-  test("invalid input is rejected before the network call", async () => {
+  /**
+   * Schema validation is the pipeline's job (execute.ts step 3) and is deliberately not
+   * repeated here — two copies of one schema drift. What the adapter still owes is a
+   * shape narrowing, because JSON-RPC `arguments` must be an object.
+   */
+  test("a non-object input is rejected before the network call", async () => {
     stubFetch(rpc({ structuredContent: {} }))
 
-    const error = await careerpackAdapter
-      .execute(ACTION_APPLICATION_CREATE, { company: "Acme" }, context())
-      .catch((cause: unknown) => cause)
+    for (const input of ["everything", ["everything"], 42]) {
+      const error = await careerpackAdapter
+        .execute(ACTION_APPLICATION_CREATE, input, context())
+        .catch((cause: unknown) => cause)
 
-    expect((error as GatewayError).code).toBe("INVALID_INPUT")
+      expect((error as GatewayError).code).toBe("INVALID_INPUT")
+    }
     expect(calls).toHaveLength(0)
+  })
+
+  test("a validated payload is forwarded verbatim, not re-shaped", async () => {
+    stubFetch(rpc({ structuredContent: { application_id: "app_1" } }))
+    const input = {
+      company: "Acme",
+      position: "SRE",
+      location: "Jakarta",
+      source: "LinkedIn",
+      salary: "10-15 juta",
+      notes: "referred",
+      status: "screening",
+      cv_id: "cv_123",
+    }
+
+    await careerpackAdapter.execute(ACTION_APPLICATION_CREATE, input, context())
+
+    const body = JSON.parse(String(calls[0]?.init.body)) as Record<string, Record<string, unknown>>
+    expect(body["params"]?.["arguments"]).toEqual(input)
   })
 
   test("a missing credential is CONNECTION_MISSING", async () => {

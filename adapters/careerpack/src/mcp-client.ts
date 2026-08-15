@@ -14,6 +14,14 @@ export const MCP_PROTOCOL_VERSION = "2025-06-18"
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
 
+/**
+ * A tools/call result is a profile or an application id, not a download. 1 MiB is far
+ * above anything CareerPack returns and far below what would matter if a compromised or
+ * impersonated endpoint answered with an endless stream: without a cap, one call can
+ * exhaust the gateway's memory for every other tenant.
+ */
+export const MAX_RESPONSE_BYTES = 1_048_576
+
 let requestCounter = 0
 
 /**
@@ -53,9 +61,23 @@ export async function callTool(
       },
       body,
       signal,
+      // `manual` over `error` so a redirect is reported as a redirect rather than as an
+      // indistinguishable TypeError. Either way the hop is never taken: fetch replays the
+      // Authorization header on a cross-origin redirect in some runtimes, so following a
+      // 302 would hand this connection's CareerPack bearer to whatever host Location names.
+      redirect: "manual",
     })
   } catch (cause) {
     throw transportError(cause)
+  }
+
+  // A runtime that returns an opaque redirect reports status 0, which is not a 3xx.
+  if (isRedirect(response)) {
+    // The Location value is deliberately not echoed: it is attacker-chosen text.
+    throw new GatewayError(
+      "UPSTREAM_ERROR",
+      "CareerPack redirected the call; the credential was not forwarded.",
+    )
   }
 
   if (!response.ok) {
@@ -63,8 +85,57 @@ export async function callTool(
     throw new GatewayError("UPSTREAM_ERROR", `CareerPack refused the call (HTTP ${response.status}).`)
   }
 
-  const raw = await response.text()
+  const raw = await readCappedBody(response)
   return readToolResult(parseRpcBody(raw, response.headers.get("content-type")), token)
+}
+
+function isRedirect(response: Response): boolean {
+  return (response.status >= 300 && response.status < 400) || response.type === "opaqueredirect"
+}
+
+/**
+ * Read at most MAX_RESPONSE_BYTES and fail rather than truncate: a silently cut JSON
+ * body would surface as "malformed response", which sends the next reader hunting for a
+ * parser bug instead of an oversized upstream.
+ */
+async function readCappedBody(response: Response): Promise<string> {
+  const declared = Number(response.headers.get("content-length"))
+  if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) throw tooLarge()
+
+  const body = response.body
+  if (body === null) return ""
+
+  const reader = body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value === undefined) continue
+      total += value.byteLength
+      // Checked per chunk, so a stream with no end is dropped on the first chunk past
+      // the cap instead of being buffered to completion first.
+      if (total > MAX_RESPONSE_BYTES) throw tooLarge()
+      chunks.push(value)
+    }
+  } catch (cause) {
+    void reader.cancel().catch(() => {})
+    if (cause instanceof GatewayError) throw cause
+    throw transportError(cause)
+  }
+
+  const joined = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    joined.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(joined)
+}
+
+function tooLarge(): GatewayError {
+  return new GatewayError("UPSTREAM_ERROR", "CareerPack returned an oversized response.")
 }
 
 /** The endpoint comes from stored connection config, but it is still validated. */

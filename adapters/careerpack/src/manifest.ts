@@ -4,6 +4,15 @@
  *
  * MVP scope is deliberately two actions: one safe read, one non-destructive write
  * (adapters/careerpack/README.md). Do not mirror the full upstream tool surface here.
+ *
+ * Every schema below mirrors the tool CareerPack actually publishes, verified against
+ * its source on 2026-08-15:
+ *   profile_get         convex/mcp/tools/profile.ts
+ *   applications_create convex/mcp/tools/applications.ts
+ * Property names, requiredness, the status enum and the descriptions are upstream's,
+ * because the descriptions are what an AI client reads to decide how to call this.
+ * Renaming a field here does not rename it upstream — it only produces a call the
+ * server rejects.
  */
 import type { ConnectorManifest } from "@cg/core"
 import { defineAction, defineConnector } from "@cg/sdk"
@@ -13,12 +22,32 @@ export const CAREERPACK_CONNECTOR_ID = "careerpack"
 export const ACTION_PROFILE_READ = "careerpack.profile.read"
 export const ACTION_APPLICATION_CREATE = "careerpack.application.create"
 
-/** Shared by the manifest schema and the runtime input guard. */
-export const APPLICATION_STATUSES = ["draft", "applied", "interviewing", "offer", "rejected"] as const
+/** Upstream's STATUS_VALUES verbatim (convex/mcp/tools/applications.ts), which itself
+ *  mirrors APPLICATION_STATUS_WHITELIST in convex/applications/mutations.ts. Any value
+ *  outside this list is rejected by the server with "Status tidak valid". */
+export const APPLICATION_STATUSES = [
+  "applied",
+  "screening",
+  "interview",
+  "offer",
+  "rejected",
+  "withdrawn",
+  "accepted",
+] as const
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number]
 
-export const MAX_TEXT_FIELD = 200
-export const MAX_NOTES = 2000
+/**
+ * Upstream's published schema carries no length limits, but its mutation does:
+ * `applicationFields` in convex/applications/mutations.ts caps the short fields at 120,
+ * salary at 60 and notes at 600. Declaring them makes the gateway reject oversized text
+ * at its own trust boundary instead of forwarding it, and tells the model the bound
+ * before it spends a call learning it from a rejection.
+ */
+const MAX_SHORT_TEXT = 120
+const MAX_SALARY = 60
+const MAX_NOTES = 600
+/** Convex document ids are short opaque strings; bounded so a blob cannot be forwarded. */
+const MAX_ID = 64
 
 const profileRead = defineAction({
   id: ACTION_PROFILE_READ,
@@ -34,43 +63,64 @@ const profileRead = defineAction({
   annotations: { readOnly: true, destructive: false, idempotent: true },
 })
 
-// TODO(rr): examples/careerpack.connector.json (edited concurrently) names this action's
-// fields `jobTitle` + `source`; this adapter was specified with `role` + `status`. Ids,
-// titles, risk and annotations already match — reconcile the property names in one pass
-// once the upstream tools/list is confirmed, then update ./input with them.
 const applicationCreate = defineAction({
   id: ACTION_APPLICATION_CREATE,
   title: "Create job application",
-  description: "Create a job application record for the current user.",
+  // Upstream's description, minus its pointer to `cv_list` — the gateway does not
+  // publish that tool, so telling a model to call it would be a dead end.
+  description:
+    "Record a new job application. company, position, location and source are all required — source is where the job was found ('LinkedIn', 'JobStreet', 'referral', 'company website'); ask the user rather than guessing it. status defaults to 'applied'; set it only when the user says they are already further along ('I have an interview next week' -> 'interview'). The applied date is set to now, so do not use this to backfill an application from months ago without telling the user the date will be today.",
   inputSchema: {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
     properties: {
-      role: {
-        type: "string",
-        minLength: 1,
-        maxLength: MAX_TEXT_FIELD,
-        description: "Job title applied for.",
-      },
       company: {
         type: "string",
         minLength: 1,
-        maxLength: MAX_TEXT_FIELD,
-        description: "Company the application targets.",
+        maxLength: MAX_SHORT_TEXT,
+        description: "Hiring company name.",
       },
-      status: {
+      position: {
         type: "string",
-        enum: [...APPLICATION_STATUSES],
-        default: "draft",
-        description: "Pipeline stage of the application.",
+        minLength: 1,
+        maxLength: MAX_SHORT_TEXT,
+        description: "Role applied for.",
+      },
+      location: {
+        type: "string",
+        minLength: 1,
+        maxLength: MAX_SHORT_TEXT,
+        description: "Job location, e.g. 'Jakarta' or 'Remote'.",
+      },
+      source: {
+        type: "string",
+        minLength: 1,
+        maxLength: MAX_SHORT_TEXT,
+        description: "Where the job was found, e.g. 'LinkedIn', 'referral'.",
+      },
+      salary: {
+        type: "string",
+        maxLength: MAX_SALARY,
+        description: "Free-text salary or range as the user says it, e.g. '10-15 juta'.",
       },
       notes: {
         type: "string",
         maxLength: MAX_NOTES,
-        description: "Free-form notes stored with the application.",
+        description: "Anything worth remembering.",
+      },
+      status: {
+        type: "string",
+        enum: [...APPLICATION_STATUSES],
+        description: "Defaults to 'applied'.",
+      },
+      cv_id: {
+        type: "string",
+        minLength: 1,
+        maxLength: MAX_ID,
+        description: "CareerPack CV id — the CV sent with this application.",
       },
     },
-    required: ["role", "company"],
+    required: ["company", "position", "location", "source"],
     additionalProperties: false,
   },
   risk: "R1",

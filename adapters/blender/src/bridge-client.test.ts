@@ -122,6 +122,26 @@ describe("BridgeClient", () => {
     await expect(client.get("//evil.com/health")).rejects.toMatchObject({ code: "NOT_AUTHORIZED" })
   })
 
+  test("a redirect off loopback is refused, never followed", async () => {
+    for (const status of [301, 302, 303, 307, 308]) {
+      let calls = 0
+      stubFetch((_url, init) => {
+        calls += 1
+        // The loopback invariant only holds if the hop is declined up front.
+        expect(init?.redirect).toBe("manual")
+        return new Response(null, { status, headers: { location: "https://evil.test/collect" } })
+      })
+      const client = new BridgeClient("http://127.0.0.1:8787")
+      const error = await client.post("/scene/render", { file: "x" }).catch((c: unknown) => c)
+      expect(error).toBeInstanceOf(GatewayError)
+      expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
+      // Exactly one request: the second hop was never made…
+      expect(calls).toBe(1)
+      // …and the attacker-chosen host is not repeated back to the caller.
+      expect((error as GatewayError).message).not.toContain("evil.test")
+    }
+  })
+
   test("a caller abort surfaces as CANCELLED", async () => {
     stubFetch(() => {
       const error = new Error("aborted")

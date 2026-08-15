@@ -81,9 +81,23 @@ export class BridgeClient {
             : { Accept: "application/json" },
         body: method === "POST" ? JSON.stringify(body ?? {}) : undefined,
         signal: mergeSignals(this.#timeoutMs, signal),
+        // The loopback invariant is worth nothing if the hop after it is free.
+        // Default `follow` would let anything listening on 127.0.0.1 — a rogue
+        // add-on, another local app that grabbed the port — answer `302
+        // Location: https://evil.test` and have fetch replay this request body
+        // off-box, which is precisely the outbound call `assertLoopback` exists
+        // to prevent. `manual` over `error` so the hop surfaces as a redirect
+        // instead of a TypeError indistinguishable from the bridge being down.
+        redirect: "manual",
       })
     } catch (cause) {
       throw transportError(cause)
+    }
+
+    // A runtime that returns an opaque redirect reports status 0, not a 3xx.
+    if ((response.status >= 300 && response.status < 400) || response.type === "opaqueredirect") {
+      // The Location value is not echoed: it is text this process did not write.
+      throw new GatewayError("UPSTREAM_ERROR", "The Blender bridge attempted a redirect.")
     }
 
     if (!response.ok) {

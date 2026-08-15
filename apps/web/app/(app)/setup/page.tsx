@@ -1,44 +1,29 @@
 import type { Metadata } from "next"
-import type { ReactNode } from "react"
+import { preloadQuery } from "convex/nextjs"
 
+import { apiKeyFunctions, type PreloadedApiKeys } from "@/components/api-keys"
 import { CopyField } from "@/components/copy-field"
 import { NotBuiltYet } from "@/components/not-built-yet"
+import { SectionCard } from "@/components/section-card"
 import { GATEWAY_URL } from "@/lib/env"
 import { navTitleFor } from "@/components/shell/nav-items"
-import {
-  agentEnvSnippet,
-  API_KEY_PLACEHOLDER,
-  mcpClientConfig,
-  mcpEndpoint,
-  verifyCommand,
-} from "@/lib/gateway-config"
+import { convexOptions } from "@/lib/convex-server"
+import { agentEnvSnippet } from "@/lib/gateway-config"
+import { SetupConsole } from "./setup-console"
 
 export const metadata: Metadata = { title: navTitleFor("/setup") }
 
 /**
- * One section of the setup walk-through. Local to this page on purpose — it has
- * one caller, and the shell already owns the page-level header, so this is only
- * the `.card` + `<h2>` + lede shape repeated three times.
+ * The key list is preloaded with the caller's own token so Convex authorizes
+ * the read itself. A failure is swallowed on purpose: `features/api_keys` is
+ * deployed independently of this page, and a screen that cannot list keys must
+ * still be able to CREATE one — that is the whole point of it.
  */
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string
-  description: string
-  children: ReactNode
-}) {
-  return (
-    <section className="card p-6">
-      <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
-      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>
-      <div className="mt-5 space-y-5">{children}</div>
-    </section>
-  )
+async function preloadKeys(): Promise<PreloadedApiKeys | null> {
+  return await preloadQuery(apiKeyFunctions.listMine, {}, await convexOptions()).catch(() => null)
 }
 
-export default function SetupPage() {
+export default async function SetupPage() {
   if (GATEWAY_URL === null) {
     return (
       <NotBuiltYet
@@ -48,29 +33,13 @@ export default function SetupPage() {
     )
   }
 
+  const preloadedKeys = await preloadKeys()
+
   return (
     <div className="space-y-5">
-      <Section
-        title="Connect an AI client"
-        description="One HTTPS endpoint serves every client. Paste this into the MCP server list of Claude Desktop, Cursor, or any host that speaks streamable HTTP."
-      >
-        <CopyField label="Gateway endpoint" value={mcpEndpoint(GATEWAY_URL)} />
-        <CopyField label="Client configuration" value={mcpClientConfig(GATEWAY_URL)} />
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Replace <code className="font-mono text-foreground">{API_KEY_PLACEHOLDER}</code> with an
-          API key you issue for yourself. This page never displays a key: nothing here is secret,
-          and a key shown in a dashboard is a key that ends up in a screenshot.
-        </p>
-      </Section>
+      <SetupConsole gatewayUrl={GATEWAY_URL} preloadedKeys={preloadedKeys} />
 
-      <Section
-        title="Check the key works"
-        description="Run this locally after pasting your own key in."
-      >
-        <CopyField label="Verify" value={verifyCommand(GATEWAY_URL)} />
-      </Section>
-
-      <Section
+      <SectionCard
         title="Connect a local machine"
         description="The Connectors Agent dials out to the relay. Nothing listens for inbound traffic on your machine, and no port forwarding, static IP or firewall rule is required."
       >
@@ -80,7 +49,7 @@ export default function SetupPage() {
           Approving that code is what grants the machine the right to execute local actions — the
           device credential it receives stays on the machine and is never sent to an AI client.
         </p>
-      </Section>
+      </SectionCard>
     </div>
   )
 }

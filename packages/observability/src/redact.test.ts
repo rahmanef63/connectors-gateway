@@ -121,3 +121,41 @@ describe("redact / paths", () => {
     expect(redactText("req_abc123")).toBe("req_abc123")
   })
 })
+
+describe("redact / credential shape", () => {
+  /**
+   * `<prefix>_<id>_<secret>` per `@cg/auth`'s `TOKEN_RE`. Spelled out rather
+   * than minted, so this package keeps its single `@cg/core` dependency and
+   * cannot become half of an import cycle with the auth package it protects.
+   * The end-to-end check against a REALLY minted key lives in
+   * `apps/gateway/src/observability.redaction.test.ts`, which depends on both.
+   */
+  const key = `cgk_key_${"a1b2".repeat(8)}_${"9f".repeat(32)}`
+  const device = `cgd_dev_ab12_${"7c".repeat(32)}`
+
+  test("masks a bare credential in free text, with no field name and no bearer", () => {
+    // The two rules that already existed cover neither of these shapes.
+    for (const secret of [key, device]) {
+      const line = redactText(`upstream said: unknown credential ${secret} (try again)`)
+      expect(line).not.toContain(secret)
+      expect(line).toContain(REDACTED)
+      // Only the credential goes — the message stays readable.
+      expect(line).toContain("upstream said")
+      expect(line).toContain("(try again)")
+    }
+  })
+
+  test("masks a credential nested under an innocuous key name", () => {
+    const out = redact({ note: `client sent ${key}`, list: [key], err: new Error(key) })
+    const serialized = JSON.stringify(out)
+    expect(serialized).not.toContain(key)
+    // The secret half specifically — a partial match would still be a leak.
+    expect(serialized).not.toContain(key.slice(key.lastIndexOf("_") + 1))
+  })
+
+  test("does not eat ordinary identifiers that merely contain underscores", () => {
+    for (const value of ["req_abc123", "key_0123", "cgk_short_x", "careerpack.profile.read"]) {
+      expect(redactText(value)).toBe(value)
+    }
+  })
+})

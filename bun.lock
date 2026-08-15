@@ -57,6 +57,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@auth/core": "0.41.3",
+        "@cg/auth": "workspace:*",
         "@cg/core": "workspace:*",
         "@convex-dev/auth": "0.0.95",
         "convex": "1.44.0",

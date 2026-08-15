@@ -9,11 +9,14 @@
 import { GatewayError } from "@cg/core"
 import { ACTION_APPLICATION_CREATE, ACTION_PROFILE_READ } from "./manifest"
 
-// TODO(rr): confirm upstream tool names against the live CareerPack MCP tools/list
-// (and the argument names in ./input) before this connector is enabled in production.
+// Verified against CareerPack's tool definitions on 2026-08-15:
+//   convex/mcp/tools/profile.ts       -> profile_get
+//   convex/mcp/tools/applications.ts  -> applications_create
+// The published surface is <domain>_<verb>, not <verb>_<domain>. Getting this backwards
+// costs one round trip and a "tool not found" for every call.
 export const UPSTREAM_TOOL: Record<string, string> = Object.freeze({
-  [ACTION_PROFILE_READ]: "get_profile",
-  [ACTION_APPLICATION_CREATE]: "create_application",
+  [ACTION_PROFILE_READ]: "profile_get",
+  [ACTION_APPLICATION_CREATE]: "applications_create",
 })
 
 /**

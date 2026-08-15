@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "bun --watch src/main.ts",
     "start": "bun src/main.ts",
-    "keygen": "bun src/scripts/keygen.ts"
+    "keygen": "bun src/scripts/keygen.ts",
+    "seal": "bun src/scripts/seal.ts"
   },
   "dependencies": {
     "@cg/adapter-blender": "workspace:*",

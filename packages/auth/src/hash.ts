@@ -15,14 +15,19 @@ const MAX_ITERATIONS = 1_000_000
 
 const encoder = new TextEncoder()
 
-type ParsedHash = { iterations: number; salt: Uint8Array; hash: Uint8Array }
+/** `Uint8Array<ArrayBuffer>`, not a bare `Uint8Array`: see `fromBase64Url`. */
+type ParsedHash = {
+  iterations: number
+  salt: Uint8Array<ArrayBuffer>
+  hash: Uint8Array<ArrayBuffer>
+}
 
 async function deriveBits(
   secret: string,
-  salt: Uint8Array,
+  salt: Uint8Array<ArrayBuffer>,
   iterations: number,
   keyBytes: number,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const key = await crypto.subtle.importKey("raw", encoder.encode(secret), "PBKDF2", false, [
     "deriveBits",
   ])

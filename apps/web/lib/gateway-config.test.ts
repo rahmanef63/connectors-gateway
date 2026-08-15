@@ -2,11 +2,16 @@ import { describe, expect, test } from "vitest"
 import {
   agentEnvSnippet,
   API_KEY_PLACEHOLDER,
+  apiKeyOrPlaceholder,
+  isApiKeyToken,
   mcpClientConfig,
   mcpEndpoint,
   normalizeGatewayUrl,
   verifyCommand,
 } from "./gateway-config"
+
+/** Shaped exactly like `formatToken("cgk", keyId, secret)` in packages/auth. */
+const REAL_KEY = "cgk_key_ab12cd34_a1b2c3d4e5f60718293a4b5c6d7e8f90"
 
 describe("normalizeGatewayUrl", () => {
   test("accepts https and drops a trailing slash", () => {
@@ -75,6 +80,39 @@ describe("snippets", () => {
     expect(mcpClientConfig(base)).toContain(API_KEY_PLACEHOLDER)
     expect(verifyCommand(base)).toContain(API_KEY_PLACEHOLDER)
     expect(agentEnvSnippet(base)).not.toContain(API_KEY_PLACEHOLDER)
+  })
+
+  test("a key the user just minted is carried into the snippets", () => {
+    const config = mcpClientConfig(base, REAL_KEY)
+    expect(config).toContain(`Bearer ${REAL_KEY}`)
+    expect(config).not.toContain(API_KEY_PLACEHOLDER)
+    expect(verifyCommand(base, REAL_KEY)).toContain(REAL_KEY)
+  })
+
+  // REDACTION. The snippets fall back to the placeholder for every value that
+  // is not a well-formed key, so a dismissed key, a cleared state or a
+  // half-typed paste can never end up rendered into a config block.
+  test.each<[string, string | null | undefined]>([
+    ["undefined", undefined],
+    ["null", null],
+    ["an empty string", ""],
+    ["the placeholder itself", API_KEY_PLACEHOLDER],
+    ["a device credential", "cgd_dev_ab12_a1b2c3d4e5f60718293a4b5c6d7e8f90"],
+    ["a truncated key", "cgk_key_ab12cd34_short"],
+    ["a key with no id", "cgk__a1b2c3d4e5f60718293a4b5c6d7e8f90"],
+    ["prose", "the key I copied earlier"],
+  ])("redacts %s back to the placeholder", (_name, value) => {
+    expect(apiKeyOrPlaceholder(value)).toBe(API_KEY_PLACEHOLDER)
+    expect(mcpClientConfig(base, value)).toContain(API_KEY_PLACEHOLDER)
+    expect(verifyCommand(base, value)).toContain(API_KEY_PLACEHOLDER)
+  })
+
+  test("isApiKeyToken recognises only a whole gateway key", () => {
+    expect(isApiKeyToken(REAL_KEY)).toBe(true)
+    expect(isApiKeyToken(`${REAL_KEY}\n`)).toBe(false)
+    expect(isApiKeyToken(` ${REAL_KEY}`)).toBe(false)
+    expect(isApiKeyToken(42)).toBe(false)
+    expect(isApiKeyToken(undefined)).toBe(false)
   })
 
   test("agent env uses the outbound websocket relay path", () => {

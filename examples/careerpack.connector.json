@@ -27,44 +27,70 @@
     {
       "id": "careerpack.application.create",
       "title": "Create job application",
-      "description": "Create a job application record for the current user.",
+      "description": "Record a new job application. company, position, location and source are all required — source is where the job was found ('LinkedIn', 'JobStreet', 'referral', 'company website'); ask the user rather than guessing it. status defaults to 'applied'; set it only when the user says they are already further along ('I have an interview next week' -> 'interview'). The applied date is set to now, so do not use this to backfill an application from months ago without telling the user the date will be today.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-          "role": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200,
-            "description": "Job title applied for."
-          },
           "company": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 200,
-            "description": "Company the application targets."
+            "maxLength": 120,
+            "description": "Hiring company name."
+          },
+          "position": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Role applied for."
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Job location, e.g. 'Jakarta' or 'Remote'."
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "Where the job was found, e.g. 'LinkedIn', 'referral'."
+          },
+          "salary": {
+            "type": "string",
+            "maxLength": 60,
+            "description": "Free-text salary or range as the user says it, e.g. '10-15 juta'."
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 600,
+            "description": "Anything worth remembering."
           },
           "status": {
             "type": "string",
             "enum": [
-              "draft",
               "applied",
-              "interviewing",
+              "screening",
+              "interview",
               "offer",
-              "rejected"
+              "rejected",
+              "withdrawn",
+              "accepted"
             ],
-            "default": "draft",
-            "description": "Pipeline stage of the application."
+            "description": "Defaults to 'applied'."
           },
-          "notes": {
+          "cv_id": {
             "type": "string",
-            "maxLength": 2000,
-            "description": "Free-form notes stored with the application."
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "CareerPack CV id — the CV sent with this application."
           }
         },
         "required": [
-          "role",
-          "company"
+          "company",
+          "position",
+          "location",
+          "source"
         ],
         "additionalProperties": false
       },

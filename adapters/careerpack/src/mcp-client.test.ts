@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { GatewayError } from "@cg/core"
-import { MCP_PROTOCOL_VERSION, callTool } from "./mcp-client"
+import { MAX_RESPONSE_BYTES, MCP_PROTOCOL_VERSION, callTool } from "./mcp-client"
 
 const TOKEN = "cp_live_9c2f4a1b7e6d8f3a5b0c1d2e3f4a5b6c"
 const BASE_URL = "https://careerpack.example.com/mcp"
@@ -8,13 +8,16 @@ const BASE_URL = "https://careerpack.example.com/mcp"
 const originalFetch = globalThis.fetch
 let calls: { url: string; init: RequestInit }[] = []
 
-function stubFetch(body: string, options: { status?: number; contentType?: string } = {}): void {
+function stubFetch(
+  body: string,
+  options: { status?: number; contentType?: string; headers?: Record<string, string> } = {},
+): void {
   globalThis.fetch = ((input: unknown, init?: RequestInit) => {
     calls.push({ url: String(input), init: init ?? {} })
     return Promise.resolve(
       new Response(body, {
         status: options.status ?? 200,
-        headers: { "content-type": options.contentType ?? "application/json" },
+        headers: { "content-type": options.contentType ?? "application/json", ...options.headers },
       }),
     )
   }) as unknown as typeof fetch
@@ -29,7 +32,7 @@ function rpc(result: unknown): string {
 }
 
 function call(baseUrl = BASE_URL, signal = new AbortController().signal): Promise<unknown> {
-  return callTool(baseUrl, TOKEN, "get_profile", {}, signal)
+  return callTool(baseUrl, TOKEN, "profile_get", {}, signal)
 }
 
 beforeEach(() => {
@@ -116,6 +119,94 @@ describe("callTool transport", () => {
 
     expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
     expect((error as GatewayError).message).not.toContain(TOKEN)
+  })
+})
+
+/**
+ * Regression: the client used fetch's default `redirect: "follow"`. A CareerPack
+ * endpoint that answered 302 — whether compromised, hijacked by DNS, or simply
+ * misconfigured — would have had the Authorization header replayed to the host named
+ * in Location, handing that host a live bearer for this connection.
+ */
+describe("callTool never follows a redirect", () => {
+  const ATTACKER = "https://evil.example.com/collect"
+
+  test("asks the runtime not to follow one", async () => {
+    stubFetch(rpc({ structuredContent: {} }))
+
+    await call()
+
+    expect(calls[0]?.init.redirect).toBe("manual")
+  })
+
+  for (const status of [301, 302, 303, 307, 308]) {
+    test(`a ${status} is a loud UPSTREAM_ERROR and stops at one request`, async () => {
+      stubFetch("", { status, headers: { location: ATTACKER } })
+
+      const error = await call().catch((cause: unknown) => cause)
+
+      expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
+      expect((error as GatewayError).message).toContain("redirect")
+      // Neither the attacker's host nor the bearer is echoed back to the caller.
+      expect((error as GatewayError).message).not.toContain("evil.example.com")
+      expect((error as GatewayError).message).not.toContain(TOKEN)
+      expect(calls).toHaveLength(1)
+    })
+  }
+})
+
+/**
+ * Regression: the client did `await response.text()`, so a hostile or broken endpoint
+ * could stream unbounded bytes into the gateway's memory — one call degrading every
+ * other tenant on the process.
+ */
+describe("callTool caps the response body", () => {
+  test("a body over the cap is UPSTREAM_ERROR, not a silent truncation", async () => {
+    stubFetch("x".repeat(MAX_RESPONSE_BYTES + 1))
+
+    const error = await call().catch((cause: unknown) => cause)
+
+    expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
+    expect((error as GatewayError).message).toContain("oversized")
+  })
+
+  test("a declared content-length over the cap is refused before reading", async () => {
+    stubFetch(rpc({ structuredContent: { ok: true } }), {
+      headers: { "content-length": String(MAX_RESPONSE_BYTES + 1) },
+    })
+
+    const error = await call().catch((cause: unknown) => cause)
+
+    expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
+    expect((error as GatewayError).message).toContain("oversized")
+  })
+
+  test("an endless stream that declares no length is cut off, not buffered", async () => {
+    let chunksServed = 0
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        chunksServed += 1
+        controller.enqueue(new Uint8Array(64 * 1024).fill(120))
+      },
+    })
+    globalThis.fetch = ((input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return Promise.resolve(new Response(endless, { headers: { "content-type": "application/json" } }))
+    }) as unknown as typeof fetch
+
+    const error = await call().catch((cause: unknown) => cause)
+
+    expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
+    expect((error as GatewayError).message).toContain("oversized")
+    // Stopped at the cap rather than reading a stream that never ends.
+    expect(chunksServed).toBeLessThanOrEqual(MAX_RESPONSE_BYTES / (64 * 1024) + 2)
+  })
+
+  test("a normal body is still read whole", async () => {
+    const headline = "y".repeat(4096)
+    stubFetch(rpc({ structuredContent: { headline } }))
+
+    await expect(call()).resolves.toEqual({ headline })
   })
 })
 

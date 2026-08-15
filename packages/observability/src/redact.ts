@@ -10,6 +10,20 @@ const SENSITIVE_KEY = /token|secret|credential|password|authorization|api[-_]?ke
 /** `Authorization: Bearer <x>` style values that arrive as free text. */
 const BEARER_VALUE = /\b(bearer)\s+\S+/gi
 
+/**
+ * This product's own credential grammar, `<prefix>_<id>_<secret>` — `@cg/auth`'s
+ * `TOKEN_RE`, restated rather than imported so the log path keeps no dependency
+ * on the auth package.
+ *
+ * The key-name rule above only fires when a secret arrives as the VALUE of a
+ * field called `token`/`apiKey`/…, and `BEARER_VALUE` only when the word
+ * "bearer" precedes it. A bare `cgk_…` pasted into a message — an upstream error
+ * body echoing the header, an exception whose text embeds the URL — matches
+ * neither and would be written out in full. Matching the shape itself closes
+ * that, and a live credential is never something a log line needs.
+ */
+const CREDENTIAL_VALUE = /\bcg[a-z]_[A-Za-z0-9][A-Za-z0-9_-]{0,127}_[A-Za-z0-9-]{16,512}\b/g
+
 export const REDACTED = "[redacted]"
 const CIRCULAR = "[circular]"
 const TRUNCATED = "[truncated]"
@@ -20,7 +34,8 @@ export function isSensitiveKey(key: string): boolean {
 }
 
 export function redactText(value: string): string {
-  return stripPaths(value.replace(BEARER_VALUE, `$1 ${REDACTED}`))
+  const masked = value.replace(BEARER_VALUE, `$1 ${REDACTED}`).replace(CREDENTIAL_VALUE, REDACTED)
+  return stripPaths(masked)
 }
 
 /**
