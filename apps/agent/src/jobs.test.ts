@@ -207,11 +207,11 @@ describe("createJobRunner", () => {
   test("a local path in an adapter message is stripped out of the result", async () => {
     const jobs = await runner({
       execute: async () => {
-        throw new GatewayError("UPSTREAM_ERROR", "cannot write /home/rahman/secret/render.png")
+        throw new GatewayError("UPSTREAM_ERROR", "cannot write /home/operator/secret/render.png")
       },
     })
     const result = await jobs.run(await sign(envelope()))
-    expect(result.error?.message).not.toContain("/home/rahman")
+    expect(result.error?.message).not.toContain("/home/operator")
     expect(result.error?.message).toContain("[path]")
   })
 

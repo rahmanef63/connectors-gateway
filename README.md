@@ -127,9 +127,20 @@ The dashboard and the Convex functions need a Convex deployment; see
 
 ## Status
 
+Live since 2026-08-15:
+
+| | |
+|---|---|
+| Dashboard | <https://connectors.rahmanef.com> |
+| Gateway (MCP + REST + device relay) | <https://connect.rahmanef.com> |
+
 Phases 0–3 are implemented and unit-tested; Phase 4 is complete except the approvals
-screen. Nothing has yet run against a live Convex deployment, a real CareerPack tenant or
-a real Blender install. [`docs/13-mvp-roadmap.md`](./docs/13-mvp-roadmap.md) tracks what is
-done, what is partial, and the five known gaps.
+screen. The cloud path is proven against the live stack — the gateway reaches Convex and
+the pairing challenge round-trips. No device has paired and no job has been dispatched
+yet. [`docs/13-mvp-roadmap.md`](./docs/13-mvp-roadmap.md) tracks what is done, what is
+partial, what is proven, and the five known gaps.
+[`docs/12-deployment.md`](./docs/12-deployment.md) has the deployment topology — note
+that the Dokploy application named `connectors-gateway` is the *dashboard*, and the
+gateway is `connect-gateway`.
 
 Read [`AGENTS.md`](./AGENTS.md) before implementation.

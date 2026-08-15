@@ -94,11 +94,32 @@ have not been run against a real Blender install.
    Each site is marked `ponytail:`. Correct for a single-instance MVP, load-bearing before
    horizontal scaling — `docs/12` already calls this out.
 
-## Not yet proven against real systems
+## What is proven against real systems
 
-Everything above is verified by unit tests, `convex-test` and a production `next build`.
-Nothing has run against a live Convex deployment, a real CareerPack tenant, or a real
-Blender install.
+Deployed 2026-08-15 (see `docs/12-deployment.md` for the topology).
+
+Proven end to end against the live stack:
+
+- the dashboard boots and its auth gate works — `/devices` redirects to
+  `/sign-in?next=%2Fdevices`, and Convex serves `.well-known/jwks.json`;
+- the gateway boots, `/healthz` answers, and `/mcp` rejects an unauthenticated
+  caller with 401;
+- **gateway → Convex works**: `POST /v1/pair/start` created a challenge that reads
+  back out of the database with the right fields, and the same query with a wrong
+  `serviceToken` is rejected by `requireService`;
+- `/v1/pair/claim` gives the same answer for an unknown challenge id as for an
+  unapproved one, so it is not an enumeration oracle.
+
+Still unproven:
+
+- **no device has ever paired.** The browser approval step and the agent's outbound
+  session have not been exercised against the live gateway.
+- **no job has ever been dispatched**, so the relay, the signed envelope and the
+  agent's local allowlist are untested outside unit tests.
+- **CareerPack is not connected.** No connection record exists and the upstream tool
+  names are still unconfirmed.
+- **Blender has never been driven.** The add-on has not been installed in a real
+  Blender.
 
 ## Explicitly out of MVP
 

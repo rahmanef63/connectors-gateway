@@ -90,7 +90,7 @@ describe("toExecutionResult", () => {
       {
         jobId: "job_1",
         status: "error",
-        error: { code: "INTERNAL", message: "could not write /home/rahman/renders/out.png" },
+        error: { code: "INTERNAL", message: "could not write /home/operator/renders/out.png" },
         timingMs: 1,
       },
       "job_1",

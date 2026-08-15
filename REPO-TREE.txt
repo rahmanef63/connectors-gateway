@@ -2,11 +2,13 @@ Map of the repository, generated from the tracked tree.
 Regenerate with:  bun scripts/gen-repo-tree.mjs
 Directories deeper than two levels are collapsed to a file count.
 
-496 files total.
+501 files total.
 
+.dockerignore
 .env.example
 .gitignore
 AGENTS.md
+Dockerfile
 README.md
 adapters/
   README.md
@@ -14,9 +16,10 @@ adapters/
   careerpack/  (17 files)
 apps/
   agent/  (45 files)
-  gateway/  (71 files)
-  web/  (187 files)
+  gateway/  (72 files)
+  web/  (188 files)
 bunfig.toml
+docker-compose.yml
 docs/
   00-product-definition.md
   01-architecture.md

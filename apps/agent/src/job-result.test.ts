@@ -36,7 +36,7 @@ describe("errorResult", () => {
 
 describe("redactPaths", () => {
   test("strips absolute posix, windows and UNC paths", () => {
-    expect(redactPaths("cannot read /home/rahman/.ssh/id_ed25519")).not.toContain("/home/rahman")
+    expect(redactPaths("cannot read /home/operator/.ssh/id_ed25519")).not.toContain("/home/operator")
     expect(redactPaths("cannot read C:\\Users\\rahman\\secret.blend")).not.toContain("Users")
     expect(redactPaths("cannot read \\\\nas\\share\\scene.blend")).not.toContain("nas")
   })

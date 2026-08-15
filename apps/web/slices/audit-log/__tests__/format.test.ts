@@ -90,7 +90,7 @@ describe("redactAuditRecord", () => {
     const row = redactAuditRecord({
       ...EVENT,
       _id: "convex_row_1",
-      input: { resume: "/home/rahman/cv.pdf" },
+      input: { resume: "/home/operator/cv.pdf" },
       output: "rendered",
       authorization: "Bearer cgk_live_deadbeef",
       tokenCipher: "v1.abc.def",

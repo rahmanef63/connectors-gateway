@@ -40,7 +40,7 @@ describe("resolveErrorMessage", () => {
   test("DENIED: a server message is never surfaced to the user", () => {
     const leaky = new ConvexError({
       code: "INTERNAL",
-      message: "device credential cgd_abc123 rejected at /home/rahman/agent/state.json",
+      message: "device credential cgd_abc123 rejected at /home/operator/agent/state.json",
     })
     const shown = resolveErrorMessage(leaky, MESSAGES)
     expect(shown).toBe(MESSAGES.INTERNAL)
