@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# secrets — invariant 12 in AGENTS.md
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# local agent state (device credentials live here)
+.cg/
+agent-state/
+
+# editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.log

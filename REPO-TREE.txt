@@ -1,22 +1,22 @@
+Map of the repository, generated from the tracked tree.
+Regenerate with:  bun scripts/gen-repo-tree.mjs
+Directories deeper than two levels are collapsed to a file count.
+
+496 files total.
+
 .env.example
-.github/
-  pull_request_template.md
 .gitignore
 AGENTS.md
 README.md
 adapters/
   README.md
-  blender/
-    README.md
-  careerpack/
-    README.md
+  blender/  (24 files)
+  careerpack/  (17 files)
 apps/
-  agent/
-    README.md
-  gateway/
-    README.md
-  web/
-    README.md
+  agent/  (45 files)
+  gateway/  (71 files)
+  web/  (187 files)
+bunfig.toml
 docs/
   00-product-definition.md
   01-architecture.md
@@ -40,23 +40,18 @@ examples/
   careerpack.connector.json
 package.json
 packages/
-  auth/
-    README.md
-  core/
-    README.md
-  executor/
-    README.md
-  observability/
-    README.md
-  policy/
-    README.md
-  protocol/
-    README.md
-  registry/
-    README.md
-  schemas/
-    README.md
-    connector-manifest.schema.json
-  sdk/
-    README.md
-pnpm-workspace.yaml
+  auth/  (17 files)
+  core/  (11 files)
+  executor/  (20 files)
+  observability/  (13 files)
+  policy/  (12 files)
+  protocol/  (21 files)
+  registry/  (7 files)
+  schemas/  (15 files)
+  sdk/  (5 files)
+scripts/
+  audit-file-size.mjs
+  audit-slices.mjs
+  gen-repo-tree.mjs
+tsconfig.base.json
+tsconfig.json

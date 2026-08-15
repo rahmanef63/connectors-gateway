@@ -4,13 +4,19 @@
   "version": "0.1.0",
   "executor": "cloud",
   "auth": {
-    "type": "oauth2"
+    "type": "bearer"
   },
   "actions": [
     {
       "id": "careerpack.profile.read",
       "title": "Read CareerPack profile",
       "description": "Return profile data permitted for the current user.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
       "risk": "R0",
       "annotations": {
         "readOnly": true,
@@ -22,6 +28,46 @@
       "id": "careerpack.application.create",
       "title": "Create job application",
       "description": "Create a job application record for the current user.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Job title applied for."
+          },
+          "company": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Company the application targets."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "applied",
+              "interviewing",
+              "offer",
+              "rejected"
+            ],
+            "default": "draft",
+            "description": "Pipeline stage of the application."
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Free-form notes stored with the application."
+          }
+        },
+        "required": [
+          "role",
+          "company"
+        ],
+        "additionalProperties": false
+      },
       "risk": "R1",
       "annotations": {
         "readOnly": false,

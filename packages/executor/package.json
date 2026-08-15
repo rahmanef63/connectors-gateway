@@ -1,0 +1,16 @@
+{
+  "name": "@cg/executor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloud and local execution routing.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@cg/core": "workspace:*",
+    "@cg/protocol": "workspace:*"
+  }
+}

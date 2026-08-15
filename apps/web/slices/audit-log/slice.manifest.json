@@ -1,0 +1,35 @@
+{
+  "name": "audit-log",
+  "version": "0.1.0",
+  "files": [
+    "index.ts",
+    "types.ts",
+    "slice.json",
+    "slice.manifest.json",
+    "components/audit-empty-state.tsx",
+    "components/audit-filters.tsx",
+    "components/audit-log-panel.tsx",
+    "components/audit-row.tsx",
+    "components/audit-table.tsx",
+    "components/decision-badge.tsx",
+    "components/executor-badge.tsx",
+    "config/functions.ts",
+    "config/labels.ts",
+    "config/tone.ts",
+    "hooks/use-audit-filters.ts",
+    "lib/filter.ts",
+    "lib/format.ts",
+    "lib/guards.ts",
+    "lib/labels.ts",
+    "__tests__/barrel.test.ts",
+    "__tests__/filter.test.ts",
+    "__tests__/format.test.ts",
+    "__tests__/labels.test.ts",
+    "__tests__/tone.test.ts"
+  ],
+  "dependencies": {
+    "react": "^19.2.8",
+    "convex": "^1.44.0",
+    "@cg/core": "workspace:*"
+  }
+}

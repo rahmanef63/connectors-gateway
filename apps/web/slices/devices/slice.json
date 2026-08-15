@@ -1,0 +1,112 @@
+{
+  "name": "devices",
+  "version": "0.1.0",
+  "kind": "slice",
+  "description": "Paired machines: presence, announced adapters and capabilities, rename, revoke, and the pairing-approval panel.",
+  "contract": {
+    "exports": {
+      "components": [
+        "DevicesPanel",
+        "DeviceCard",
+        "DeviceStatusBadge",
+        "CapabilityList",
+        "RevokeDeviceDialog",
+        "PairApprovalPanel"
+      ],
+      "hooks": ["useRevokeDevice", "useRenameDevice", "useApprovePairing"],
+      "values": ["DEFAULT_DEVICES_LABELS"],
+      "types": [
+        "DevicesPanelProps",
+        "PreloadedDeviceList",
+        "DeviceCardProps",
+        "DeviceStatusBadgeProps",
+        "CapabilityListProps",
+        "RevokeDeviceDialogProps",
+        "PairApprovalPanelProps",
+        "PreloadedPairingChallenge",
+        "UseRevokeDevice",
+        "UseRenameDevice",
+        "UseApprovePairing",
+        "LabelOverride",
+        "TimestampFormatOptions",
+        "BadgeVariant",
+        "CapabilityGroup",
+        "DeviceView",
+        "DevicesLabels",
+        "PairingChallengeView",
+        "PairingState",
+        "Tone"
+      ]
+    },
+    "requires": {
+      "ui": {
+        "@/components/ui/badge": ["Badge"],
+        "@/components/ui/button": ["Button"],
+        "@/components/ui/card": [
+          "Card",
+          "CardContent",
+          "CardDescription",
+          "CardFooter",
+          "CardHeader",
+          "CardTitle"
+        ],
+        "@/components/ui/dialog": [
+          "Dialog",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogTitle"
+        ],
+        "@/components/ui/input": ["Input"]
+      },
+      "uiVocabulary": {
+        "badgeVariant": ["default", "secondary", "destructive", "outline"],
+        "buttonVariant": ["default", "destructive", "outline", "ghost"],
+        "buttonSize": ["sm"]
+      },
+      "packages": ["react", "convex/react", "convex/values", "sonner", "@cg/core"],
+      "aliases": {
+        "@convex/_generated/api": "Convex generated api object; the only import in config/functions.ts"
+      },
+      "providers": [
+        "ConvexProvider or ConvexAuthNextjsProvider from the app shell",
+        "sonner <Toaster /> mounted once by the app shell"
+      ]
+    },
+    "props": {
+      "DevicesPanel": {
+        "preloaded": "Preloaded<typeof api.features.devices.queries.listMine> — optional; omit to query on the client",
+        "labels": "LabelOverride<DevicesLabels> — optional deep override of every user-visible string",
+        "dateFormat": "{ locale?, timeZone?, fallback? } — optional; defaults to the runtime locale"
+      },
+      "PairApprovalPanel": {
+        "code": "string — pairing code from the agent, usually the /pair route parameter",
+        "preloaded": "Preloaded<typeof api.features.pairing.queries.getByCode> — optional; omit to query on the client",
+        "now": "number — optional server clock so the first client render matches SSR; advisory, the mutation re-checks expiry",
+        "labels": "LabelOverride<DevicesLabels> — optional",
+        "dateFormat": "TimestampFormatOptions — optional",
+        "onApproved": "() => void — optional callback after a successful approval"
+      },
+      "DeviceCard": {
+        "device": "DeviceView",
+        "labels": "DevicesLabels — already merged",
+        "dateFormat": "TimestampFormatOptions — optional"
+      },
+      "RevokeDeviceDialog": {
+        "device": "DeviceView",
+        "labels": "DevicesLabels — already merged",
+        "disabled": "boolean — optional",
+        "onRevoked": "() => void — optional"
+      }
+    },
+    "convexFunctions": {
+      "queries": ["features/devices/queries:listMine", "features/pairing/queries:getByCode"],
+      "mutations": [
+        "features/devices/mutations:revoke",
+        "features/devices/mutations:rename",
+        "features/pairing/mutations:approve"
+      ]
+    }
+  }
+}

@@ -87,4 +87,49 @@ Gateway
       Blender bridge/add-on
 ```
 
+## Stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Workspace | Bun 1.3 workspaces | packages ship TypeScript source, so there is no build step to keep in sync |
+| Gateway | one `Bun.serve` process | HTTP (MCP + REST) and the device-relay WebSocket in the same process, so dispatching a job is an in-process call, not a second hop |
+| Local agent | Bun **or** Node 22 | it runs on a user's machine — global `fetch`/`WebSocket` only, no runtime lock-in |
+| Control plane | Convex (self-hosted) | devices, pairing, connections, policy, audit |
+| Dashboard | Next.js 16 App Router + React 19 + Tailwind v4 | `proxy.ts`, not `middleware.ts` |
+| Job signing | Ed25519 (WebCrypto) | agents verify with a public key; no shared secret ever lands on a user's machine |
+| Credential hashing | PBKDF2-SHA256 (WebCrypto) | one implementation that runs in Bun, Node and the Convex runtime |
+
+One runtime dependency outside the framework layer: `ajv`, for JSON Schema validation.
+
+## Run it locally
+
+```bash
+bun install
+cp .env.example .env
+
+# mint the Ed25519 keypair the gateway signs job envelopes with
+bun run --cwd apps/gateway keygen
+
+bun run dev:web        # dashboard      → http://localhost:3000
+bun run dev:gateway    # gateway + relay → http://localhost:8787
+bun run dev:agent      # local agent (needs `bun run --cwd apps/agent pair` first)
+```
+
+Checks:
+
+```bash
+bun run validate       # typecheck + file-size + slice metadata + unit tests
+bun run test:convex    # convex-test + slice tests
+```
+
+The dashboard and the Convex functions need a Convex deployment; see
+[`docs/12-deployment.md`](./docs/12-deployment.md).
+
+## Status
+
+Phases 0–3 are implemented and unit-tested; Phase 4 is complete except the approvals
+screen. Nothing has yet run against a live Convex deployment, a real CareerPack tenant or
+a real Blender install. [`docs/13-mvp-roadmap.md`](./docs/13-mvp-roadmap.md) tracks what is
+done, what is partial, and the five known gaps.
+
 Read [`AGENTS.md`](./AGENTS.md) before implementation.

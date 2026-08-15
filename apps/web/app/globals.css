@@ -1,0 +1,129 @@
+/*
+ * THE SINGLE COLOUR SOURCE OF TRUTH for apps/web.
+ *
+ * Every component uses semantic utilities only — bg-background, text-foreground,
+ * text-muted-foreground, border-border, bg-card, bg-destructive. A hex value or a
+ * bare Tailwind palette colour (bg-slate-800, text-red-500) anywhere else is a bug.
+ *
+ * Light/dark: one declaration per token via `light-dark()`, driven by the
+ * inherited `color-scheme`. `:root` says `light dark`, so the OS
+ * `prefers-color-scheme` decides; `.dark` / `.light` on <html> force one.
+ * Tailwind's stock `dark:` variant is `@media (prefers-color-scheme: dark)`,
+ * which agrees with the default — so no @custom-variant is needed.
+ *
+ * Browser support is not a concern: Lightning CSS (Turbopack's minifier)
+ * downlevels every `light-dark()` here into a custom-property switch plus a
+ * `prefers-color-scheme` block and `:root.light` / `:root.dark` overrides —
+ * verified in the built stylesheet.
+ */
+@import "tailwindcss";
+
+/* Slices live outside app/, so scan the whole app root for class names. */
+@source "../";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  color-scheme: light dark;
+  --radius: 0.625rem;
+
+  --background: light-dark(oklch(0.995 0 0), oklch(0.145 0 0));
+  --foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+
+  --card: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --card-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+
+  --popover: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --popover-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+
+  --primary: light-dark(oklch(0.205 0 0), oklch(0.925 0 0));
+  --primary-foreground: light-dark(oklch(0.985 0 0), oklch(0.205 0 0));
+
+  --secondary: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --secondary-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+
+  --muted: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --muted-foreground: light-dark(oklch(0.505 0 0), oklch(0.72 0 0));
+
+  --accent: light-dark(oklch(0.965 0 0), oklch(0.3 0 0));
+  --accent-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+
+  --destructive: light-dark(oklch(0.577 0.245 27.325), oklch(0.62 0.21 25.8));
+  --destructive-foreground: light-dark(oklch(0.985 0 0), oklch(0.985 0 0));
+
+  --success: light-dark(oklch(0.52 0.13 155), oklch(0.72 0.16 155));
+  --success-foreground: light-dark(oklch(0.985 0 0), oklch(0.16 0.03 155));
+
+  --warning: light-dark(oklch(0.62 0.15 75), oklch(0.79 0.16 78));
+  --warning-foreground: light-dark(oklch(0.985 0 0), oklch(0.18 0.04 78));
+
+  --border: light-dark(oklch(0.916 0 0), oklch(1 0 0 / 12%));
+  --input: light-dark(oklch(0.916 0 0), oklch(1 0 0 / 18%));
+  --ring: light-dark(oklch(0.68 0 0), oklch(0.58 0 0));
+}
+
+:root.light {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Every focusable surface gets the same visible ring — keyboard users first. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}

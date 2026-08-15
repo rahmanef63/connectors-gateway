@@ -1,0 +1,15 @@
+{
+  "name": "@cg/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Caller, connection, and device credential primitives.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@cg/core": "workspace:*"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/device-capability.schema.json",
+  "title": "CapabilityReport",
+  "description": "What an agent announces per adapter after connecting (@cg/core CapabilityReport, docs/11-blender-reference.md). Capabilities are connector-relative, e.g. `scene.render`; the control plane namespaces them as `<connectorId>:<capability>`.",
+  "type": "object",
+  "required": [
+    "connector",
+    "status",
+    "adapterVersion",
+    "capabilities"
+  ],
+  "properties": {
+    "connector": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "status": {
+      "enum": [
+        "available",
+        "unavailable"
+      ]
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapterVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+      },
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}

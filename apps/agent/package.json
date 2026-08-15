@@ -1,0 +1,18 @@
+{
+  "name": "@cg/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local Connectors Agent: outbound-only device session, local allowlist, adapters.",
+  "scripts": {
+    "dev": "bun --watch src/main.ts run",
+    "start": "bun src/main.ts run",
+    "pair": "bun src/main.ts pair"
+  },
+  "dependencies": {
+    "@cg/adapter-blender": "workspace:*",
+    "@cg/core": "workspace:*",
+    "@cg/protocol": "workspace:*",
+    "@cg/sdk": "workspace:*"
+  }
+}

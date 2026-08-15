@@ -1,0 +1,25 @@
+{
+  "name": "@cg/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Public runtime edge: MCP/REST for AI clients + device relay for local agents.",
+  "scripts": {
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "keygen": "bun src/scripts/keygen.ts"
+  },
+  "dependencies": {
+    "@cg/adapter-blender": "workspace:*",
+    "@cg/adapter-careerpack": "workspace:*",
+    "@cg/auth": "workspace:*",
+    "@cg/core": "workspace:*",
+    "@cg/executor": "workspace:*",
+    "@cg/observability": "workspace:*",
+    "@cg/policy": "workspace:*",
+    "@cg/protocol": "workspace:*",
+    "@cg/registry": "workspace:*",
+    "@cg/schemas": "workspace:*",
+    "convex": "1.44.0"
+  }
+}

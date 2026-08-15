@@ -82,7 +82,7 @@ Example:
   "connector": "blender",
   "status": "available",
   "version": "4.x",
-  "adapter_version": "0.1.0",
+  "adapterVersion": "0.1.0",
   "capabilities": [
     "scene.inspect",
     "scene.render",

@@ -1,15 +1,29 @@
 {
   "name": "connectors-gateway",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "type": "module",
   "description": "Universal connector runtime for AI agents, cloud apps, and local software.",
+  "packageManager": "bun@1.3.14",
   "workspaces": [
     "apps/*",
     "packages/*",
     "adapters/*"
   ],
   "scripts": {
-    "dev": "echo \"Choose implementation tooling after architecture review\"",
-    "test": "echo \"Add contract, policy, protocol, and security tests during MVP implementation\""
+    "dev:gateway": "bun run --cwd apps/gateway dev",
+    "dev:agent": "bun run --cwd apps/agent dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
+    "test": "bun test packages adapters apps/gateway apps/agent",
+    "test:convex": "bun run --cwd apps/web test",
+    "audit:file-size": "bun scripts/audit-file-size.mjs",
+    "audit:slices": "bun scripts/audit-slices.mjs",
+    "validate": "bun run typecheck && bun run audit:file-size && bun run audit:slices && bun run test"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "typescript": "5.9.3"
   }
 }

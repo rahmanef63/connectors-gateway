@@ -52,71 +52,85 @@
     "actions": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": [
-          "id",
-          "title",
-          "description",
-          "risk",
-          "annotations"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1
-          },
-          "risk": {
-            "enum": [
-              "R0",
-              "R1",
-              "R2",
-              "R3",
-              "R4"
-            ]
-          },
-          "annotations": {
-            "type": "object",
-            "required": [
-              "readOnly",
-              "destructive"
-            ],
-            "properties": {
-              "readOnly": {
-                "type": "boolean"
-              },
-              "destructive": {
-                "type": "boolean"
-              },
-              "idempotent": {
-                "type": "boolean"
-              }
-            },
-            "additionalProperties": false
-          },
-          "requiredScopes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "requiredCapabilities": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "additionalProperties": true
+        "$ref": "#/$defs/action"
       }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": true,
+  "$defs": {
+    "action": {
+      "$anchor": "action",
+      "title": "ActionDefinition",
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "description",
+        "inputSchema",
+        "risk",
+        "annotations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputSchema": {
+          "type": "object"
+        },
+        "outputSchema": {
+          "type": "object"
+        },
+        "risk": {
+          "enum": [
+            "R0",
+            "R1",
+            "R2",
+            "R3",
+            "R4"
+          ]
+        },
+        "annotations": {
+          "type": "object",
+          "required": [
+            "readOnly",
+            "destructive"
+          ],
+          "properties": {
+            "readOnly": {
+              "type": "boolean"
+            },
+            "destructive": {
+              "type": "boolean"
+            },
+            "idempotent": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "requiredScopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
 }

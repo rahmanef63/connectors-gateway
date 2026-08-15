@@ -1,0 +1,15 @@
+{
+  "name": "@cg/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Thin helpers for defining connectors and adapters.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@cg/core": "workspace:*"
+  }
+}

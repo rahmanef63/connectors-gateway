@@ -1,0 +1,16 @@
+{
+  "name": "@cg/schemas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Versioned JSON Schemas + validators for shared contracts.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@cg/core": "workspace:*",
+    "ajv": "8.20.0"
+  }
+}
