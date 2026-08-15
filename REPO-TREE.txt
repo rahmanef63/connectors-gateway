@@ -1,0 +1,62 @@
+.env.example
+.github/
+  pull_request_template.md
+.gitignore
+AGENTS.md
+README.md
+adapters/
+  README.md
+  blender/
+    README.md
+  careerpack/
+    README.md
+apps/
+  agent/
+    README.md
+  gateway/
+    README.md
+  web/
+    README.md
+docs/
+  00-product-definition.md
+  01-architecture.md
+  02-request-flow.md
+  03-security-model.md
+  04-device-pairing.md
+  05-local-agent-protocol.md
+  06-connector-contract.md
+  07-mcp-gateway.md
+  08-auth-and-identity.md
+  09-policy-and-approvals.md
+  10-observability.md
+  11-blender-reference.md
+  12-deployment.md
+  13-mvp-roadmap.md
+  14-threat-model.md
+  15-cookbook-integration.md
+examples/
+  README.md
+  blender.connector.json
+  careerpack.connector.json
+package.json
+packages/
+  auth/
+    README.md
+  core/
+    README.md
+  executor/
+    README.md
+  observability/
+    README.md
+  policy/
+    README.md
+  protocol/
+    README.md
+  registry/
+    README.md
+  schemas/
+    README.md
+    connector-manifest.schema.json
+  sdk/
+    README.md
+pnpm-workspace.yaml

@@ -1,0 +1,15 @@
+{
+  "name": "connectors-gateway",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Universal connector runtime for AI agents, cloud apps, and local software.",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "adapters/*"
+  ],
+  "scripts": {
+    "dev": "echo \"Choose implementation tooling after architecture review\"",
+    "test": "echo \"Add contract, policy, protocol, and security tests during MVP implementation\""
+  }
+}

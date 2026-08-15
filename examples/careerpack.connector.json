@@ -1,0 +1,33 @@
+{
+  "id": "careerpack",
+  "name": "CareerPack",
+  "version": "0.1.0",
+  "executor": "cloud",
+  "auth": {
+    "type": "oauth2"
+  },
+  "actions": [
+    {
+      "id": "careerpack.profile.read",
+      "title": "Read CareerPack profile",
+      "description": "Return profile data permitted for the current user.",
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      }
+    },
+    {
+      "id": "careerpack.application.create",
+      "title": "Create job application",
+      "description": "Create a job application record for the current user.",
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      }
+    }
+  ]
+}

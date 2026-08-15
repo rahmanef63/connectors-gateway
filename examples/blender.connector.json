@@ -1,0 +1,39 @@
+{
+  "id": "blender",
+  "name": "Blender",
+  "version": "0.1.0",
+  "executor": "local",
+  "auth": {
+    "type": "device"
+  },
+  "actions": [
+    {
+      "id": "blender.scene.inspect",
+      "title": "Inspect Blender scene",
+      "description": "Return a structured summary of the current Blender scene.",
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "requiredCapabilities": [
+        "scene.inspect"
+      ]
+    },
+    {
+      "id": "blender.scene.render",
+      "title": "Render Blender scene",
+      "description": "Render the active Blender scene using explicit render settings.",
+      "risk": "R2",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "requiredCapabilities": [
+        "scene.render"
+      ]
+    }
+  ]
+}
