@@ -21,3 +21,7 @@ agent-state/
 .idea/
 .vscode/
 *.log
+
+# Added by si-coder deploy (secret-leak guard)
+node_modules
+.next
