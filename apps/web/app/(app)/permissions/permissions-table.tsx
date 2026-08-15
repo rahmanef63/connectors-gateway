@@ -3,31 +3,30 @@
 import { useState } from "react"
 import { useMutation, usePreloadedQuery, type Preloaded } from "convex/react"
 import { POLICY_DECISIONS, type PolicyDecision } from "@cg/core"
-import { toast } from "sonner"
 
 import { api } from "@convex/_generated/api"
 import { EmptyState } from "@/components/empty-state"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { useToast } from "@/components/toast"
+import { cn } from "@/lib/cn"
 
-const LABELS = new Map<PolicyDecision, string>([
-  ["ALLOW", "Allow"],
-  ["REQUIRE_APPROVAL", "Approve"],
-  ["DENY", "Deny"],
-])
+const LABELS: Readonly<Record<PolicyDecision, string>> = Object.freeze({
+  ALLOW: "Allow",
+  REQUIRE_APPROVAL: "Approve",
+  DENY: "Deny",
+})
 
-function ruleKey(rule: { connectorId: string; actionId: string }): string {
-  return `${rule.connectorId}::${rule.actionId}`
-}
+type Rule = { connectorId: string; actionId: string }
 
+const ruleKey = (rule: Rule): string => `${rule.connectorId}::${rule.actionId}`
+
+// Keyed by the @cg/core union, so a new decision value fails to typecheck here
+// rather than rendering a raw protocol constant at a user.
+const decisionLabel = (decision: PolicyDecision): string => LABELS[decision]
+
+/**
+ * Native `<table>` + a native toggle group on tokens. Metrics match
+ * components/table-skeleton.tsx so the loading shape does not jump.
+ */
 export function PermissionsTable({
   preloaded,
 }: {
@@ -36,18 +35,21 @@ export function PermissionsTable({
   const rules = usePreloadedQuery(preloaded)
   const setRule = useMutation(api.features.policy.mutations.setRule)
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const { toast } = useToast()
 
-  async function onSelect(
-    rule: { connectorId: string; actionId: string },
-    decision: PolicyDecision,
-  ) {
-    setBusyKey(ruleKey(rule))
+  async function onSelect(rule: Rule, decision: PolicyDecision) {
+    const key = ruleKey(rule)
+    // The buttons stay focusable while in flight (aria-disabled, not disabled),
+    // so the re-entry guard lives here.
+    if (busyKey !== null) return
+    setBusyKey(key)
     try {
       await setRule({ connectorId: rule.connectorId, actionId: rule.actionId, decision })
-      toast.success(`${rule.actionId} set to ${LABELS.get(decision) ?? decision}`)
+      toast(`${rule.actionId} set to ${decisionLabel(decision)}`, { tone: "success" })
     } catch {
-      // The server decides; never echo its error text back into the page.
-      toast.error("Could not update that rule.")
+      // The server decides; never echo its error text back into the page — it
+      // can name internal state.
+      toast("Could not update that rule.", { tone: "danger" })
     } finally {
       setBusyKey(null)
     }
@@ -63,43 +65,70 @@ export function PermissionsTable({
   }
 
   return (
-    <Card className="py-0">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="pl-4">Connector</TableHead>
-            <TableHead>Action</TableHead>
-            <TableHead className="pr-4 text-right">Decision</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rules.map((rule) => {
-            const key = ruleKey(rule)
-            return (
-              <TableRow key={key}>
-                <TableCell className="pl-4 font-medium">{rule.connectorId}</TableCell>
-                <TableCell className="font-mono text-xs">{rule.actionId}</TableCell>
-                <TableCell className="pr-4">
-                  <div className="flex flex-wrap justify-end gap-1">
-                    {POLICY_DECISIONS.map((decision) => (
-                      <Button
-                        key={decision}
-                        size="sm"
-                        variant={rule.decision === decision ? "default" : "outline"}
-                        disabled={busyKey === key}
-                        aria-pressed={rule.decision === decision}
-                        onClick={() => onSelect(rule, decision)}
-                      >
-                        {LABELS.get(decision) ?? decision}
-                      </Button>
-                    ))}
-                  </div>
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </Card>
+    <div className="card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <caption className="sr-only">Per-action policy rules for this account</caption>
+          <thead>
+            <tr className="border-b border-border text-left text-muted-foreground">
+              <th scope="col" className="px-4 py-3 font-medium">
+                Connector
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Action
+              </th>
+              <th scope="col" className="px-4 py-3 text-right font-medium">
+                Decision
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rules.map((rule) => {
+              const key = ruleKey(rule)
+              const busy = busyKey === key
+              return (
+                <tr key={key} className="border-b border-border last:border-b-0">
+                  <th scope="row" className="px-4 py-3.5 text-left font-medium">
+                    {rule.connectorId}
+                  </th>
+                  <td className="px-4 py-3.5 font-mono text-xs text-muted-foreground">
+                    {rule.actionId}
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div
+                      role="group"
+                      aria-label={`Decision for ${rule.actionId} on ${rule.connectorId}`}
+                      className="flex flex-wrap justify-end gap-1"
+                    >
+                      {POLICY_DECISIONS.map((decision) => {
+                        const active = rule.decision === decision
+                        return (
+                          <button
+                            key={decision}
+                            type="button"
+                            aria-pressed={active}
+                            aria-disabled={busy}
+                            aria-label={`Set ${rule.actionId} to ${decisionLabel(decision)}`}
+                            onClick={() => onSelect(rule, decision)}
+                            className={cn(
+                              "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors aria-disabled:opacity-50",
+                              active
+                                ? "border-accent bg-accent/12 text-foreground"
+                                : "border-border text-muted-foreground hover:border-border-hover hover:text-foreground",
+                            )}
+                          >
+                            {decisionLabel(decision)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }

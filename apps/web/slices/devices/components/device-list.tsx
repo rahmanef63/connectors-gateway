@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/empty-state"
 import type { TimestampFormatOptions } from "../lib/format"
 import type { DeviceView, DevicesLabels } from "../types"
 import { DeviceCard } from "./device-card"
@@ -8,15 +9,14 @@ export type DeviceListProps = {
   dateFormat?: TimestampFormatOptions
 }
 
-/** Grid of device cards, or the empty state. No page chrome — the shell owns it. */
+/**
+ * Grid of device cards, or the host's empty state. No page chrome — the shell
+ * owns that. The empty copy tells the user how to get a machine here, which is
+ * why it comes from `labels` and not from a hardcoded "No data".
+ */
 export function DeviceList({ devices, labels, dateFormat }: DeviceListProps) {
   if (devices.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed p-8 text-center">
-        <p className="text-sm font-medium">{labels.emptyTitle}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{labels.emptyDescription}</p>
-      </div>
-    )
+    return <EmptyState title={labels.emptyTitle} description={labels.emptyDescription} />
   }
 
   return (

@@ -1,10 +1,9 @@
 import type { Metadata } from "next"
 
 import { AuditLogPanel } from "@/features/audit-log"
-import { PageHeader } from "@/components/app-shell/page-header"
-import { navItemFor } from "@/components/app-shell/nav-items"
+import { navTitleFor } from "@/components/shell/nav-items"
 
-export const metadata: Metadata = { title: "Audit" }
+export const metadata: Metadata = { title: navTitleFor("/audit") }
 
 const PAGE_SIZE = 25
 
@@ -16,7 +15,6 @@ const PAGE_SIZE = 25
 export default function AuditPage() {
   return (
     <>
-      <PageHeader title="Audit" description={navItemFor("/audit")?.description ?? ""} />
       <AuditLogPanel
         pageSize={PAGE_SIZE}
         labels={{

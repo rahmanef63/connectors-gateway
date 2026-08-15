@@ -1,7 +1,14 @@
 // @vitest-environment node
 import { describe, expect, test } from "vitest"
 import { DEFAULT_DEVICES_LABELS } from "../config/labels"
-import { isApprovable, pairingNotice, resolvePairingState, toPairingChallengeView } from "../lib/pairing"
+import {
+  PAIRING_GRANT_ORDER,
+  isApprovable,
+  pairingGrants,
+  pairingNotice,
+  resolvePairingState,
+  toPairingChallengeView,
+} from "../lib/pairing"
 import type { PairingChallengeView } from "../types"
 
 const NOW = 1_700_000_000_000
@@ -85,6 +92,64 @@ describe("resolvePairingState", () => {
 
   test("a server-marked expired status wins over a future deadline", () => {
     expect(resolvePairingState(challenge({ status: "expired", expiresAt: NOW + 10_000 }), NOW)).toBe("expired")
+  })
+})
+
+describe("pairingGrants", () => {
+  test("returns every grant in reading order", () => {
+    const grants = pairingGrants(DEFAULT_DEVICES_LABELS)
+    const source = DEFAULT_DEVICES_LABELS.pairing.grants
+    expect(grants).toEqual([
+      source.localActions,
+      source.credential,
+      source.perCallChecks,
+      source.revocable,
+    ])
+  })
+
+  test("the order covers exactly the grants the copy declares", () => {
+    expect([...PAIRING_GRANT_ORDER].sort()).toEqual(
+      Object.keys(DEFAULT_DEVICES_LABELS.pairing.grants).sort(),
+    )
+  })
+
+  test("the two consequences of approving are always stated", () => {
+    const shown = pairingGrants(DEFAULT_DEVICES_LABELS).join(" ")
+    // It runs local actions on that machine…
+    expect(shown).toMatch(/local actions/i)
+    // …and no credential ever reaches an AI client.
+    expect(shown).toMatch(/credential/i)
+    expect(shown).toMatch(/never handed to ChatGPT, Claude or any other AI client/i)
+    expect(DEFAULT_DEVICES_LABELS.pairing.credentialNotice).toMatch(/AI client/i)
+  })
+
+  test("copy comes from the labels object, not from the module", () => {
+    const grants = pairingGrants({
+      ...DEFAULT_DEVICES_LABELS,
+      pairing: {
+        ...DEFAULT_DEVICES_LABELS.pairing,
+        grants: { ...DEFAULT_DEVICES_LABELS.pairing.grants, credential: "Kredensial tidak pernah tampil di sini." },
+      },
+    })
+    expect(grants[1]).toBe("Kredensial tidak pernah tampil di sini.")
+  })
+
+  test("DENIED: a blank or non-string override is skipped, never rendered as an empty bullet", () => {
+    const grants = pairingGrants({
+      ...DEFAULT_DEVICES_LABELS,
+      pairing: {
+        ...DEFAULT_DEVICES_LABELS.pairing,
+        grants: {
+          ...DEFAULT_DEVICES_LABELS.pairing.grants,
+          localActions: "",
+          revocable: 7 as unknown as string,
+        },
+      },
+    })
+    expect(grants).toEqual([
+      DEFAULT_DEVICES_LABELS.pairing.grants.credential,
+      DEFAULT_DEVICES_LABELS.pairing.grants.perCallChecks,
+    ])
   })
 })
 

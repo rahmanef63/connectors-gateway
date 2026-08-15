@@ -3,11 +3,10 @@ import { preloadQuery } from "convex/nextjs"
 
 import { api } from "@convex/_generated/api"
 import { DevicesPanel } from "@/features/devices"
-import { PageHeader } from "@/components/app-shell/page-header"
-import { navItemFor } from "@/components/app-shell/nav-items"
 import { convexOptions } from "@/lib/convex-server"
+import { navTitleFor } from "@/components/shell/nav-items"
 
-export const metadata: Metadata = { title: "Devices" }
+export const metadata: Metadata = { title: navTitleFor("/devices") }
 
 export default async function DevicesPage() {
   const preloaded = await preloadQuery(
@@ -18,9 +17,8 @@ export default async function DevicesPage() {
 
   return (
     <>
-      <PageHeader title="Devices" description={navItemFor("/devices")?.description ?? ""} />
-      {/* The shell owns the page title, so the slice's own heading is retitled
-          rather than repeated. */}
+      {/* The shell renders the page title from the nav registry, so the slice's
+          own heading is retitled rather than repeated. */}
       <DevicesPanel
         preloaded={preloaded}
         labels={{

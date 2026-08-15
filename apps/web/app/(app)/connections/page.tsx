@@ -3,11 +3,10 @@ import { preloadQuery } from "convex/nextjs"
 
 import { api } from "@convex/_generated/api"
 import { ConnectionsTable } from "./connections-table"
-import { PageHeader } from "@/components/app-shell/page-header"
-import { navItemFor } from "@/components/app-shell/nav-items"
 import { convexOptions } from "@/lib/convex-server"
+import { navTitleFor } from "@/components/shell/nav-items"
 
-export const metadata: Metadata = { title: "Connections" }
+export const metadata: Metadata = { title: navTitleFor("/connections") }
 
 export default async function ConnectionsPage() {
   const preloaded = await preloadQuery(
@@ -16,13 +15,5 @@ export default async function ConnectionsPage() {
     await convexOptions(),
   )
 
-  return (
-    <>
-      <PageHeader
-        title="Connections"
-        description={navItemFor("/connections")?.description ?? ""}
-      />
-      <ConnectionsTable preloaded={preloaded} />
-    </>
-  )
+  return <ConnectionsTable preloaded={preloaded} />
 }

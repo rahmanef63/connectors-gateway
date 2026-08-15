@@ -1,13 +1,9 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import { useState, type FormEvent, type InputHTMLAttributes } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuthActions } from "@convex-dev/auth/react"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { safeInternalPath } from "@/lib/safe-redirect"
 
 type Flow = "signIn" | "signUp"
@@ -15,6 +11,58 @@ type Flow = "signIn" | "signUp"
 // Deliberately identical for both flows: a distinct "no such account" message
 // would turn this form into an account-enumeration oracle.
 const FAILURE_COPY = "That email and password combination was not accepted."
+
+/** The error paragraph every invalid field points at with aria-describedby. */
+const ERROR_ID = "sign-in-error"
+
+type Copy = { heading: string; subtitle: string; action: string; link: string }
+
+// All the copy for a flow in one place, so a state cannot half-exist.
+const COPY: Readonly<Record<Flow, Copy>> = Object.freeze({
+  signIn: {
+    heading: "Sign in",
+    subtitle: "Sign in to manage devices, connections and permissions.",
+    action: "Sign in",
+    link: "Create an account instead",
+  },
+  signUp: {
+    heading: "Create an account",
+    subtitle: "Your account owns the devices, connections and policies below.",
+    action: "Create account",
+    link: "I already have an account",
+  },
+})
+
+type FieldProps = { id: string; label: string; invalid: boolean; hint?: string } & InputHTMLAttributes<HTMLInputElement>
+
+/**
+ * One labelled input. Every field goes through it, so the label, the error
+ * wiring and the shared `.field` look cannot drift between them.
+ */
+function Field({ id, label, invalid, hint, ...props }: FieldProps) {
+  const hintId = hint ? `${id}-hint` : undefined
+  const describedBy = [invalid ? ERROR_ID : null, hintId].filter(Boolean).join(" ")
+
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-xs font-medium text-muted-foreground">
+        {label}
+      </label>
+      <input
+        id={id}
+        className="field"
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy === "" ? undefined : describedBy}
+        {...props}
+      />
+      {hint ? (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
 export function SignInForm() {
   const { signIn } = useAuthActions()
@@ -24,8 +72,14 @@ export function SignInForm() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
+  const copy = COPY[flow]
+  const signingUp = flow === "signUp"
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    // The submit button stays focusable while in flight (aria-disabled, not
+    // disabled), so the double-submit guard lives here.
+    if (pending) return
     setError(null)
     setPending(true)
 
@@ -38,80 +92,70 @@ export function SignInForm() {
       router.push(safeInternalPath(searchParams.get("next")))
       router.refresh()
     } catch {
+      // Never quote the server's error: the same copy for every failure is what
+      // keeps this form from confirming who has an account.
       setError(FAILURE_COPY)
       setPending(false)
     }
   }
 
-  const signingUp = flow === "signUp"
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{signingUp ? "Create an account" : "Sign in"}</CardTitle>
-        <CardDescription>
-          {signingUp
-            ? "Your account owns the devices, connections and policies below."
-            : "Sign in to manage devices, connections and permissions."}
-        </CardDescription>
-      </CardHeader>
+    <div className="card p-7">
+      <h1 className="text-xl font-semibold tracking-tight">{copy.heading}</h1>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{copy.subtitle}</p>
 
-      <form onSubmit={onSubmit} noValidate>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              aria-invalid={error !== null}
-              placeholder="you@example.com"
-            />
-          </div>
+      <form onSubmit={onSubmit} aria-busy={pending} noValidate className="mt-6 space-y-4">
+        <Field
+          id="email"
+          name="email"
+          label="Email"
+          invalid={error !== null}
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          required
+        />
+        <Field
+          id="password"
+          name="password"
+          label="Password"
+          invalid={error !== null}
+          type="password"
+          autoComplete={signingUp ? "new-password" : "current-password"}
+          minLength={8}
+          hint={signingUp ? "At least 8 characters." : undefined}
+          required
+        />
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete={signingUp ? "new-password" : "current-password"}
-              required
-              minLength={8}
-              aria-invalid={error !== null}
-            />
-            {signingUp ? (
-              <p className="text-xs text-muted-foreground">At least 8 characters.</p>
-            ) : null}
-          </div>
+        {error ? (
+          <p id={ERROR_ID} role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
 
-          {error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
-        </CardContent>
-
-        <CardFooter className="mt-6 flex-col items-stretch gap-3">
-          <Button type="submit" disabled={pending}>
-            {pending ? "Working…" : signingUp ? "Create account" : "Sign in"}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={pending}
-            onClick={() => {
-              setFlow(signingUp ? "signIn" : "signUp")
-              setError(null)
-            }}
-          >
-            {signingUp ? "I already have an account" : "Create an account instead"}
-          </Button>
-        </CardFooter>
+        {/* aria-disabled, not disabled: a disabled button drops out of the tab
+            order mid-submit and dumps keyboard focus on <body>. */}
+        <button
+          type="submit"
+          aria-disabled={pending}
+          className="btn-primary w-full aria-disabled:opacity-50"
+        >
+          {pending ? "Working…" : copy.action}
+        </button>
       </form>
-    </Card>
+
+      <button
+        type="button"
+        aria-disabled={pending}
+        onClick={() => {
+          if (pending) return
+          setFlow(signingUp ? "signIn" : "signUp")
+          setError(null)
+        }}
+        className="mt-4 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline aria-disabled:opacity-50"
+      >
+        {copy.link}
+      </button>
+    </div>
   )
 }

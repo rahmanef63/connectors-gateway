@@ -10,6 +10,12 @@ const here = (p: string) => fileURLToPath(new URL(p, import.meta.url))
 // `environment` is the default only: every slice test carries a
 // `// @vitest-environment node` docblock and overrides it per file.
 export default defineConfig({
+  // tsconfig says `jsx: "preserve"` because Next does the transform in the app
+  // build. Vitest has no such downstream step, so a test that imports a `.tsx`
+  // (components/shell/__tests__ does) needs the React 19 automatic runtime
+  // named here, or esbuild falls back to classic and throws "React is not
+  // defined" at import time.
+  esbuild: { jsx: "automatic" },
   // Mirrors the `paths` entries in tsconfig.json. `@/features/*` must be
   // listed before `@/*`, because vite applies the first matching alias.
   resolve: {
@@ -22,6 +28,7 @@ export default defineConfig({
   test: {
     environment: "edge-runtime",
     include: [
+      "components/**/*.test.ts",
       "convex/**/*.test.ts",
       "lib/**/*.test.ts",
       "slices/**/*.test.ts",

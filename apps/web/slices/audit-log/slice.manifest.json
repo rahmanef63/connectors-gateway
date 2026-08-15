@@ -1,6 +1,6 @@
 {
   "name": "audit-log",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "files": [
     "index.ts",
     "types.ts",
@@ -13,6 +13,7 @@
     "components/audit-table.tsx",
     "components/decision-badge.tsx",
     "components/executor-badge.tsx",
+    "config/columns.ts",
     "config/functions.ts",
     "config/labels.ts",
     "config/tone.ts",
@@ -22,6 +23,7 @@
     "lib/guards.ts",
     "lib/labels.ts",
     "__tests__/barrel.test.ts",
+    "__tests__/columns.test.ts",
     "__tests__/filter.test.ts",
     "__tests__/format.test.ts",
     "__tests__/labels.test.ts",

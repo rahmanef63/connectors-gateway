@@ -1,18 +1,13 @@
 import type { Metadata } from "next"
 
-import { PageHeader } from "@/components/app-shell/page-header"
-import { navItemFor } from "@/components/app-shell/nav-items"
 import { NotBuiltYet } from "@/components/not-built-yet"
+import { navTitleFor } from "@/components/shell/nav-items"
 
-export const metadata: Metadata = { title: "Approvals" }
+export const metadata: Metadata = { title: navTitleFor("/approvals") }
 
 export default function ApprovalsPage() {
   return (
     <>
-      <PageHeader
-        title="Approvals"
-        description={navItemFor("/approvals")?.description ?? ""}
-      />
       <NotBuiltYet
         title="Pending approvals"
         blockedOn="The policy layer already returns REQUIRE_APPROVAL, but nothing persists that decision yet: there is no approval record, no expiry and no user-facing Convex function in the pinned contract. Until then an action needing approval is simply refused at call time rather than queued here."

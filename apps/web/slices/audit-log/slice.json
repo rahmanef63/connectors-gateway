@@ -1,6 +1,6 @@
 {
   "name": "audit-log",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "kind": "slice",
   "description": "Paginated audit trail: who executed what, on which executor, and how policy decided it (docs/10).",
   "contract": {
@@ -30,20 +30,20 @@
         "AuditLabels",
         "AuditRowView",
         "AuditStatus",
-        "BadgeVariant",
         "Tone"
       ]
     },
     "requires": {
       "ui": {
-        "@/components/ui/badge": ["Badge"],
-        "@/components/ui/button": ["Button"],
-        "@/components/ui/table": ["Table", "TableBody", "TableCell", "TableHead", "TableHeader", "TableRow"]
+        "@/components/status-badge": ["StatusBadge", "Tone"],
+        "@/components/empty-state": ["EmptyState"],
+        "@/components/skeleton": ["Skeleton"],
+        "@/lib/cn": ["cn"]
       },
       "uiVocabulary": {
-        "badgeVariant": ["default", "secondary", "destructive", "outline"],
-        "buttonVariant": ["outline", "ghost"],
-        "buttonSize": ["sm"]
+        "tone": ["success", "warning", "danger", "neutral"],
+        "classNames": ["card", "field", "btn-ghost"],
+        "elements": ["table", "thead", "tbody", "tr", "th", "td", "caption", "select", "label", "button"]
       },
       "packages": ["react", "convex/react", "@cg/core"],
       "aliases": {

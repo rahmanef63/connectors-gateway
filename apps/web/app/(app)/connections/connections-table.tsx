@@ -5,16 +5,12 @@ import { usePreloadedQuery, type Preloaded } from "convex/react"
 import type { api } from "@convex/_generated/api"
 import { EmptyState } from "@/components/empty-state"
 import { ConnectionStatusBadge } from "@/components/status-badge"
-import { Card } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 
+/**
+ * Native `<table>` on tokens — no UI-kit primitives. The metrics deliberately
+ * match components/table-skeleton.tsx (same `.card` surface, same cell padding,
+ * same row rule), so when the data lands nothing on the page moves.
+ */
 export function ConnectionsTable({
   preloaded,
 }: {
@@ -34,31 +30,47 @@ export function ConnectionsTable({
   }
 
   return (
-    <Card className="py-0">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="pl-4">Connector</TableHead>
-            <TableHead className="hidden md:table-cell">Endpoint</TableHead>
-            <TableHead>Auth</TableHead>
-            <TableHead className="pr-4 text-right">Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {connections.map((connection) => (
-            <TableRow key={connection.connectionId}>
-              <TableCell className="pl-4 font-medium">{connection.connectorId}</TableCell>
-              <TableCell className="hidden max-w-[16rem] truncate font-mono text-xs text-muted-foreground md:table-cell">
-                {connection.baseUrl}
-              </TableCell>
-              <TableCell className="text-muted-foreground">{connection.authType}</TableCell>
-              <TableCell className="pr-4 text-right">
-                <ConnectionStatusBadge status={connection.status} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
+    <div className="card overflow-hidden">
+      {/* Scrolls itself rather than pushing the page sideways on a phone. */}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <caption className="sr-only">Cloud connections this account has authorised</caption>
+          <thead>
+            <tr className="border-b border-border text-left text-muted-foreground">
+              <th scope="col" className="px-4 py-3 font-medium">
+                Connector
+              </th>
+              <th scope="col" className="hidden px-4 py-3 font-medium md:table-cell">
+                Endpoint
+              </th>
+              <th scope="col" className="px-4 py-3 font-medium">
+                Auth
+              </th>
+              <th scope="col" className="px-4 py-3 text-right font-medium">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {connections.map((connection) => (
+              <tr key={connection.connectionId} className="border-b border-border last:border-b-0">
+                <th scope="row" className="px-4 py-3.5 text-left font-medium">
+                  {connection.connectorId}
+                </th>
+                <td className="hidden max-w-[16rem] truncate px-4 py-3.5 font-mono text-xs text-muted-foreground md:table-cell">
+                  {connection.baseUrl}
+                </td>
+                <td className="px-4 py-3.5 text-muted-foreground">{connection.authType}</td>
+                <td className="px-4 py-3.5">
+                  <div className="flex justify-end">
+                    <ConnectionStatusBadge status={connection.status} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }

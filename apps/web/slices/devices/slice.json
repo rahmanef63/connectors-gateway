@@ -1,6 +1,6 @@
 {
   "name": "devices",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "kind": "slice",
   "description": "Paired machines: presence, announced adapters and capabilities, rename, revoke, and the pairing-approval panel.",
   "contract": {
@@ -29,7 +29,6 @@
         "UseApprovePairing",
         "LabelOverride",
         "TimestampFormatOptions",
-        "BadgeVariant",
         "CapabilityGroup",
         "DeviceView",
         "DevicesLabels",
@@ -40,38 +39,34 @@
     },
     "requires": {
       "ui": {
-        "@/components/ui/badge": ["Badge"],
-        "@/components/ui/button": ["Button"],
-        "@/components/ui/card": [
-          "Card",
-          "CardContent",
-          "CardDescription",
-          "CardFooter",
-          "CardHeader",
-          "CardTitle"
-        ],
-        "@/components/ui/dialog": [
-          "Dialog",
-          "DialogContent",
-          "DialogDescription",
-          "DialogFooter",
-          "DialogHeader",
-          "DialogTitle"
-        ],
-        "@/components/ui/input": ["Input"]
+        "@/components/status-badge": ["StatusBadge", "Tone"],
+        "@/components/skeleton": ["Skeleton"],
+        "@/components/empty-state": ["EmptyState"],
+        "@/components/toast": ["useToast"]
       },
       "uiVocabulary": {
-        "badgeVariant": ["default", "secondary", "destructive", "outline"],
-        "buttonVariant": ["default", "destructive", "outline", "ghost"],
-        "buttonSize": ["sm"]
+        "tone": ["success", "warning", "danger", "neutral"],
+        "classes": [".card", ".field", ".btn-primary", ".btn-ghost", ".btn-danger", ".skeleton"],
+        "tokens": [
+          "--background",
+          "--card",
+          "--card-hover",
+          "--foreground",
+          "--muted-foreground",
+          "--border"
+        ]
       },
-      "packages": ["react", "convex/react", "convex/values", "sonner", "@cg/core"],
+      "packages": ["react", "convex/react", "convex/values", "@cg/core"],
       "aliases": {
         "@convex/_generated/api": "Convex generated api object; the only import in config/functions.ts"
       },
       "providers": [
         "ConvexProvider or ConvexAuthNextjsProvider from the app shell",
-        "sonner <Toaster /> mounted once by the app shell"
+        "<Toaster /> from @/components/toast mounted once by the app shell — useToast throws without it, so a mutation failure can never be swallowed silently"
+      ],
+      "notes": [
+        "No UI-kit dependency: components are native elements plus the class vocabulary in app/globals.css. Dialogs are the platform <dialog>, not Radix.",
+        "The slice maps a device status to a semantic tone and stops there; the host's StatusBadge owns the colour."
       ]
     },
     "props": {
@@ -81,6 +76,7 @@
         "dateFormat": "{ locale?, timeZone?, fallback? } — optional; defaults to the runtime locale"
       },
       "PairApprovalPanel": {
+        "_": "The consequential screen: it states what approval grants (local actions on that machine) and that the device credential is never shown here nor handed to an AI client. Both live in labels.pairing, so a consumer translates the warning but cannot drop it.",
         "code": "string — pairing code from the agent, usually the /pair route parameter",
         "preloaded": "Preloaded<typeof api.features.pairing.queries.getByCode> — optional; omit to query on the client",
         "now": "number — optional server clock so the first client render matches SSR; advisory, the mutation re-checks expiry",

@@ -1,129 +1,144 @@
-/*
- * THE SINGLE COLOUR SOURCE OF TRUTH for apps/web.
- *
- * Every component uses semantic utilities only — bg-background, text-foreground,
- * text-muted-foreground, border-border, bg-card, bg-destructive. A hex value or a
- * bare Tailwind palette colour (bg-slate-800, text-red-500) anywhere else is a bug.
- *
- * Light/dark: one declaration per token via `light-dark()`, driven by the
- * inherited `color-scheme`. `:root` says `light dark`, so the OS
- * `prefers-color-scheme` decides; `.dark` / `.light` on <html> force one.
- * Tailwind's stock `dark:` variant is `@media (prefers-color-scheme: dark)`,
- * which agrees with the default — so no @custom-variant is needed.
- *
- * Browser support is not a concern: Lightning CSS (Turbopack's minifier)
- * downlevels every `light-dark()` here into a custom-property switch plus a
- * `prefers-color-scheme` block and `:root.light` / `:root.dark` overrides —
- * verified in the built stylesheet.
- */
 @import "tailwindcss";
 
-/* Slices live outside app/, so scan the whole app root for class names. */
-@source "../";
+/* Design system ported from rahmanef63/template-convex-starter.
+   Dark by DEFAULT (user-switchable via next-themes, not OS-dependent). One
+   neutral system + a single warm accent used sparingly — near-white primary
+   actions keep it out of the blue/purple AI-slop register. Tokens drive every
+   surface; components never hardcode a hex and never use a Tailwind dark variant —
+   they read the tokens, and the theme swap re-points the tokens.
+
+   next-themes runs with attribute="class": it stamps class="dark" or
+   class="light" on <html>. Dark is the default, so `:root` already holds the
+   dark values (class="dark" resolves to :root → no separate .dark rule, no
+   flash for default users). `.light` overrides for the light theme.
+
+   TODO(rr): this drops the rr "shadcn primitives only" rule in favour of native
+   elements + the component classes below. That is the template's deliberate
+   anti-slop position (its AGENTS.md calls it a sanctioned TEMPLATE choice), and
+   the owner asked for this template's UI/UX. The compliant alternative would be
+   re-theming vendored shadcn primitives against these same tokens. */
+:root {
+  color-scheme: dark;
+  --background: #0a0a0a;
+  --card: #141414;
+  --card-hover: #191919;
+  --foreground: #ededed;
+  --muted-foreground: #8f8f8f;
+  --border: #262626;
+  --border-hover: #3a3a3a;
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+  --accent: #f5b544; /* warm amber — eyebrow, focus, active states only */
+  --accent-foreground: #0a0a0a;
+  --ring: #f5b544;
+  --destructive: #f87171;
+  /* Extends the template palette: this product has real status semantics
+     (policy ALLOW, device online) that need a third tone. Muted on purpose so
+     it sits in the same register as the amber. Everything status-coloured
+     resolves through a tone map, never a local hex. */
+  --success: #56b98a;
+}
+
+/* Light theme — mirrors the neutral system. The amber accent is darkened
+   (#b45309) so it passes contrast both as TEXT on light surfaces and as a
+   BACKGROUND behind white (--accent-foreground). */
+.light {
+  color-scheme: light;
+  --background: #fafafa;
+  --card: #ffffff;
+  --card-hover: #f1f1f1;
+  --foreground: #171717;
+  --muted-foreground: #6b6b6b;
+  --border: #e5e5e5;
+  --border-hover: #d4d4d4;
+  --primary: #171717;
+  --primary-foreground: #fafafa;
+  --accent: #b45309;
+  --accent-foreground: #ffffff;
+  --ring: #b45309;
+  --destructive: #dc2626;
+  --success: #15803d;
+}
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
-
   --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-
+  --color-card-hover: var(--card-hover);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-
-  --color-border: var(--border);
-  --color-input: var(--input);
   --color-ring: var(--ring);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
 }
 
-:root {
-  color-scheme: light dark;
-  --radius: 0.625rem;
-
-  --background: light-dark(oklch(0.995 0 0), oklch(0.145 0 0));
-  --foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
-
-  --card: light-dark(oklch(1 0 0), oklch(0.205 0 0));
-  --card-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
-
-  --popover: light-dark(oklch(1 0 0), oklch(0.205 0 0));
-  --popover-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
-
-  --primary: light-dark(oklch(0.205 0 0), oklch(0.925 0 0));
-  --primary-foreground: light-dark(oklch(0.985 0 0), oklch(0.205 0 0));
-
-  --secondary: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
-  --secondary-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
-
-  --muted: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
-  --muted-foreground: light-dark(oklch(0.505 0 0), oklch(0.72 0 0));
-
-  --accent: light-dark(oklch(0.965 0 0), oklch(0.3 0 0));
-  --accent-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
-
-  --destructive: light-dark(oklch(0.577 0.245 27.325), oklch(0.62 0.21 25.8));
-  --destructive-foreground: light-dark(oklch(0.985 0 0), oklch(0.985 0 0));
-
-  --success: light-dark(oklch(0.52 0.13 155), oklch(0.72 0.16 155));
-  --success-foreground: light-dark(oklch(0.985 0 0), oklch(0.16 0.03 155));
-
-  --warning: light-dark(oklch(0.62 0.15 75), oklch(0.79 0.16 78));
-  --warning-foreground: light-dark(oklch(0.985 0 0), oklch(0.18 0.04 78));
-
-  --border: light-dark(oklch(0.916 0 0), oklch(1 0 0 / 12%));
-  --input: light-dark(oklch(0.916 0 0), oklch(1 0 0 / 18%));
-  --ring: light-dark(oklch(0.68 0 0), oklch(0.58 0 0));
-}
-
-:root.light {
-  color-scheme: light;
-}
-
-:root.dark {
-  color-scheme: dark;
-}
-
+/* Default border color, in the base layer so `border-<token>` utilities
+   (@layer utilities) still win — an unlayered `*` rule would beat them. */
 @layer base {
   * {
     border-color: var(--border);
-    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
+}
 
-  body {
-    background-color: var(--background);
-    color: var(--foreground);
-    -webkit-font-smoothing: antialiased;
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* Visible keyboard focus — warm accent, offset so it clears the surface. */
+:where(a, button, input, textarea, select):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Shared primitives — one home for the button/field/card so pages stay DRY and
+   every surface looks like the same product. These replace the shadcn
+   primitives; there is no UI-kit dependency. */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50;
   }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-border-hover hover:text-foreground;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-destructive/40 px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50;
+  }
+  .field {
+    @apply w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-border-hover;
+  }
+  .card {
+    @apply rounded-2xl border border-border bg-card;
+  }
+}
 
-  /* Every focusable surface gets the same visible ring — keyboard users first. */
-  :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
+/* Loading skeleton — pairs with components/skeleton.tsx. */
+.skeleton {
+  border-radius: 8px;
+  background: var(--card-hover);
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
   }
 }

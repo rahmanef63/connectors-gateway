@@ -23,6 +23,7 @@ import type * as _shared_policy_record from "../_shared/policy_record.js";
 import type * as _shared_validators from "../_shared/validators.js";
 import type * as auth from "../auth.js";
 import type * as features_audit_queries from "../features/audit/queries.js";
+import type * as features_auth_queries from "../features/auth/queries.js";
 import type * as features_connections_queries from "../features/connections/queries.js";
 import type * as features_devices_mutations from "../features/devices/mutations.js";
 import type * as features_devices_queries from "../features/devices/queries.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "_shared/validators": typeof _shared_validators;
   auth: typeof auth;
   "features/audit/queries": typeof features_audit_queries;
+  "features/auth/queries": typeof features_auth_queries;
   "features/connections/queries": typeof features_connections_queries;
   "features/devices/mutations": typeof features_devices_mutations;
   "features/devices/queries": typeof features_devices_queries;

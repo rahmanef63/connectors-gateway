@@ -1,7 +1,8 @@
 import type { ReactNode } from "react"
-import { Badge } from "@/components/ui/badge"
-import { TableCell, TableRow } from "@/components/ui/table"
-import { badgeVariantForStatus } from "../config/tone"
+import { StatusBadge } from "@/components/status-badge"
+import { cn } from "@/lib/cn"
+import { columnCellClass } from "../config/columns"
+import { toneForStatus } from "../config/tone"
 import { formatLatency, formatTimestamp } from "../lib/format"
 import type { TimestampFormatOptions } from "../lib/format"
 import type { AuditColumn, AuditLabels, AuditRowView } from "../types"
@@ -33,7 +34,7 @@ const CELL_RENDERERS: Partial<Record<AuditColumn, (context: CellContext) => Reac
     <ExecutorBadge executor={row.executorKind} label={labels.executor[row.executorKind]} />
   ),
   status: ({ row, labels }) => (
-    <Badge variant={badgeVariantForStatus(row.status)}>{labels.status[row.status]}</Badge>
+    <StatusBadge tone={toneForStatus(row.status)}>{labels.status[row.status]}</StatusBadge>
   ),
 }
 
@@ -42,20 +43,24 @@ function textCell(value: string | number | undefined, fallback: string): string 
   return value === undefined || value.length === 0 ? fallback : value
 }
 
-/** One audit event. Only allowlisted columns reach this component. */
+/**
+ * One audit event as a native `<tr>`. Only allowlisted columns reach this
+ * component, and the per-column class comes from config/columns.ts — there is
+ * no inline branch on a column or a decision here.
+ */
 export function AuditRow({ row, columns, labels, dateFormat }: AuditRowProps) {
   return (
-    <TableRow>
+    <tr className="border-b border-border last:border-b-0">
       {columns.map((column) => {
         const renderer = CELL_RENDERERS[column]
         return (
-          <TableCell key={column} className="align-top text-sm">
+          <td key={column} className={cn("px-4 py-3.5 align-top", columnCellClass(column))}>
             {renderer === undefined
               ? textCell(row[column], labels.emptyCell)
               : renderer({ row, labels, dateFormat })}
-          </TableCell>
+          </td>
         )
       })}
-    </TableRow>
+    </tr>
   )
 }

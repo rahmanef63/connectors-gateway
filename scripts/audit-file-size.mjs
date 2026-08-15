@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
  * rr P2: no source file over 200 lines.
- * Exclusions mirror the rr doctrine: generated code, vendored shadcn primitives,
- * pure data exports, and tests.
+ * Exclusions mirror the rr doctrine: generated code, pure data exports, and
+ * tests. There is deliberately no `components/ui/` escape hatch — the vendored
+ * shadcn primitives were deleted, and re-adding the exclusion would let a new
+ * one back in over the limit unnoticed.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
@@ -11,7 +13,6 @@ const ROOT = new URL("..", import.meta.url).pathname
 const LIMIT = 200
 const SKIP_DIRS = new Set(["node_modules", ".next", ".git", "dist", "build", "_generated", "out"])
 const EXCLUDE = [
-  /\/components\/ui\//,
   /\/lib\/content\//,
   /\.test\.[cm]?tsx?$/,
   /\/__tests__\//,

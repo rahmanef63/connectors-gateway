@@ -1,6 +1,6 @@
 {
   "name": "devices",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "files": [
     "index.ts",
     "types.ts",
@@ -40,7 +40,6 @@
   "dependencies": {
     "react": "^19.2.8",
     "convex": "^1.44.0",
-    "sonner": "^2.0.8",
     "@cg/core": "workspace:*"
   }
 }

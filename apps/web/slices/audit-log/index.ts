@@ -30,6 +30,5 @@ export type {
   AuditLabels,
   AuditRowView,
   AuditStatus,
-  BadgeVariant,
   Tone,
 } from "./types"

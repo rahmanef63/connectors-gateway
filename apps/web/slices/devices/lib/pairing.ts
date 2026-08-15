@@ -79,6 +79,37 @@ export function isApprovable(state: PairingState): boolean {
   return state === "pending"
 }
 
+/**
+ * Reading order of the grant list on the approval screen. The action the user
+ * is granting comes first, the credential guarantee second — a reader who stops
+ * after two bullets has still read both halves of the consequence.
+ *
+ * Typed against the labels shape, so a key renamed in `DevicesLabels` fails to
+ * compile here instead of quietly dropping a bullet from the screen.
+ */
+export const PAIRING_GRANT_ORDER: readonly (keyof DevicesLabels["pairing"]["grants"])[] = [
+  "localActions",
+  "credential",
+  "perCallChecks",
+  "revocable",
+]
+
+/**
+ * The grant bullets, in reading order. Pure: copy in, strings out.
+ *
+ * A non-string or an empty override is skipped rather than rendered as a blank
+ * bullet — that is how a consumer suppresses a line it states elsewhere.
+ */
+export function pairingGrants(labels: DevicesLabels): string[] {
+  const grants: Record<string, unknown> = labels.pairing.grants
+  const out: string[] = []
+  for (const key of PAIRING_GRANT_ORDER) {
+    const text = readString(grants[key])
+    if (text !== undefined) out.push(text)
+  }
+  return out
+}
+
 /** Copy for every non-actionable state, by lookup rather than by branch. */
 export function pairingNotice(
   state: Exclude<PairingState, "pending">,

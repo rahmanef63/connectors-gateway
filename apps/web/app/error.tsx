@@ -1,7 +1,14 @@
 "use client"
 
 import { ErrorPanel } from "@/components/error-panel"
+import { FocusLayout } from "@/components/focus-layout"
 
+/**
+ * Root boundary: it replaces the whole page, chrome included, so it wears the
+ * focus layout rather than floating in a bare centred div. ErrorPanel shows the
+ * digest only — the caught error is never rendered (it can carry a token or a
+ * local path).
+ */
 export default function RootError({
   error,
   reset,
@@ -10,8 +17,8 @@ export default function RootError({
   reset: () => void
 }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
+    <FocusLayout className="max-w-lg">
       <ErrorPanel title="This page failed to load" error={error} reset={reset} />
-    </div>
+    </FocusLayout>
   )
 }

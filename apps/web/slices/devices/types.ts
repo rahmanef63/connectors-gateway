@@ -3,6 +3,7 @@
  * Domain shapes come from @cg/core; nothing here re-declares them.
  */
 import type { Device, DevicePlatform, DeviceStatus, PairingChallenge } from "@cg/core"
+import type { Tone } from "@/components/status-badge"
 
 /**
  * A device row as the dashboard renders it.
@@ -14,17 +15,14 @@ import type { Device, DevicePlatform, DeviceStatus, PairingChallenge } from "@cg
  */
 export type DeviceView = Omit<Device, "id" | "userId" | "credentialVersion"> & { deviceId: string }
 
-/** Semantic tone, independent of any design-system variant vocabulary. */
-export type Tone = "positive" | "neutral" | "muted" | "warning" | "danger"
-
-/** Variant vocabulary of the consumer's badge primitive. */
-export type BadgeVariant =
-  | "default"
-  | "secondary"
-  | "destructive"
-  | "success"
-  | "warning"
-  | "outline"
+/**
+ * Semantic tone. Re-exported from the app's tone SSOT (`components/status-badge`)
+ * rather than re-declared: the slice names a MEANING and the host resolves the
+ * colour, so a device status can never be painted a green this app uses nowhere
+ * else. A host that mounts the slice must provide that module — see
+ * `slice.json` → `requires.ui`.
+ */
+export type { Tone }
 
 /** Announced capabilities grouped by their `connector:` namespace. */
 export type CapabilityGroup = {
@@ -80,6 +78,22 @@ export type DevicesLabels = {
     deviceLabel: string
     platformLabel: string
     expiresLabel: string
+    /** Heading above the grant list — what approval actually hands over. */
+    grantsTitle: string
+    /**
+     * The grant list, as named leaves rather than an array: `mergeLabels` copies
+     * strings and plain objects only, so an array override would be silently
+     * dropped and the consequential copy would fall back to English without
+     * anyone noticing. `pairingGrants()` puts them in reading order.
+     */
+    grants: {
+      localActions: string
+      credential: string
+      perCallChecks: string
+      revocable: string
+    }
+    /** Restated next to the button: invariant 4, in the user's words. */
+    credentialNotice: string
     approve: string
     approving: string
     success: string

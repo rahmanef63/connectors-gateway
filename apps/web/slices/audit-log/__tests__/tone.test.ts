@@ -1,56 +1,67 @@
 // @vitest-environment node
 import { describe, expect, test } from "vitest"
 import { EXECUTOR_KINDS, POLICY_DECISIONS } from "@cg/core"
+import { POLICY_DECISION_TONES, TONES } from "@/components/status-badge"
 import {
   DECISION_TONES,
   EXECUTOR_TONES,
   STATUS_TONES,
-  TONE_BADGE_VARIANTS,
-  badgeVariantForDecision,
-  badgeVariantForExecutor,
-  badgeVariantForStatus,
+  toneForDecision,
+  toneForExecutor,
+  toneForStatus,
 } from "../config/tone"
 import { DEFAULT_AUDIT_LABELS } from "../config/labels"
 import { AUDIT_STATUSES } from "../lib/format"
 
-describe("decision → tone → variant", () => {
+/**
+ * Since 0.2.0 the slice names a TONE and the app resolves it to classes. These
+ * tests pin the mapping and the fact that the slice owns no colour: every value
+ * below is a member of the app's tone vocabulary, never a class or a hex.
+ */
+
+describe("decision → tone", () => {
   test("covers every policy decision from @cg/core", () => {
     expect(Object.keys(DECISION_TONES).sort()).toEqual([...POLICY_DECISIONS].sort())
     expect(Object.keys(DEFAULT_AUDIT_LABELS.decision).sort()).toEqual([...POLICY_DECISIONS].sort())
   })
 
-  test("a denial never renders with the same variant as an allow", () => {
-    expect(badgeVariantForDecision("ALLOW")).not.toBe(badgeVariantForDecision("DENY"))
-    expect(badgeVariantForDecision("REQUIRE_APPROVAL")).not.toBe(badgeVariantForDecision("DENY"))
-    expect(badgeVariantForDecision("DENY")).toBe("destructive")
+  test("keeps the pinned mapping", () => {
+    expect(toneForDecision("ALLOW")).toBe("success")
+    expect(toneForDecision("DENY")).toBe("danger")
+    expect(toneForDecision("REQUIRE_APPROVAL")).toBe("warning")
   })
 
-  test("every decision resolves to a variant the badge understands", () => {
-    for (const decision of POLICY_DECISIONS) {
-      expect(Object.values(TONE_BADGE_VARIANTS)).toContain(badgeVariantForDecision(decision))
-    }
+  test("a denial never renders like an allow, or like an approval", () => {
+    expect(toneForDecision("DENY")).not.toBe(toneForDecision("ALLOW"))
+    expect(toneForDecision("DENY")).not.toBe(toneForDecision("REQUIRE_APPROVAL"))
+  })
+
+  test("agrees with the app's tone SSOT, so audit and policy screens match", () => {
+    expect(DECISION_TONES).toEqual(POLICY_DECISION_TONES)
   })
 })
 
-describe("executor → tone → variant", () => {
+describe("executor → tone", () => {
   test("covers every executor kind from @cg/core", () => {
     expect(Object.keys(EXECUTOR_TONES).sort()).toEqual([...EXECUTOR_KINDS].sort())
     expect(Object.keys(DEFAULT_AUDIT_LABELS.executor).sort()).toEqual([...EXECUTOR_KINDS].sort())
   })
 
-  test("cloud and local are visually distinct", () => {
-    expect(badgeVariantForExecutor("cloud")).not.toBe(badgeVariantForExecutor("local"))
+  // Where an action ran is not a verdict: the label says cloud or local, the
+  // colour says nothing. Toning one of them would read as a warning.
+  test("every executor is neutral", () => {
+    for (const executor of EXECUTOR_KINDS) expect(toneForExecutor(executor)).toBe("neutral")
   })
 })
 
-describe("status → tone → variant", () => {
+describe("status → tone", () => {
   test("covers every audit status", () => {
     expect(Object.keys(STATUS_TONES).sort()).toEqual([...AUDIT_STATUSES].sort())
   })
 
   test("an error never renders as a success", () => {
-    expect(badgeVariantForStatus("error")).toBe("destructive")
-    expect(badgeVariantForStatus("success")).not.toBe(badgeVariantForStatus("error"))
+    expect(toneForStatus("error")).toBe("danger")
+    expect(toneForStatus("success")).toBe("success")
   })
 })
 
@@ -59,12 +70,14 @@ describe("tone tables", () => {
     expect(Object.isFrozen(DECISION_TONES)).toBe(true)
     expect(Object.isFrozen(EXECUTOR_TONES)).toBe(true)
     expect(Object.isFrozen(STATUS_TONES)).toBe(true)
-    expect(Object.isFrozen(TONE_BADGE_VARIANTS)).toBe(true)
   })
 
-  test("every tone maps to a variant", () => {
-    for (const tone of Object.values(DECISION_TONES)) expect(TONE_BADGE_VARIANTS[tone]).toBeTypeOf("string")
-    for (const tone of Object.values(EXECUTOR_TONES)) expect(TONE_BADGE_VARIANTS[tone]).toBeTypeOf("string")
-    for (const tone of Object.values(STATUS_TONES)) expect(TONE_BADGE_VARIANTS[tone]).toBeTypeOf("string")
+  test("DENIED: the slice names tones only — never a class, never a colour", () => {
+    for (const map of [DECISION_TONES, EXECUTOR_TONES, STATUS_TONES]) {
+      for (const tone of Object.values(map)) {
+        expect(TONES).toContain(tone)
+        expect(tone).not.toMatch(/#|rgb|hsl|bg-|text-|border-/)
+      }
+    }
   })
 })

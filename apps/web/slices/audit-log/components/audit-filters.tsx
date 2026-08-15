@@ -1,6 +1,6 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
+import { useId } from "react"
 import { AUDIT_STATUSES } from "../lib/format"
 import { readMember } from "../lib/guards"
 import type { AuditFilterState, AuditLabels, AuditStatus } from "../types"
@@ -16,15 +16,18 @@ export type AuditFiltersProps = {
   onReset: () => void
 }
 
-const SELECT_CLASS =
-  "h-9 rounded-md border border-input bg-background px-2 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-
 /**
  * Filters the loaded page only.
  *
- * ponytail: native `<select>` rather than a design-system Select — no select
- * primitive is a declared dependency, and a native control is accessible by
- * default. Swap the two elements when one lands.
+ * Native `<select>` on the app's `.field` class, each with a real `<label
+ * htmlFor>` — both filters choose from a closed vocabulary (the connector ids
+ * in the page, and the two audit statuses), so a free-text `<input>` would only
+ * let a reader type a value that filters everything out. `useId` keeps the
+ * pairing unique when a consumer mounts the panel twice.
+ *
+ * ponytail: no design-system Select primitive exists in this app, and a native
+ * control is accessible and keyboard-operable by default. Swap the elements if
+ * one ever lands; the props do not change.
  */
 export function AuditFilters({
   filters,
@@ -35,12 +38,19 @@ export function AuditFilters({
   onStatusChange,
   onReset,
 }: AuditFiltersProps) {
+  const fieldId = useId()
+  const connectorFieldId = `${fieldId}-connector`
+  const statusFieldId = `${fieldId}-status`
+
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {labels.filters.connectorLabel}
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <label htmlFor={connectorFieldId} className="text-xs font-medium text-muted-foreground">
+          {labels.filters.connectorLabel}
+        </label>
         <select
-          className={SELECT_CLASS}
+          id={connectorFieldId}
+          className="field w-52 max-w-full"
           value={filters.connectorId}
           onChange={(event) => onConnectorChange(event.target.value)}
         >
@@ -51,12 +61,15 @@ export function AuditFilters({
             </option>
           ))}
         </select>
-      </label>
+      </div>
 
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {labels.filters.statusLabel}
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <label htmlFor={statusFieldId} className="text-xs font-medium text-muted-foreground">
+          {labels.filters.statusLabel}
+        </label>
         <select
-          className={SELECT_CLASS}
+          id={statusFieldId}
+          className="field w-40 max-w-full"
           value={filters.status}
           onChange={(event) => onStatusChange(readMember(event.target.value, AUDIT_STATUSES) ?? "")}
         >
@@ -67,12 +80,12 @@ export function AuditFilters({
             </option>
           ))}
         </select>
-      </label>
+      </div>
 
       {active ? (
-        <Button type="button" variant="ghost" size="sm" onClick={onReset}>
+        <button type="button" className="btn-ghost" onClick={onReset}>
           {labels.filters.reset}
-        </Button>
+        </button>
       ) : null}
     </div>
   )

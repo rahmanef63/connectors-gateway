@@ -1,7 +1,10 @@
 import type { ReactNode } from "react"
 
-import { Card, CardContent } from "@/components/ui/card"
-
+/**
+ * First-run surface. The copy a caller passes says what to do next — never
+ * "No data": an empty screen is part of the feature, not a gap in it. The
+ * `action` slot is where the next step goes when there is one to offer.
+ */
 export function EmptyState({
   title,
   description,
@@ -12,12 +15,10 @@ export function EmptyState({
   action?: ReactNode
 }) {
   return (
-    <Card>
-      <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-        <p className="font-medium">{title}</p>
-        <p className="max-w-md text-sm text-muted-foreground">{description}</p>
-        {action}
-      </CardContent>
-    </Card>
+    <div className="card flex flex-col items-center gap-3 px-6 py-12 text-center">
+      <p className="font-medium text-foreground">{title}</p>
+      <p className="max-w-md text-sm leading-relaxed text-muted-foreground">{description}</p>
+      {action}
+    </div>
   )
 }

@@ -13,21 +13,18 @@ import {
   nextjsMiddlewareRedirect,
 } from "@convex-dev/auth/nextjs/server"
 
+import { NAV_ROUTE_PATTERNS } from "./components/shell/nav-items"
 import { DEFAULT_LANDING, signInPath } from "./lib/safe-redirect"
 
 const isSignInRoute = createRouteMatcher(["/sign-in"])
 
-/** Everything a signed-out visitor must not reach, including /pair. */
-const isProtectedRoute = createRouteMatcher([
-  "/",
-  "/devices(.*)",
-  "/connections(.*)",
-  "/permissions(.*)",
-  "/approvals(.*)",
-  "/audit(.*)",
-  "/setup(.*)",
-  "/pair(.*)",
-])
+/**
+ * Everything a signed-out visitor must not reach. The screens come from the nav
+ * registry itself — restating them here is how a newly added screen ends up
+ * ungated. `/` and `/pair` are not registry entries (one redirects, the other is
+ * reached from a link the agent prints), so they are named.
+ */
+const isProtectedRoute = createRouteMatcher(["/", ...NAV_ROUTE_PATTERNS, "/pair(.*)"])
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const authenticated = await convexAuth.isAuthenticated()

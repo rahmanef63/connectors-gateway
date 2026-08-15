@@ -4,10 +4,11 @@
  * written form of it. This test asserts the two agree, in both directions.
  *
  * ponytail: the surface is read from the source text rather than by importing
- * `../index`, because importing it pulls in `@/components/ui/*` and
- * `@convex/_generated/api` — app-owned modules with no vitest alias config and
- * no DOM environment installed. Upgrade path: once the app declares those
- * aliases in a vitest config, replace `barrelExports()` with
+ * `../index`, because importing it pulls in the app's design-system modules
+ * (`@/components/status-badge`, `skeleton`, `empty-state`, `toast`) and
+ * `@convex/_generated/api` — app-owned modules with no DOM environment
+ * installed here. Upgrade path: once a DOM environment is available, replace
+ * `barrelExports()` with
  * `Object.keys(await import("../index"))` and keep every assertion below.
  */
 import { describe, expect, test } from "vitest"

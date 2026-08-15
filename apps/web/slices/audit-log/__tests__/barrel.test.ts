@@ -4,7 +4,7 @@
  * written form of it. This test asserts the two agree, in both directions.
  *
  * ponytail: the surface is read from the source text rather than by importing
- * `../index`, because importing it pulls in `@/components/ui/*` and
+ * `../index`, because importing it pulls in app-owned React modules and
  * `@convex/_generated/api` — app-owned modules with no vitest alias config and
  * no DOM environment installed. Upgrade path: once the app declares those
  * aliases in a vitest config, replace `barrelExports()` with

@@ -28,7 +28,6 @@ export type { LabelOverride } from "./lib/labels"
 export type { TimestampFormatOptions } from "./lib/format"
 
 export type {
-  BadgeVariant,
   CapabilityGroup,
   DeviceView,
   DevicesLabels,

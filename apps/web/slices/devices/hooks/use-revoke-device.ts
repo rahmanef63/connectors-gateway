@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react"
 import { useMutation } from "convex/react"
-import { toast } from "sonner"
+import { useToast } from "@/components/toast"
 import { devicesFunctions } from "../config/functions"
 import { resolveErrorMessage } from "../lib/errors"
 import type { DevicesLabels } from "../types"
@@ -15,6 +15,7 @@ export type UseRevokeDevice = {
 /** Revoking closes the device's session and invalidates its credential (docs/04). */
 export function useRevokeDevice(labels: DevicesLabels): UseRevokeDevice {
   const revoke = useMutation(devicesFunctions.revoke)
+  const { toast } = useToast()
   const [pending, setPending] = useState(false)
 
   const revokeDevice = useCallback(
@@ -22,16 +23,16 @@ export function useRevokeDevice(labels: DevicesLabels): UseRevokeDevice {
       setPending(true)
       try {
         await revoke({ deviceId })
-        toast.success(labels.revoke.success)
+        toast(labels.revoke.success, { tone: "success" })
         return true
       } catch (error) {
-        toast.error(resolveErrorMessage(error, labels.errors))
+        toast(resolveErrorMessage(error, labels.errors), { tone: "danger" })
         return false
       } finally {
         setPending(false)
       }
     },
-    [revoke, labels],
+    [revoke, labels, toast],
   )
 
   return { revokeDevice, pending }

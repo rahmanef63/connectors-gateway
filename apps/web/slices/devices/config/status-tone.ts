@@ -1,29 +1,22 @@
 /**
- * Status vocabulary → semantic tone → badge variant.
- * Lookup tables, never an if-chain: adding a `DeviceStatus` to @cg/core makes
+ * Status vocabulary → semantic tone.
+ *
+ * A lookup table, never an if-chain: adding a `DeviceStatus` to @cg/core makes
  * this file fail to typecheck instead of silently falling through a branch.
+ *
+ * The table stops at the tone. The colour behind that tone belongs to the host's
+ * tone SSOT (`components/status-badge`), which `DeviceStatusBadge` renders
+ * through — so this slice owns the meaning of a status and never its paint.
  */
 import type { DeviceStatus } from "@cg/core"
-import type { BadgeVariant, Tone } from "../types"
+import type { Tone } from "../types"
 
 export const DEVICE_STATUS_TONES: Readonly<Record<DeviceStatus, Tone>> = Object.freeze({
-  online: "positive",
+  online: "success",
   offline: "neutral",
   revoked: "danger",
 })
 
-export const TONE_BADGE_VARIANTS: Readonly<Record<Tone, BadgeVariant>> = Object.freeze({
-  positive: "success",
-  neutral: "outline",
-  muted: "secondary",
-  warning: "warning",
-  danger: "destructive",
-})
-
 export function toneForStatus(status: DeviceStatus): Tone {
   return DEVICE_STATUS_TONES[status]
-}
-
-export function badgeVariantForStatus(status: DeviceStatus): BadgeVariant {
-  return TONE_BADGE_VARIANTS[DEVICE_STATUS_TONES[status]]
 }

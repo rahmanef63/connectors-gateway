@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge"
+import { StatusBadge } from "@/components/status-badge"
 import { groupCapabilities } from "../lib/capabilities"
 import type { DevicesLabels } from "../types"
 
@@ -7,7 +7,13 @@ export type CapabilityListProps = {
   labels: Pick<DevicesLabels, "capabilitiesTitle" | "capabilitiesEmpty" | "capabilitiesUngrouped">
 }
 
-/** What the agent announced, grouped by adapter namespace. */
+/**
+ * What the agent announced, grouped by adapter namespace.
+ *
+ * The chips are the host's pill primitive at its `neutral` tone — an announced
+ * capability is an inventory item, not a verdict, so it must not wear a colour
+ * that reads as allowed/denied. Permission lives on the Permissions screen.
+ */
 export function CapabilityList({ capabilities, labels }: CapabilityListProps) {
   const groups = groupCapabilities(capabilities)
 
@@ -22,11 +28,13 @@ export function CapabilityList({ capabilities, labels }: CapabilityListProps) {
         <ul className="space-y-2">
           {groups.map((group) => (
             <li key={group.connector ?? ""} className="flex flex-wrap items-center gap-1.5">
-              <span className="text-sm font-medium">{group.connector ?? labels.capabilitiesUngrouped}</span>
+              <span className="text-sm font-medium text-foreground">
+                {group.connector ?? labels.capabilitiesUngrouped}
+              </span>
               {group.capabilities.map((capability) => (
-                <Badge key={capability} variant="outline">
+                <StatusBadge key={capability} tone="neutral">
                   {capability}
-                </Badge>
+                </StatusBadge>
               ))}
             </li>
           ))}

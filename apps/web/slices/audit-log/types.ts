@@ -34,17 +34,14 @@ export type AuditRowView = Pick<AuditEvent, AuditColumn> & { rowId: string }
 
 export type AuditStatus = AuditRowView["status"]
 
-/** Semantic tone, independent of any design-system variant vocabulary. */
-export type Tone = "positive" | "neutral" | "muted" | "warning" | "danger"
-
-/** Variant vocabulary of the consumer's badge primitive. */
-export type BadgeVariant =
-  | "default"
-  | "secondary"
-  | "destructive"
-  | "success"
-  | "warning"
-  | "outline"
+/**
+ * Semantic tone, re-pointed at the app's tone SSOT (`@/components/status-badge`).
+ *
+ * The slice names a tone; it never names a colour. Because the union is the
+ * app's own, a tone this slice invents does not compile, and a tone the design
+ * system retires breaks the build here instead of rendering untoned.
+ */
+export type { Tone } from "@/components/status-badge"
 
 /** Client-side filter state, applied over the loaded page only. */
 export type AuditFilterState = {

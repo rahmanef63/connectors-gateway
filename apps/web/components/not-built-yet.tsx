@@ -1,22 +1,17 @@
-import { Construction } from "lucide-react"
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-
 /**
- * Honest placeholder. It says what the screen will do and what is missing,
- * rather than faking a working surface.
+ * Honest placeholder. It says what the screen will be (`title`) and what stands
+ * in the way (`blockedOn`), rather than faking a working surface with mock
+ * rows. A visitor should be able to tell "nothing here yet" from "broken".
  */
 export function NotBuiltYet({ title, blockedOn }: { title: string; blockedOn: string }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Construction className="size-4 text-muted-foreground" aria-hidden />
-          {title}
-        </CardTitle>
-        <CardDescription>Not built yet.</CardDescription>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">{blockedOn}</CardContent>
-    </Card>
+    <div className="card p-6">
+      <p className="text-xs font-medium uppercase tracking-wide text-accent">Not built yet</p>
+      <h2 className="mt-2 text-base font-semibold text-foreground">{title}</h2>
+      <p className="mt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Blocked on
+      </p>
+      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">{blockedOn}</p>
+    </div>
   )
 }

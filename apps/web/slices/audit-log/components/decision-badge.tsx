@@ -1,6 +1,6 @@
 import type { PolicyDecision } from "@cg/core"
-import { Badge } from "@/components/ui/badge"
-import { badgeVariantForDecision } from "../config/tone"
+import { StatusBadge } from "@/components/status-badge"
+import { toneForDecision } from "../config/tone"
 
 export type DecisionBadgeProps = {
   decision: PolicyDecision
@@ -8,7 +8,11 @@ export type DecisionBadgeProps = {
   label: string
 }
 
-/** ALLOW / DENY / REQUIRE_APPROVAL → tone → variant, by lookup table. */
+/**
+ * ALLOW / DENY / REQUIRE_APPROVAL → tone → the app's badge, by lookup table.
+ * The mapping lives in config/tone.ts; this component owns no colour and never
+ * reads the decision string for anything but that lookup.
+ */
 export function DecisionBadge({ decision, label }: DecisionBadgeProps) {
-  return <Badge variant={badgeVariantForDecision(decision)}>{label}</Badge>
+  return <StatusBadge tone={toneForDecision(decision)}>{label}</StatusBadge>
 }

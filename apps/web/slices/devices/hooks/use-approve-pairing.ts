@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react"
 import { useMutation } from "convex/react"
-import { toast } from "sonner"
+import { useToast } from "@/components/toast"
 import { devicesFunctions } from "../config/functions"
 import { resolveErrorMessage } from "../lib/errors"
 import type { DevicesLabels } from "../types"
@@ -19,6 +19,7 @@ export type UseApprovePairing = {
  */
 export function useApprovePairing(labels: DevicesLabels): UseApprovePairing {
   const approve = useMutation(devicesFunctions.approvePairing)
+  const { toast } = useToast()
   const [pending, setPending] = useState(false)
 
   const approvePairing = useCallback(
@@ -26,16 +27,16 @@ export function useApprovePairing(labels: DevicesLabels): UseApprovePairing {
       setPending(true)
       try {
         await approve({ code })
-        toast.success(labels.pairing.success)
+        toast(labels.pairing.success, { tone: "success" })
         return true
       } catch (error) {
-        toast.error(resolveErrorMessage(error, labels.errors))
+        toast(resolveErrorMessage(error, labels.errors), { tone: "danger" })
         return false
       } finally {
         setPending(false)
       }
     },
-    [approve, labels],
+    [approve, labels, toast],
   )
 
   return { approvePairing, pending }
