@@ -1,0 +1,38 @@
+# Self-hosted Convex — the control plane (devices, pairing, connections,
+# policy, audit). Deployed as a Dokploy Compose service by /sc-convex.
+services:
+  backend:
+    # Do NOT run :latest in production. Override CONVEX_SELF_HOSTED_IMAGE in the
+    # Dokploy environment with a pinned tag so a redeploy cannot silently pull a
+    # breaking change. Current tags: github.com/get-convex/convex-backend/releases
+    image: ${CONVEX_SELF_HOSTED_IMAGE:-ghcr.io/get-convex/convex-backend:latest}
+    container_name: connectors-convex-backend
+    # Without this the container never comes back after a host reboot — that is
+    # exactly how another project sat dataless for eight days.
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Loopback-only publishing: Dokploy's reverse proxy reaches the container
+    # over the internal Docker network, so binding 0.0.0.0 would only risk
+    # exposing 3210/3211 straight to the internet.
+    ports:
+      - "127.0.0.1:3210:3210"
+      - "127.0.0.1:3211:3211"
+    # This volume is the only durable asset in the whole stack: every device
+    # record, credential hash and audit row lives here. Never `docker volume rm`
+    # without a fresh export.
+    volumes:
+      - convex_data:/convex/data
+    # /version proves the API port is alive; /api/health proves the site origin
+    # (httpActions, which @convex-dev/auth routes through) is actually serving.
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget -q -O - http://127.0.0.1:3210/version && wget -q -O - http://127.0.0.1:3211/api/health || exit 1"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  convex_data:

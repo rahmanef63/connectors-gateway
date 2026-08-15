@@ -1,0 +1,21 @@
+node_modules
+**/node_modules
+.next
+**/.next
+.git
+.github
+dist
+build
+*.log
+
+# never let a local secret reach a build context
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.cg/
+
+docs
+examples
+REPO-TREE.txt
