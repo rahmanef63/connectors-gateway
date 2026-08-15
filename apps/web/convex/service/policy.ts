@@ -10,7 +10,7 @@ import { v } from "convex/values"
 import { query } from "../_generated/server"
 import { requireService } from "../_shared/auth"
 import { MAX_POLICY_RULES_PER_USER } from "../_shared/limits"
-import { policyRuleValidator, toPolicyRule, type PolicyRuleRecord } from "../_shared/policy-record"
+import { policyRuleValidator, toPolicyRule, type PolicyRuleRecord } from "../_shared/policy_record"
 
 export const listRules = query({
   args: { serviceToken: v.string(), userId: v.string(), connectorId: v.string() },

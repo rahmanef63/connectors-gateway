@@ -12,7 +12,7 @@ import {
   pairingPromptValidator,
   toPairingPrompt,
   type PairingPrompt,
-} from "../../_shared/pairing-record"
+} from "../../_shared/pairing_record"
 
 export const getByCode = query({
   args: { code: v.string() },

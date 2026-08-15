@@ -5,7 +5,7 @@
  */
 import { paginationOptsValidator, paginationResultValidator } from "convex/server"
 import { query } from "../../_generated/server"
-import { auditRowValidator, toAuditRow } from "../../_shared/audit-record"
+import { auditRowValidator, toAuditRow } from "../../_shared/audit_record"
 import { requireUser } from "../../_shared/auth"
 import { MAX_AUDIT_PAGE_SIZE } from "../../_shared/limits"
 

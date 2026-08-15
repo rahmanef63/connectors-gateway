@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { timingSafeEqual } from "./constant-time"
+import { timingSafeEqual } from "./constant_time"
 
 describe("timingSafeEqual", () => {
   test("matches identical strings", () => {

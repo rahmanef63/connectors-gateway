@@ -10,7 +10,7 @@ import {
   policyRuleValidator,
   toPolicyRule,
   type PolicyRuleRecord,
-} from "../../_shared/policy-record"
+} from "../../_shared/policy_record"
 
 export const listMine = query({
   args: {},

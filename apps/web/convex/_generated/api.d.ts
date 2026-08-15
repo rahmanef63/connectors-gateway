@@ -8,12 +8,19 @@
  * @module
  */
 
-import type {
-  AnyComponents,
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from "convex/server";
+import type * as _shared_api_key_record from "../_shared/api_key_record.js";
+import type * as _shared_audit_record from "../_shared/audit_record.js";
+import type * as _shared_auth from "../_shared/auth.js";
+import type * as _shared_connection_record from "../_shared/connection_record.js";
+import type * as _shared_constant_time from "../_shared/constant_time.js";
+import type * as _shared_device_record from "../_shared/device_record.js";
+import type * as _shared_errors from "../_shared/errors.js";
+import type * as _shared_input from "../_shared/input.js";
+import type * as _shared_limits from "../_shared/limits.js";
+import type * as _shared_lookup from "../_shared/lookup.js";
+import type * as _shared_pairing_record from "../_shared/pairing_record.js";
+import type * as _shared_policy_record from "../_shared/policy_record.js";
+import type * as _shared_validators from "../_shared/validators.js";
 import type * as auth from "../auth.js";
 import type * as features_audit_queries from "../features/audit/queries.js";
 import type * as features_connections_queries from "../features/connections/queries.js";
@@ -31,15 +38,26 @@ import type * as service_devices from "../service/devices.js";
 import type * as service_pairing from "../service/pairing.js";
 import type * as service_policy from "../service/policy.js";
 
-/**
- * A utility for referencing Convex functions in your app's public API.
- *
- * Usage:
- * ```js
- * const myFunctionReference = api.myModule.myFunction;
- * ```
- */
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
+
 declare const fullApi: ApiFromModules<{
+  "_shared/api_key_record": typeof _shared_api_key_record;
+  "_shared/audit_record": typeof _shared_audit_record;
+  "_shared/auth": typeof _shared_auth;
+  "_shared/connection_record": typeof _shared_connection_record;
+  "_shared/constant_time": typeof _shared_constant_time;
+  "_shared/device_record": typeof _shared_device_record;
+  "_shared/errors": typeof _shared_errors;
+  "_shared/input": typeof _shared_input;
+  "_shared/limits": typeof _shared_limits;
+  "_shared/lookup": typeof _shared_lookup;
+  "_shared/pairing_record": typeof _shared_pairing_record;
+  "_shared/policy_record": typeof _shared_policy_record;
+  "_shared/validators": typeof _shared_validators;
   auth: typeof auth;
   "features/audit/queries": typeof features_audit_queries;
   "features/connections/queries": typeof features_connections_queries;
@@ -57,13 +75,31 @@ declare const fullApi: ApiFromModules<{
   "service/pairing": typeof service_pairing;
   "service/policy": typeof service_policy;
 }>;
+
+/**
+ * A utility for referencing Convex functions in your app's public API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = api.myModule.myFunction;
+ * ```
+ */
 export declare const api: FilterApi<
   typeof fullApi,
   FunctionReference<any, "public">
 >;
+
+/**
+ * A utility for referencing Convex functions in your app's internal API.
+ *
+ * Usage:
+ * ```js
+ * const myFunctionReference = internal.myModule.myFunction;
+ * ```
+ */
 export declare const internal: FilterApi<
   typeof fullApi,
   FunctionReference<any, "internal">
 >;
 
-export declare const components: AnyComponents;
+export declare const components: {};

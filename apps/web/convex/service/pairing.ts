@@ -5,7 +5,7 @@
 import { v } from "convex/values"
 import { mutation, query } from "../_generated/server"
 import { requireService } from "../_shared/auth"
-import { deviceRecordValidator, toDeviceRecord } from "../_shared/device-record"
+import { deviceRecordValidator, toDeviceRecord } from "../_shared/device_record"
 import { fail } from "../_shared/errors"
 import {
   assertDisplayName,
@@ -19,7 +19,7 @@ import {
   pairingChallengeValidator,
   toPairingChallenge,
   type PairingChallengeRecord,
-} from "../_shared/pairing-record"
+} from "../_shared/pairing_record"
 import { platformValidator } from "../_shared/validators"
 
 export const createChallenge = mutation({

@@ -7,7 +7,12 @@ WORKDIR /app
 # dependencies better, but bun workspaces + 14 manifests make the glob dance
 # fragile; revisit when build time actually hurts.
 COPY . .
-RUN bun install --frozen-lockfile
+# --linker=hoisted is load-bearing: bun's default isolated layout puts packages
+# under node_modules/.bun/<pkg>@<ver>/node_modules/ behind symlinks, and Next's
+# standalone file tracer does not follow that into transitive deps — the image
+# builds fine and then dies at boot on a missing @swc/helpers. A flat
+# node_modules is what the tracer expects. Does not affect bun.lock.
+RUN bun install --frozen-lockfile --linker=hoisted
 
 # NEXT_PUBLIC_* is inlined at build time, so it must arrive as a build arg.
 # Neither value is a secret: one is the public Convex origin, the other the

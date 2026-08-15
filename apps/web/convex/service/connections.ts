@@ -16,7 +16,7 @@ import {
   toCredential,
   type ConnectionRecord,
   type CredentialRecord,
-} from "../_shared/connection-record"
+} from "../_shared/connection_record"
 import { MAX_CONNECTIONS_PER_CONNECTOR, MAX_CONNECTIONS_PER_OWNER } from "../_shared/limits"
 
 export const listForUser = query({

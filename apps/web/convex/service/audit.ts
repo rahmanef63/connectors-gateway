@@ -8,7 +8,7 @@
  */
 import { v } from "convex/values"
 import { mutation } from "../_generated/server"
-import { auditEventValidator } from "../_shared/audit-record"
+import { auditEventValidator } from "../_shared/audit_record"
 import { requireService } from "../_shared/auth"
 import { fail } from "../_shared/errors"
 

@@ -7,7 +7,7 @@
  */
 import { v } from "convex/values"
 import { query } from "../_generated/server"
-import { apiKeyRecordValidator, toApiKeyRecord, type ApiKeyRecord } from "../_shared/api-key-record"
+import { apiKeyRecordValidator, toApiKeyRecord, type ApiKeyRecord } from "../_shared/api_key_record"
 import { requireService } from "../_shared/auth"
 import { assertIdentifier } from "../_shared/input"
 import { apiKeyByKeyId } from "../_shared/lookup"

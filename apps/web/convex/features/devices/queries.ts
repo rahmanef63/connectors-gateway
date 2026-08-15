@@ -9,7 +9,7 @@ import {
   deviceSummaryValidator,
   toDeviceSummary,
   type DeviceSummary,
-} from "../../_shared/device-record"
+} from "../../_shared/device_record"
 import { MAX_DEVICES_PER_USER } from "../../_shared/limits"
 
 export const listMine = query({

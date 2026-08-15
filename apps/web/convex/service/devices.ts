@@ -9,7 +9,7 @@ import {
   deviceRecordValidator,
   toDeviceRecord,
   type DeviceRecord,
-} from "../_shared/device-record"
+} from "../_shared/device_record"
 import { fail } from "../_shared/errors"
 import { assertIdentifier } from "../_shared/input"
 import { MAX_DEVICES_PER_USER } from "../_shared/limits"
