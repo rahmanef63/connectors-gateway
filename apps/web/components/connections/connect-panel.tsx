@@ -75,6 +75,15 @@ export function ConnectPanel({
       <form action={oauthAction} className="space-y-4">
         <input type="hidden" name="connectorId" value={connectorId} />
 
+        {/* The primary action comes FIRST. The disclosure below it is for the
+            minority of services that will not register a client themselves, and
+            when it sat above the button it read as a required step. */}
+        <FormError code={oauthState.error} />
+
+        <button type="submit" className="btn-primary" disabled={oauthPending}>
+          {oauthPending ? COPY.pending : `${COPY.submit} ${connectorName}`}
+        </button>
+
         <details className="rounded-lg border border-border p-4">
           <summary className="cursor-pointer text-sm font-medium">{COPY.byoTitle}</summary>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{COPY.byoHint}</p>
@@ -119,12 +128,6 @@ export function ConnectPanel({
             <CopyField label={COPY.redirectLabel} value={redirectUri} />
           </div>
         </details>
-
-        <FormError code={oauthState.error} />
-
-        <button type="submit" className="btn-primary" disabled={oauthPending}>
-          {oauthPending ? COPY.pending : `${COPY.submit} ${connectorName}`}
-        </button>
       </form>
 
       <details className="rounded-lg border border-border p-4">

@@ -151,24 +151,33 @@ Done since:
   an `x-upstream` name, executed by one generic adapter. Adding a connector is a JSON file
   plus one line in `connectors.ts` — no package, no adapter, no gateway change.
 
+- **The OAuth 2.1 client** (`700656e`). PRM discovery (RFC 9728) → authorization-server
+  metadata (RFC 8414) → PKCE S256 → dynamic client registration (RFC 7591) where the server
+  offers it → code exchange, with `resource` (RFC 8707) on both legs. Connecting now asks for
+  at most a client id and secret, and for a DCR-capable server for nothing. Every endpoint it
+  learns from a third party's metadata goes through the SSRF gate before it is called.
+  Still missing from the plan below: **refresh** (`refresh_token` is read and dropped —
+  catalog tokens are long-lived), `iss` validation (RFC 9207), and the `connections` schema
+  delta (`refreshTokenCipher`, `expiresAt`, `scopes`, `issuer`, `clientId`).
+
+  Proving it against Linear or Notion first was the plan; discovery was proven against the
+  live CareerPack server instead, which found that **CareerPack's own metadata is broken in
+  production** — `APP_URL` is unset on its Convex deployment, so it advertises
+  `https://careerpack.local/oauth/authorize`. No client can complete OAuth there today.
+
 Next, in order:
 
-1. **The OAuth 2.1 client** — PRM discovery (RFC 9728), `resource` (RFC 8707), `iss`
-   validation (RFC 9207), refresh, and the `connections` schema delta it needs
-   (`refreshTokenCipher`, `expiresAt`, `scopes`, `issuer`, `clientId`). One to two weeks, and
-   it buys twelve connectors at once. Prove it against Linear or Notion first — small
-   surface, clean PRM, diagnosable failures.
-2. **Connectors as data** — a `connectors` table, per-owner CRUD, and discovery that calls
+1. **Connectors as data** — a `connectors` table, per-owner CRUD, and discovery that calls
    the upstream's `tools/list` so a user picks which tools to expose. Decision 1 requires it.
    `adapters/remote-mcp/src/connectors.ts` is the file-backed stand-in for that table, and
    validates every manifest at the boundary precisely so the rows can replace the files.
    `executor` must be `v.literal("cloud")`: a user-declared *local* manifest could only alias
    an action a compiled agent adapter already implements, so its one reachable use is
    relabelling an R3 local action as R1 to skip the approval gate.
-3. **Approval persistence.** Every R2+ action is currently refused rather than queued, and
+2. **Approval persistence.** Every R2+ action is currently refused rather than queued, and
    `/approvals` renders nothing. With other people's credentials in play, a screen that
    claims mediated risk and delivers none is the worst kind of gap.
-4. **The catalog.** Rows, not sprints.
+3. **The catalog.** Rows, not sprints.
 
 ### What multi-tenancy makes urgent that was previously ignorable
 
