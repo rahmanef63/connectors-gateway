@@ -107,13 +107,13 @@ have not been run against a real Blender install.
    the connectors in the catalog issue long-lived tokens (CareerPack's last a year), so
    there is nothing yet to exercise a refresh loop. A connector with short-lived tokens
    needs one, plus the `connections` fields to store it.
-6. **CareerPack's own OAuth metadata is broken in production** — its live
-   `/.well-known/oauth-authorization-server` advertises
-   `https://careerpack.local/oauth/authorize`, because `APP_URL` is unset on its Convex
-   deployment. Discovery here works and returns exactly that, so the flow stops at a host
-   that does not resolve. No MCP client can complete OAuth against CareerPack today; the
-   fix is one env var on CareerPack, plus adding this deployment's host to its
-   `REDIRECT_HOSTS` allowlist.
+6. **A connector's `endpoint` must name a PRODUCTION deployment, and nothing checks that.**
+   CareerPack runs two Convex deployments — `effervescent-hedgehog-352` (dev, named by its
+   own `.env.local`) and `proficient-dove-151` (prod). The first manifest shipped the dev
+   one. Everything downstream was then correct about the wrong backend: discovery
+   succeeded, and dev has no `APP_URL`, so it truthfully advertised
+   `https://careerpack.local/oauth/authorize`. Fixed, but the class of mistake is open —
+   a manifest can point anywhere and only a human knows which host is the real one.
 7. **Rate limits, relay presence and the agent's replay guard are per-process.** A second
    gateway instance multiplies every limit and forgets seen job ids across a restart.
    Each site is marked `ponytail:`. Correct for a single-instance MVP, load-bearing before

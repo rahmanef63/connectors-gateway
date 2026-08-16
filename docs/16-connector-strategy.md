@@ -161,9 +161,17 @@ Done since:
   delta (`refreshTokenCipher`, `expiresAt`, `scopes`, `issuer`, `clientId`).
 
   Proving it against Linear or Notion first was the plan; discovery was proven against the
-  live CareerPack server instead, which found that **CareerPack's own metadata is broken in
-  production** — `APP_URL` is unset on its Convex deployment, so it advertises
-  `https://careerpack.local/oauth/authorize`. No client can complete OAuth there today.
+  live CareerPack server instead. That found a bug on THIS side, not theirs: the manifest
+  named CareerPack's **dev** Convex deployment, which has no `APP_URL` and so advertises
+  `https://careerpack.local/oauth/authorize`. Production was always correct. A connector's
+  `endpoint` is the one field where a wrong-but-plausible value produces a flow that
+  discovers, registers and redirects perfectly — into nothing.
+
+- **The short path: `client_credentials`.** Where a server advertises that grant, an id and
+  a secret are the whole connection: one POST, no consent screen, nothing held between
+  requests. CareerPack offers it, so connecting it is two fields and a button. Only sent
+  when the server advertises the grant — RFC 8414 §2's default is `authorization_code`, so
+  silence never gets a secret.
 
 Next, in order:
 
