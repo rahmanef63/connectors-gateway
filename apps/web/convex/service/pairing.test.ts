@@ -112,7 +112,14 @@ describe("service/pairing", () => {
 
   test("getByCode reports a lapsed pending challenge as expired", async () => {
     const t = setupConvex()
-    await createChallenge(t, "ABCD1234", Date.now() + 5)
+    // A NORMAL expiry, then patched to the past below. It previously created
+    // the row 5ms from expiry, which made the row's own creation a race: the
+    // mutation validates "expiry must be in the future", and under a loaded
+    // parallel run those 5ms elapse before the validator sees them. The test
+    // then failed on its FIXTURE, reporting "Expiry must be in the future" for
+    // a test about reading an expired row. The patch on the next line is what
+    // actually establishes the condition under test.
+    await createChallenge(t, "ABCD1234")
     await t.run(async (ctx) => {
       const rows = await ctx.db
         .query("pairingChallenges")

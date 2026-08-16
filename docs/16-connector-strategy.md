@@ -245,10 +245,15 @@ Next, in order:
 
 0. **The web test suite is not gated.** `bun run validate` runs
    `packages adapters apps/gateway apps/agent` — `apps/web` has its own 624-test vitest suite
-   behind `test:convex`, and nothing runs it. On a clean checkout today it failed 5 tests in a
-   full run while passing them individually, which is order-dependent pollution that has had
-   room to accumulate precisely because no gate looks. Either add it to `validate` or accept
-   that it drifts; there is no third option where it stays honest on its own.
+   behind `test:convex`, and nothing runs it. Either add it to `validate` or accept that it
+   drifts; there is no third option where it stays honest on its own.
+
+   *Correction, same day:* the first version of this entry also claimed the suite failed 5
+   tests on a clean checkout. **It does not.** That reading came from `git stash`, which does
+   not stash untracked files without `-u`: a new test file stayed on disk while the tracked
+   code it exercised was reverted, so it ran against dependencies that no longer existed.
+   Verified after the fact — six full suites in parallel at load 39, plus the gateway suite,
+   624/624 every time. The gap is that nothing *runs* the suite, not that the suite is rotten.
 
 1. **Composio needs a real key against a real server.** Everything below it is untested against
    Composio specifically: the manifest, the `x-api-key` path and the BYOK form are all written
