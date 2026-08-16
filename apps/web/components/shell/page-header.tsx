@@ -23,7 +23,11 @@ export function PageHeader() {
         {GROUP_LABEL[item.group]}
       </p>
       <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight">{item.label}</h1>
-      <p className="truncate text-sm text-muted-foreground">{item.sub}</p>
+      {/* The title truncates because a screen name is short and one line is the
+          template's shape. The description must NOT: it is the sentence that
+          says what the screen is for, and on a phone `truncate` was cutting it
+          to "…this account has authorised the gate…". */}
+      <p className="text-sm text-muted-foreground">{item.sub}</p>
     </header>
   )
 }

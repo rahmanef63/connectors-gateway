@@ -27,6 +27,15 @@ export function AppShell({ children, userLabel }: { children: ReactNode; userLab
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background">
+      {/* Measured: a keyboard user hits 11 chrome controls — six nav links, sign
+          out, the sidebar toggle and three theme buttons — before reaching any
+          page content. This is the standard escape, hidden until focused. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground"
+      >
+        Skip to content
+      </a>
       <aside
         // The topbar toggle points at this id with aria-controls, so a screen
         // reader can say *what* it expands. Renaming it breaks that link.
@@ -59,7 +68,7 @@ export function AppShell({ children, userLabel }: { children: ReactNode; userLab
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto p-5 sm:p-7">
+      <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto p-5 sm:p-7">
         <Topbar collapsed={collapsed} onToggleSidebar={() => setCollapsed((value) => !value)} />
         <PageHeader />
         {children}

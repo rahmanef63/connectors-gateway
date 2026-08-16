@@ -43,8 +43,13 @@ export function ThemePicker() {
             aria-label={option.label}
             aria-pressed={active}
             onClick={() => setTheme(option.value)}
+            // Measured at 28x28 on a phone, which is well under a comfortable
+            // touch target. The glyph and the visual chip stay the same size —
+            // the tap area grows around them, so nothing about the topbar moves.
             className={cn(
               "grid h-7 w-7 place-items-center rounded-md transition-colors",
+              "relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11",
+              "after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
               active
                 ? "bg-accent/12 text-accent"
                 : "text-muted-foreground hover:text-foreground",
