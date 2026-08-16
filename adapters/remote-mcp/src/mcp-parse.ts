@@ -46,7 +46,7 @@ export function readToolResult(envelope: unknown, token: string): unknown {
     throw new GatewayError("UPSTREAM_ERROR", "The upstream server returned a malformed response.")
   }
   if (isRecord(envelope["error"])) {
-    throw upstreamError(envelope["error"]["message"], token)
+    throw jsonRpcError(envelope["error"], token)
   }
   const result = envelope["result"]
   if (!isRecord(result)) {
@@ -74,6 +74,37 @@ function firstText(content: unknown): string | undefined {
     }
   }
   return undefined
+}
+
+/**
+ * An upstream JSON-RPC error, kept apart by what the caller can DO about it.
+ *
+ * `-32003` is insufficient_scope: the credential is valid and simply is not
+ * allowed to perform this action. The upstream also names the scope it wanted
+ * in `data.required_scope`, which is the one fact that makes the failure
+ * recoverable — re-authorize for that scope and the call works. Folding it
+ * into UPSTREAM_ERROR discards that and returns a 502, which reads as "the
+ * other server is broken, try again" for something retrying cannot fix.
+ */
+const INSUFFICIENT_SCOPE_CODE = -32003
+
+function jsonRpcError(error: Record<string, unknown>, token: string): GatewayError {
+  const message = error["message"]
+  const safe = typeof message === "string" ? redact(message, token) : ""
+
+  if (error["code"] === INSUFFICIENT_SCOPE_CODE) {
+    const data = isRecord(error["data"]) ? error["data"] : {}
+    const required = data["required_scope"]
+    const scope = typeof required === "string" ? required : ""
+    return new GatewayError(
+      "INSUFFICIENT_SCOPE",
+      scope.length > 0
+        ? `This connection is not authorized for "${scope}". Reconnect and grant it to continue.`
+        : "This connection is not authorized for that action. Reconnect with wider access to continue.",
+    )
+  }
+
+  return upstreamError(safe, token)
 }
 
 function upstreamError(message: unknown, token: string): GatewayError {

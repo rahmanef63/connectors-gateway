@@ -15,6 +15,11 @@ export const ERROR_CODES = [
   "DEVICE_OFFLINE",
   "DEVICE_REVOKED",
   "CAPABILITY_UNAVAILABLE",
+  // The upstream said "your credential is real, it just is not allowed to do
+  // this". Distinct from UPSTREAM_ERROR because the caller CAN act on it:
+  // re-authorize for a wider scope. Collapsing it into a 502 tells them to
+  // retry something that will never work.
+  "INSUFFICIENT_SCOPE",
   "UPSTREAM_ERROR",
   "TIMEOUT",
   "CANCELLED",
@@ -37,6 +42,7 @@ const HTTP_STATUS: Readonly<Record<ErrorCode, number>> = Object.freeze({
   DEVICE_OFFLINE: 503,
   DEVICE_REVOKED: 403,
   CAPABILITY_UNAVAILABLE: 501,
+  INSUFFICIENT_SCOPE: 403,
   UPSTREAM_ERROR: 502,
   TIMEOUT: 504,
   CANCELLED: 499,
