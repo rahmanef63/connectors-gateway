@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@auth/core": "0.41.3",
+    "@cg/adapter-blender": "workspace:*",
+    "@cg/adapter-remote-mcp": "workspace:*",
     "@cg/auth": "workspace:*",
     "@cg/core": "workspace:*",
     "@convex-dev/auth": "0.0.95",

@@ -48,6 +48,8 @@ const SHAPES = {
   pencil: [{ d: "M4 20h4L20 8l-4-4L4 16z" }],
   copy: [{ d: "M9 9h11v11H9z" }, { d: "M5 15H4V4h11v1" }],
   shield: [{ d: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" }],
+  /** A page with a folded corner — used for document-shaped connectors. */
+  doc: [{ d: "M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z" }, { d: "M14 3v4h4" }],
   clock: [{ c: [12, 12, 9] }, { d: "M12 7v5l3 2" }],
 } as const satisfies Record<string, readonly Shape[]>
 

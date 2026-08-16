@@ -12,6 +12,7 @@ import {
   type PreloadedApiKeys,
 } from "@/components/api-keys"
 import { CopyField } from "@/components/copy-field"
+import { NotBuiltYet } from "@/components/not-built-yet"
 import { SectionCard } from "@/components/section-card"
 import {
   API_KEY_PLACEHOLDER,
@@ -63,7 +64,7 @@ export function SetupConsole({
 
       <SectionCard
         title="Connect an AI client"
-        description="One HTTPS endpoint serves every client. Paste this into the MCP server list of Claude Desktop, Cursor, or any host that speaks streamable HTTP."
+        description="One HTTPS endpoint, but not every host can use a key. Paste this into Claude Code, Claude Desktop, Cursor, mcp-remote, or anything you configure with a file — hosts that let you set an Authorization header."
       >
         <CopyField label="Gateway endpoint" value={mcpEndpoint(gatewayUrl)} />
         <CopyField
@@ -92,6 +93,11 @@ export function SetupConsole({
       >
         <CopyField label="Verify" value={verifyCommand(gatewayUrl, issued?.token)} />
       </SectionCard>
+
+      <NotBuiltYet
+        title="ChatGPT and Claude.ai cannot use a key"
+        blockedOn="Their connector forms have no field for one — a consumer AI host will only attach to an MCP server it can complete an OAuth flow against. That makes this gateway an OAuth provider, which is a different job from the OAuth client it needs for GitHub or Notion, and neither exists yet. Until then, use a host you configure with a file: Claude Code, Claude Desktop, Cursor, or mcp-remote."
+      />
     </>
   )
 }

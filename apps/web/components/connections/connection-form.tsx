@@ -21,15 +21,27 @@ const EMPTY: FormState = {
 }
 
 /**
- * Connector is free text with a `<datalist>` of ids this account has connected
- * before. It is deliberately NOT a select over a fixed list: the gateway's
- * catalog is authenticated per-caller (`GET /v1/catalog` needs an API key), it
- * returns only connectors that are ALREADY connected, and the gateway sends no
- * CORS headers — so a dropdown here could only be a hardcoded guess at what the
- * gateway has registered, which becomes a lie the moment a connector is added.
+ * Connector stays free text with a `<datalist>` of suggestions rather than a
+ * closed select: the gateway's own catalog is per-caller and needs an API key,
+ * so this page cannot ask it what exists. The suggestions now come from the
+ * manifests this build ships (`lib/catalog.ts` — the same files the gateway
+ * boots from), which is why a card's Connect button can prefill it, but a hand-
+ * typed id must still be allowed or a connector added on the gateway host would
+ * be unreachable from here until the dashboard is rebuilt.
+ *
+ * `initialConnectorId` is applied at mount only. The catalog remounts this form
+ * with a new `key` when another card is picked, which resets the whole form —
+ * deliberate, since a half-filled credential for connector A must not survive
+ * into connector B.
  */
-export function ConnectionForm({ knownConnectorIds }: { knownConnectorIds: readonly string[] }) {
-  const [values, setValues] = useState<FormState>(EMPTY)
+export function ConnectionForm({
+  knownConnectorIds,
+  initialConnectorId = "",
+}: {
+  knownConnectorIds: readonly string[]
+  initialConnectorId?: string
+}) {
+  const [values, setValues] = useState<FormState>({ ...EMPTY, connectorId: initialConnectorId })
   const [failure, setFailure] = useState<SaveFailure | null>(null)
   const { saveConnection, pending } = useUpsertConnection({ selfHosts: DEPLOYMENT_HOSTS })
   const listId = useId()

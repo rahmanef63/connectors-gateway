@@ -3,6 +3,7 @@ import { preloadQuery } from "convex/nextjs"
 
 import { connectionFunctions } from "@/components/connections"
 import { ConnectionsView } from "./connections-view"
+import { catalogEntries } from "@/lib/catalog"
 import { convexOptions } from "@/lib/convex-server"
 import { navTitleFor } from "@/components/shell/nav-items"
 
@@ -13,5 +14,9 @@ export default async function ConnectionsPage() {
   // authorizes the read — the page never asserts whose connections these are.
   const preloaded = await preloadQuery(connectionFunctions.listMine, {}, await convexOptions())
 
-  return <ConnectionsView preloaded={preloaded} />
+  // Read on the server: the catalog is derived from the shipped manifests and
+  // pulls in schema validation, which has no business in a browser bundle.
+  const catalog = catalogEntries()
+
+  return <ConnectionsView preloaded={preloaded} catalog={catalog} />
 }
