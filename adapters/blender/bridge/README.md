@@ -10,16 +10,12 @@ Gateway ──outbound session──▶ Connectors Agent ──▶ Blender adapt
 ## Files
 
 ```text
-connectors_bridge.py   the add-on: bl_info, HTTP server, main-thread dispatch, register/unregister
+connectors_bridge.py   the add-on: HTTP server, main-thread dispatch, register/unregister
 handlers.py            one function per action, all pure bpy with validated arguments
-__init__.py            shim so the folder can be installed as-is
+__init__.py            bl_info + the shim that makes the folder installable as-is
 ```
 
 ## Install
-
-Either shape works; pick one.
-
-**Folder install (recommended)**
 
 1. Copy this whole `bridge/` folder into Blender's add-ons directory, renamed
    `connectors_bridge`:
@@ -28,12 +24,6 @@ Either shape works; pick one.
    - Windows: `%APPDATA%\Blender Foundation\Blender\<version>\scripts\addons\connectors_bridge\`
 2. Restart Blender.
 3. `Edit > Preferences > Add-ons`, search "Connectors Gateway Bridge", tick it.
-
-**Loose-file install**
-
-Copy `connectors_bridge.py` **and** `handlers.py` side by side into that same
-`scripts/addons/` directory, then enable the add-on. `connectors_bridge.py` loads its
-sibling by absolute path, so no `sys.path` changes are needed.
 
 ## Port
 

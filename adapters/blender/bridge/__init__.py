@@ -1,8 +1,7 @@
 """Package shim so this folder can be dropped straight into Blender's `scripts/addons/`.
 
-Blender reads `bl_info` from the module it loads, so the dict is mirrored here; the real
-add-on (server, routes, registration) lives in `connectors_bridge.py`. Keep the two copies
-in step — `bridge/README.md` explains both install shapes.
+Blender reads `bl_info` from the module it loads — this one. The real add-on (server,
+routes, registration) lives in `connectors_bridge.py`.
 """
 
 bl_info = {

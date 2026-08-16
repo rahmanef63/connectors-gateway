@@ -7,8 +7,7 @@
     "packages/*/src/**/*.ts",
     "adapters/*/src/**/*.ts",
     "apps/gateway/src/**/*.ts",
-    "apps/agent/src/**/*.ts",
-    "scripts/**/*.mjs"
+    "apps/agent/src/**/*.ts"
   ],
   "exclude": ["node_modules", "apps/web", "**/node_modules"]
 }

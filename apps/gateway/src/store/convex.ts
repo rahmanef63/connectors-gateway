@@ -9,7 +9,6 @@ import { createApiKeyLookup } from "./api-keys"
 import { createApprovalStore, type ApprovalStore } from "./approvals"
 import { createAuditSink } from "./audit"
 import { createControlPlaneClient } from "./client"
-import type { ControlPlaneClient } from "./client"
 import { createConnectionStore } from "./connections"
 import { createDeviceStore } from "./devices"
 import type { GatewayDeviceStore } from "./devices"
@@ -23,22 +22,19 @@ export type GatewayControlPlane = ControlPlane & {
   approvals: ApprovalStore
 }
 
-export function createControlPlane(client: ControlPlaneClient, logger: Logger): GatewayControlPlane {
-  return {
-    devices: createDeviceStore(client),
-    pairing: createPairingStore(client),
-    policy: createPolicyStore(client),
-    connections: createConnectionStore(client),
-    audit: createAuditSink(client, logger),
-    apiKeys: createApiKeyLookup(client),
-    approvals: createApprovalStore(client),
-  }
-}
-
 export function createConvexControlPlane(options: {
   url: string
   serviceToken: string
   logger: Logger
 }): GatewayControlPlane {
-  return createControlPlane(createControlPlaneClient(options), options.logger)
+  const client = createControlPlaneClient(options)
+  return {
+    devices: createDeviceStore(client),
+    pairing: createPairingStore(client),
+    policy: createPolicyStore(client),
+    connections: createConnectionStore(client),
+    audit: createAuditSink(client, options.logger),
+    apiKeys: createApiKeyLookup(client),
+    approvals: createApprovalStore(client),
+  }
 }

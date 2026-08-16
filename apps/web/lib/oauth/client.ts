@@ -8,7 +8,7 @@
  * short enough to matter — the place to hang it is `refresh_token` from the
  * exchange below, which is currently read and dropped on purpose.
  */
-import { DiscoveryError } from "./discovery"
+import { toBase64Url } from "@cg/auth"
 
 const TIMEOUT_MS = 10_000
 const MAX_BYTES = 32 * 1024
@@ -87,6 +87,33 @@ export async function registerClient(
   }
   const secret = document["client_secret"]
   return { clientId, clientSecret: typeof secret === "string" && secret.length > 0 ? secret : null }
+}
+
+/**
+ * PKCE (RFC 7636). S256 only. `plain` is still legal in RFC 7636 and is
+ * forbidden by OAuth 2.1; an authorization server that advertises only `plain`
+ * is one we refuse rather than downgrade to.
+ */
+export type Pkce = { readonly verifier: string; readonly challenge: string }
+
+/** 32 bytes -> 43 base64url characters, the length RFC 7636 §4.1 recommends. */
+const VERIFIER_BYTES = 32
+
+export async function createPkce(): Promise<Pkce> {
+  const raw = new Uint8Array(VERIFIER_BYTES)
+  crypto.getRandomValues(raw)
+  const verifier = toBase64Url(raw)
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))
+  return { verifier, challenge: toBase64Url(new Uint8Array(digest)) }
+}
+
+/**
+ * The `state` parameter. Its only job is to prove the callback belongs to the
+ * flow this browser started — it is compared against the copy inside the sealed
+ * state cookie, so a code delivered to a callback nobody initiated is dropped.
+ */
+export function createState(): string {
+  return crypto.randomUUID()
 }
 
 export type AuthorizeParams = {
@@ -195,5 +222,3 @@ function readToken(document: Record<string, unknown>): TokenResponse {
   const expires = document["expires_in"]
   return { accessToken: token, expiresIn: typeof expires === "number" ? expires : null }
 }
-
-export { DiscoveryError }

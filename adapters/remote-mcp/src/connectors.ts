@@ -1,12 +1,9 @@
 /**
  * The remote-MCP connectors this build ships, as data.
  *
- * `../connectors/*.json` is the SHIPPED manifest — the file the gateway boots from — and
- * `examples/*.connector.json` is the published illustration of the same contract. They are
- * kept byte-identical by ./connectors.test.ts. The shipped copy cannot live in `examples/`:
- * `.dockerignore` excludes that directory from the gateway image, so a container booting
- * from it would crash on import, and a docs directory is edited to illustrate, not to
- * change what production serves.
+ * `../connectors/*.json` is the SHIPPED manifest — the file the gateway boots from, and the
+ * only copy. It is also the machine-readable illustration of the connector contract; there
+ * is no second published copy to drift from it.
  *
  * Adding a connector is one JSON file plus one line below. No package, no adapter, no code.
  * This list is the file-backed stand-in for the `connectors` table of docs/16 step 3.

@@ -59,5 +59,3 @@ const _connectionStatusMatchesSpine: Exact<
   Infer<typeof connectionStatusValidator>,
   ConnectionStatus
 > = true
-
-export const SPINE_CHECKS = [_deviceStatusMatchesSpine, _connectionStatusMatchesSpine] as const

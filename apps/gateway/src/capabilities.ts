@@ -6,7 +6,7 @@
  * device's last-known capability list must not authorize an action that would
  * then fail with DEVICE_OFFLINE anyway.
  */
-import type { Device, DeviceStore } from "@cg/core"
+import type { Device } from "@cg/core"
 
 export function announcedCapabilities(devices: readonly Device[]): string[] {
   const capabilities = new Set<string>()
@@ -15,13 +15,6 @@ export function announcedCapabilities(devices: readonly Device[]): string[] {
     for (const capability of device.capabilities) capabilities.add(capability)
   }
   return [...capabilities]
-}
-
-export async function deviceCapabilitiesFor(
-  devices: DeviceStore,
-  userId: string,
-): Promise<string[]> {
-  return announcedCapabilities(await devices.listForUser(userId))
 }
 
 /** Connector ids at least one online device announces, e.g. `blender:scene.render`. */

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { basename, looksLikeAbsolutePath, stripPaths } from "./paths"
+import { basename, stripPaths } from "./paths"
 
 describe("basename", () => {
   test("returns the last non-empty segment of either style", () => {
@@ -11,15 +11,6 @@ describe("basename", () => {
   test("never returns an empty string", () => {
     expect(basename("/")).toBe("/")
     expect(basename("")).toBe("")
-  })
-})
-
-describe("looksLikeAbsolutePath", () => {
-  test("detects both path styles and nothing else", () => {
-    expect(looksLikeAbsolutePath("/home/u/a.txt")).toBe(true)
-    expect(looksLikeAbsolutePath("C:\\tmp\\a.txt")).toBe(true)
-    expect(looksLikeAbsolutePath("frame.png")).toBe(false)
-    expect(looksLikeAbsolutePath("https://cdn.example.com/a/b.png")).toBe(false)
   })
 })
 

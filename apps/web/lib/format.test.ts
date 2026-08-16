@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest"
 import {
-  formatDuration,
   formatExpiry,
   formatPlatform,
   formatRelativeTime,
@@ -77,22 +76,5 @@ describe("formatPlatform", () => {
     expect(formatPlatform("<img onerror=alert(1)>")).toBe("Unknown platform")
     expect(formatPlatform("toString")).toBe("Unknown platform")
     expect(formatPlatform("")).toBe("Unknown platform")
-  })
-})
-
-describe("formatDuration", () => {
-  test("milliseconds under a second", () => {
-    expect(formatDuration(0)).toBe("0 ms")
-    expect(formatDuration(999)).toBe("999 ms")
-  })
-
-  test("seconds at and over a second", () => {
-    expect(formatDuration(1000)).toBe("1.0 s")
-    expect(formatDuration(2450)).toBe("2.5 s")
-  })
-
-  test("rejects nonsense", () => {
-    expect(formatDuration(-1)).toBe("—")
-    expect(formatDuration(Number.NaN)).toBe("—")
   })
 })

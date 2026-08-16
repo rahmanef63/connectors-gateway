@@ -35,7 +35,6 @@ export const auditRowValidator = v.object({
   rowId: v.string(),
 })
 
-export type AuditEventInput = Infer<typeof auditEventValidator>
 export type AuditRow = Infer<typeof auditRowValidator>
 
 export function toAuditRow(doc: Doc<"auditLogs">): AuditRow {

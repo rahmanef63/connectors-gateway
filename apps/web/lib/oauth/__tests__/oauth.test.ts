@@ -9,12 +9,13 @@ import { afterEach, describe, expect, test, vi } from "vitest"
 import {
   authorizeUrl,
   clientCredentialsGrant,
+  createPkce,
+  createState,
   exchangeCode,
   registerClient,
   OAuthExchangeError,
 } from "../client"
 import { discoverAuthServer, DiscoveryError } from "../discovery"
-import { createPkce, createState } from "../pkce"
 import { parseFlowState, type OAuthFlowState } from "../state"
 
 const RESOURCE = "https://example-mcp.convex.site/mcp"

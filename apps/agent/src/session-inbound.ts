@@ -11,7 +11,7 @@ import type { AgentMessage, GatewayMessage } from "@cg/protocol"
 import { resultFrame } from "./frames"
 import type { JobRunner } from "./jobs"
 import type { Logger } from "./log"
-import type { PinnedKey } from "./verify"
+import type { PinnedKey } from "./key-store"
 
 export type InboundDeps = {
   /** The device id this agent is paired as; a welcome for another one is fatal. */

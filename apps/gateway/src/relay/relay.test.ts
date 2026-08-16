@@ -36,7 +36,6 @@ function deviceStore(result: DeviceAuthResult, presence: Presence[]): GatewayDev
     setPresence: async (deviceId, online, capabilities) => {
       presence.push(capabilities ? { deviceId, online, capabilities } : { deviceId, online })
     },
-    revoke: async () => {},
     authenticateDevice: async () => result,
   }
 }

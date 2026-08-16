@@ -28,13 +28,10 @@ export type AvailableIndex = {
 }
 
 export type AdapterRegistry = {
-  list(): readonly LocalAdapter[]
   get(connectorId: string): LocalAdapter | undefined
   findAction(connectorId: string, actionId: string): ActionDefinition | undefined
   /** Re-probes every adapter. Runs at startup and on every reconnect. */
   detectAll(): Promise<readonly CapabilityReport[]>
-  /** Last detection result; empty until `detectAll` has run once. */
-  reports(): readonly CapabilityReport[]
   available(): AvailableIndex
 }
 
@@ -44,7 +41,6 @@ export function createAdapterRegistry(adapters: readonly LocalAdapter[]): Adapte
   let latest: readonly CapabilityReport[] = []
 
   return {
-    list: () => adapters,
     get: (connectorId) => byConnector.get(connectorId),
 
     findAction(connectorId, actionId) {
@@ -59,8 +55,6 @@ export function createAdapterRegistry(adapters: readonly LocalAdapter[]): Adapte
       )
       return latest
     },
-
-    reports: () => latest,
 
     available(): AvailableIndex {
       const capabilities = new Set<string>()

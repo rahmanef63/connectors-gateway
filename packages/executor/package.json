@@ -11,6 +11,7 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@cg/core": "workspace:*",
+    "@cg/observability": "workspace:*",
     "@cg/protocol": "workspace:*"
   }
 }

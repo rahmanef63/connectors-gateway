@@ -9,8 +9,6 @@
  * The indirection exists so the session can be tested without a network: the
  * session depends on `SocketFactory`, not on the global WebSocket.
  */
-import { GatewayError } from "@cg/core"
-
 export type SocketEvents = {
   open(): void
   /** Text frames only; binary frames are dropped before this is called. */
@@ -41,15 +39,7 @@ export const webSocketFactory: SocketFactory = (url, events) => {
   socket.addEventListener("error", () => events.error())
 
   return {
-    send(data: string): void {
-      // A send on a closing socket throws in some runtimes; a dropped frame is
-      // recoverable (the gateway times the job out), a thrown one is not.
-      try {
-        socket.send(data)
-      } catch {
-        throw new GatewayError("UPSTREAM_ERROR", "The gateway session is not writable.")
-      }
-    },
+    send: (data: string) => socket.send(data),
     close(code?: number, reason?: string): void {
       try {
         socket.close(code, reason)

@@ -12,13 +12,13 @@ import type { EnvSource } from "./env"
 import { AGENT_VERSION, defaultDeviceName, detectPlatform } from "./identity"
 import { createJobRunner } from "./jobs"
 import { createKeyStore } from "./key-store"
+import type { PinnedKey } from "./key-store"
 import { createLogger } from "./log"
 import type { Logger } from "./log"
 import { runPairing } from "./pairing"
 import { createSession } from "./session"
 import type { Session } from "./session"
-import { buildStatus, formatStatus } from "./status"
-import type { PinnedKey } from "./verify"
+import { formatStatus } from "./status"
 
 export type CommandDeps = {
   env?: EnvSource
@@ -84,7 +84,7 @@ export async function statusCommand(deps: CommandDeps = {}): Promise<string> {
   const registry = deps.registry ?? createDefaultRegistry(deps.env ?? process.env)
   const reports = await registry.detectAll()
 
-  const text = formatStatus(buildStatus({ config, reports, connection: "idle" }))
+  const text = formatStatus(config, reports, "idle")
   print(text)
   return text
 }

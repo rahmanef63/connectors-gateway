@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { GatewayError } from "@cg/core"
 import {
-  actionIdFromToolName,
   assertNoToolNameCollision,
   createToolIndex,
   lookupTool,
@@ -20,12 +19,6 @@ describe("tool name mapping", () => {
     expect(toolNameFor("blender.scene.render")).toBe("blender_scene_render")
   })
 
-  test("round-trips for every built-in action id", () => {
-    for (const actionId of ACTION_IDS) {
-      expect(actionIdFromToolName(toolNameFor(actionId))).toBe(actionId)
-    }
-  })
-
   test("an action id containing an underscore is refused rather than mangled", () => {
     expect(() => toolNameFor("blender.scene_render")).toThrow()
   })
@@ -33,11 +26,6 @@ describe("tool name mapping", () => {
   test("an empty or over-long action id is refused", () => {
     expect(() => toolNameFor("")).toThrow()
     expect(() => toolNameFor("a".repeat(200))).toThrow()
-  })
-
-  test("a tool name with illegal characters is ACTION_NOT_FOUND, not a lookup", () => {
-    expect(() => actionIdFromToolName("../../etc/passwd")).toThrow()
-    expect(() => actionIdFromToolName("blender scene")).toThrow()
   })
 })
 

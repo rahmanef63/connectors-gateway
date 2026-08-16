@@ -26,15 +26,9 @@ auth, no policy, no audit (`adapters/README.md`).
 
 ## Where a manifest lives
 
-| File | Role |
-| --- | --- |
-| `connectors/<id>.connector.json` | **shipped** — what the gateway boots and validates |
-| `examples/<id>.connector.json` | published illustration of the contract |
-
-They are byte-identical and `src/connectors.test.ts` fails if they drift. The shipped copy
-cannot live in `examples/`: `.dockerignore` excludes that directory from the gateway image,
-so a container booting from it would crash on import — and a docs directory is edited to
-illustrate, not to change what production serves.
+`connectors/<id>.connector.json` — one copy, the one the gateway boots and validates. It is
+also the machine-readable illustration of the contract; a second published copy would only
+be a thing to drift.
 
 `src/connectors.ts` runs every file through `validateManifest` at module load, so a
 malformed manifest stops the process instead of failing on the first call. That gate is why

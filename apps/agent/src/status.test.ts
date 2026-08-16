@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { CapabilityReport } from "@cg/core"
 import type { AgentConfig } from "./config"
-import { buildStatus, formatStatus } from "./status"
+import { formatStatus } from "./status"
 
 const CREDENTIAL = "cgd_this_is_the_device_credential_do_not_print_me"
 
@@ -19,43 +19,38 @@ const reports: CapabilityReport[] = [
   { connector: "ghost", status: "unavailable", adapterVersion: "0.1.0", capabilities: [] },
 ]
 
-describe("buildStatus", () => {
+describe("formatStatus", () => {
   test("reports device id, connection state and adapters", () => {
-    const report = buildStatus({ config, reports, connection: "online" })
-    expect(report.paired).toBe(true)
-    expect(report.deviceId).toBe("dev_abc123")
-    expect(report.connection).toBe("online")
-    expect(report.adapters).toHaveLength(2)
-    expect(report.adapters[0]?.capabilities).toEqual(["blender:scene.render", "blender:scene.inspect"])
-    expect(report.disabledActions).toEqual(["blender.file.export"])
+    const text = formatStatus(config, reports, "online")
+    expect(text).toContain("dev_abc123")
+    expect(text).toContain("connection:  online")
+    expect(text).toContain("  blender 4.2.1: available")
+    expect(text).toContain("    - blender:scene.render")
+    expect(text).toContain("    - blender:scene.inspect")
+    expect(text).toContain("  ghost: unavailable")
+    expect(text).toContain("disabled locally:\n  - blender.file.export")
   })
 
-  test("NEVER contains the credential — neither the object nor the printed text", () => {
-    const report = buildStatus({ config, reports, connection: "online" })
-    expect(JSON.stringify(report)).not.toContain(CREDENTIAL)
-    expect(formatStatus(report)).not.toContain(CREDENTIAL)
-    expect(Object.keys(report)).not.toContain("credential")
+  test("NEVER contains the credential", () => {
+    expect(formatStatus(config, reports, "online")).not.toContain(CREDENTIAL)
   })
 
   test("an unpaired machine reports no device and no gateway", () => {
-    const report = buildStatus({ config: null, reports: [], connection: "idle" })
-    expect(report.paired).toBe(false)
-    expect(report.deviceId).toBeUndefined()
-    expect(report.gatewayUrl).toBeUndefined()
-    const text = formatStatus(report)
+    const text = formatStatus(null, [], "idle")
     expect(text).toContain("not paired")
+    expect(text).toContain("gateway:     unset")
     expect(text).toContain("(none registered)")
   })
 
   test("the signing key is not printed either — status is not a key dump", () => {
-    const text = formatStatus(buildStatus({ config, reports, connection: "online" }))
+    const text = formatStatus(config, reports, "online")
     expect(text).not.toContain(config.signingPublicKey)
     expect(text).toContain("dev_abc123")
     expect(text).toContain("blender:scene.render")
   })
 
   test("an idle connection explains itself instead of lying about being offline", () => {
-    const text = formatStatus(buildStatus({ config, reports, connection: "idle" }))
+    const text = formatStatus(config, reports, "idle")
     expect(text).toContain("not connected in this process")
   })
 })

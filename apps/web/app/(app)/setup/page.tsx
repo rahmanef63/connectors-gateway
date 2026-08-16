@@ -5,10 +5,9 @@ import { apiKeyFunctions, type PreloadedApiKeys } from "@/components/api-keys"
 import { CopyField } from "@/components/copy-field"
 import { NotBuiltYet } from "@/components/not-built-yet"
 import { SectionCard } from "@/components/section-card"
-import { GATEWAY_URL } from "@/lib/env"
 import { navTitleFor } from "@/components/shell/nav-items"
 import { convexOptions } from "@/lib/convex-server"
-import { agentEnvSnippet } from "@/lib/gateway-config"
+import { agentEnvSnippet, normalizeGatewayUrl } from "@/lib/gateway-config"
 import { SetupConsole } from "./setup-console"
 
 export const metadata: Metadata = { title: navTitleFor("/setup") }
@@ -24,7 +23,10 @@ async function preloadKeys(): Promise<PreloadedApiKeys | null> {
 }
 
 export default async function SetupPage() {
-  if (GATEWAY_URL === null) {
+  // Literal `process.env.NEXT_PUBLIC_*` member access: Next inlines it at build
+  // time, and a computed lookup would resolve to undefined in the bundle.
+  const gatewayUrl = normalizeGatewayUrl(process.env.NEXT_PUBLIC_GATEWAY_URL)
+  if (gatewayUrl === null) {
     return (
       <NotBuiltYet
         title="Gateway address not configured"
@@ -37,13 +39,13 @@ export default async function SetupPage() {
 
   return (
     <div className="space-y-5">
-      <SetupConsole gatewayUrl={GATEWAY_URL} preloadedKeys={preloadedKeys} />
+      <SetupConsole gatewayUrl={gatewayUrl} preloadedKeys={preloadedKeys} />
 
       <SectionCard
         title="Connect a local machine"
         description="The Connectors Agent dials out to the relay. Nothing listens for inbound traffic on your machine, and no port forwarding, static IP or firewall rule is required."
       >
-        <CopyField label="Agent environment" value={agentEnvSnippet(GATEWAY_URL)} />
+        <CopyField label="Agent environment" value={agentEnvSnippet(gatewayUrl)} />
         <p className="text-sm leading-relaxed text-muted-foreground">
           Start the agent, and it prints a pairing code plus a link back to this dashboard.
           Approving that code is what grants the machine the right to execute local actions — the

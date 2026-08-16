@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { GatewayError } from "@cg/core"
-import { AGENT_VERSION, defaultDeviceName, detectPlatform, isDevicePlatform, stripControlChars } from "./identity"
+import { AGENT_VERSION, defaultDeviceName, detectPlatform, stripControlChars } from "./identity"
 
 describe("detectPlatform", () => {
   test("maps the three supported runtimes", () => {
@@ -11,11 +11,6 @@ describe("detectPlatform", () => {
 
   test("DENIED: an unsupported platform has no device record shape", () => {
     expect(() => detectPlatform("freebsd")).toThrow(GatewayError)
-  })
-
-  test("the detected platform is always a valid DevicePlatform", () => {
-    expect(isDevicePlatform(detectPlatform())).toBe(true)
-    expect(isDevicePlatform("solaris")).toBe(false)
   })
 })
 

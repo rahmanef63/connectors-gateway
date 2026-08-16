@@ -18,21 +18,6 @@ function manifestFor(id: string): ConnectorManifest {
 
 const careerpack = manifestFor("careerpack")
 
-/**
- * `examples/*.connector.json` is published as the machine-readable illustration of the
- * connector contract, so it has to be the manifest the gateway actually boots — not a
- * hand-maintained copy that drifts (AGENTS.md invariants 9 and 10). The shipped copy lives
- * under `adapters/remote-mcp/connectors/` because `.dockerignore` keeps `examples/` out of
- * the gateway image entirely.
- * Regenerate with: cp adapters/remote-mcp/connectors/x.json examples/x.connector.json
- */
-test("the published example is the shipped manifest", async () => {
-  const url = new URL("../../../examples/careerpack.connector.json", import.meta.url)
-  const published: unknown = await Bun.file(url).json()
-
-  expect(published).toEqual(JSON.parse(JSON.stringify(careerpack)))
-})
-
 describe("every shipped remote-MCP connector", () => {
   test("is a cloud connector — the gateway must never execute a local one here", () => {
     for (const manifest of REMOTE_MCP_MANIFESTS) {

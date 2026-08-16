@@ -37,14 +37,11 @@ export type OAuthFlowState = {
   readonly exp: number
 }
 
-export async function writeFlowState(
-  state: Omit<OAuthFlowState, "v" | "exp">,
-  nowMs: number = Date.now(),
-): Promise<void> {
+export async function writeFlowState(state: Omit<OAuthFlowState, "v" | "exp">): Promise<void> {
   const payload: OAuthFlowState = {
     v: 1,
     ...state,
-    exp: Math.floor(nowMs / 1000) + TTL_SECONDS,
+    exp: Math.floor(Date.now() / 1000) + TTL_SECONDS,
   }
   const store = await cookies()
   store.set(OAUTH_STATE_COOKIE, await sealCredential(JSON.stringify(payload)), {
@@ -65,12 +62,12 @@ export async function clearFlowState(): Promise<void> {
 }
 
 /** The parsed flow, or null for anything absent, tampered with, or expired. */
-export async function readFlowState(nowMs: number = Date.now()): Promise<OAuthFlowState | null> {
+export async function readFlowState(): Promise<OAuthFlowState | null> {
   const store = await cookies()
   const sealed = store.get(OAUTH_STATE_COOKIE)?.value
   if (sealed === undefined || sealed.length === 0) return null
   try {
-    return parseFlowState(await unsealCredential(sealed), nowMs)
+    return parseFlowState(await unsealCredential(sealed), Date.now())
   } catch {
     // A failed tag check and a missing key look the same on purpose.
     return null

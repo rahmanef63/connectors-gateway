@@ -9,6 +9,4 @@ export const devicesFunctions = {
   listMine: api.features.devices.queries.listMine,
   revoke: api.features.devices.mutations.revoke,
   rename: api.features.devices.mutations.rename,
-  pairingByCode: api.features.pairing.queries.getByCode,
-  approvePairing: api.features.pairing.mutations.approve,
 } as const

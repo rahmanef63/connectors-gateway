@@ -31,7 +31,6 @@ Does not own connector-specific OAuth implementation details unless they are gen
 | `issueDeviceCredential(deviceId)` | `{ credential, credentialHash }` |
 | `verifyDeviceCredential(credential, record)` | also rejects revoked devices |
 | `DeviceCredentialRecord` / `IssuedDeviceCredential` | device credential shapes |
-| `hasScopes(granted, required)` / `requireScopes(...)` | `*` and `connector:*` wildcards |
 | `seal(plaintext, keyB64)` / `open(sealed, keyB64)` | AES-256-GCM, `v1.<iv>.<cipher>` |
 | `toBase64Url` / `fromBase64Url` / `toHex` | codec helpers |
 

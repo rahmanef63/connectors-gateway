@@ -17,25 +17,20 @@ import { mutation } from "../../_generated/server"
 import type { MutationCtx } from "../../_generated/server"
 import { requireUser } from "../../_shared/auth"
 import { fail } from "../../_shared/errors"
-import { assertIdentifier } from "../../_shared/input"
+import { assertDisplayName, assertIdentifier } from "../../_shared/input"
 import { apiKeyByKeyId } from "../../_shared/lookup"
 import {
   API_KEY_ID_PREFIX,
   MAX_ACTIVE_API_KEYS_PER_USER,
-  MAX_API_KEY_LABEL_LENGTH,
   MAX_API_KEY_ROWS_SCANNED,
-  MIN_API_KEY_LABEL_LENGTH,
 } from "./limits"
-
-/** Would corrupt any log line or dashboard row the label later lands in. */
-const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/
 
 export const issue = mutation({
   args: { label: v.string() },
   returns: v.object({ key: v.string(), keyId: v.string() }),
   handler: async (ctx, args): Promise<{ key: string; keyId: string }> => {
     const userId = await requireUser(ctx)
-    const label = assertLabel(args.label)
+    const label = assertDisplayName(args.label)
     await assertUnderCap(ctx, userId)
 
     const keyId = newKeyId()
@@ -95,18 +90,6 @@ export const revoke = mutation({
 /** `key_<32 hex>` — the `newId` shape, minted locally (see `limits.ts`). */
 function newKeyId(): string {
   return `${API_KEY_ID_PREFIX}_${crypto.randomUUID().replaceAll("-", "")}`
-}
-
-function assertLabel(value: string): string {
-  const trimmed = value.trim()
-  if (
-    trimmed.length < MIN_API_KEY_LABEL_LENGTH ||
-    trimmed.length > MAX_API_KEY_LABEL_LENGTH ||
-    CONTROL_CHARACTERS.test(trimmed)
-  ) {
-    fail("INVALID_INPUT", "Label must be 1-64 characters.")
-  }
-  return trimmed
 }
 
 /**

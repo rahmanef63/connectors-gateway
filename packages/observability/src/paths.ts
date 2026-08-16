@@ -19,11 +19,6 @@ export function basename(path: string): string {
   return segments.at(-1) ?? path
 }
 
-/** True when the whole string is an absolute path we would rewrite. */
-export function looksLikeAbsolutePath(value: string): boolean {
-  return value !== stripPaths(value)
-}
-
 /** Rewrite every absolute path inside `value` to its basename. */
 export function stripPaths(value: string): string {
   return value

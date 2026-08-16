@@ -11,14 +11,10 @@ files are the source of truth; the `@cg/core` / `@cg/protocol` types mirror them
 | --------------------------------- | ----------------------------- | ------ |
 | `connector-manifest.schema.json`   | `@cg/core` `ConnectorManifest` | open   |
 | ↳ `#/$defs/action`                 | `@cg/core` `ActionDefinition`  | open   |
-| `job-envelope.schema.json`         | `@cg/protocol` `JobEnvelope`   | closed |
-| `agent-result.schema.json`         | `@cg/protocol` `AgentResult`   | closed |
-| `device-capability.schema.json`    | `@cg/core` `CapabilityReport`  | closed |
 
-"Closed" means `additionalProperties: false`. The job envelope is signed, so an
-unknown property is a tampering signal rather than a forward-compatible
-extension; the agent result and capability report arrive from a user machine and
-are validated before anything reads them.
+The agent-facing wire shapes (job envelope, agent result, capability report) are
+enforced by the hand-written guards in `packages/protocol/src/agent-frames.ts`,
+not by JSON Schema.
 
 Every action must declare an `inputSchema` (`outputSchema` is optional). An
 action with no input schema could never validate AI-supplied input, so the
@@ -33,10 +29,10 @@ validateOrThrow(schema: JsonSchema, value: unknown, label: string): void
 compileSchema(schema: JsonSchema): ValidateFunction
 safeErrorMessage(prefix: string, errors): string
 
-connectorManifestSchema | jobEnvelopeSchema | agentResultSchema | deviceCapabilitySchema | SCHEMAS
+connectorManifestSchema
 ```
 
-Import the exported schema objects rather than re-importing the `.json` file:
+Import the exported schema object rather than re-importing the `.json` file:
 compiled validators are cached by schema identity.
 
 ## Error discipline

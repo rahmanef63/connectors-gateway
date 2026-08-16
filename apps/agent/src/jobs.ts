@@ -21,7 +21,7 @@ import { assertLocallyAllowed } from "./allowlist"
 import { stripControlChars } from "./identity"
 import { errorResult, successResult } from "./job-result"
 import { DEFAULT_JOB_TIMEOUT_MS, raceTimeout } from "./timeout"
-import type { JobVerifier } from "./verify"
+import type { JobVerifier } from "./key-store"
 
 /** Correlation id used when the frame carries no usable one. Never a real job. */
 export const UNKNOWN_JOB_ID = "job_unknown"

@@ -34,28 +34,13 @@ Never expose Blender's local socket directly to the internet.
 ## Repository layout
 
 ```text
-connectors-gateway/
-├── apps/
-│   ├── web/                # dashboard
-│   ├── gateway/            # public MCP/API gateway
-│   └── agent/              # local desktop/daemon agent
-├── packages/
-│   ├── core/
-│   ├── registry/
-│   ├── protocol/
-│   ├── auth/
-│   ├── policy/
-│   ├── executor/
-│   ├── schemas/
-│   ├── sdk/
-│   └── observability/
-├── adapters/
-│   ├── blender/
-│   └── careerpack/
-├── docs/
-├── examples/
-└── .github/
+apps/       web (dashboard) · gateway (public MCP/API) · agent (local daemon)
+packages/   core · registry · protocol · auth · policy · executor · schemas · sdk · observability
+adapters/   blender (local) · remote-mcp (cloud)
+docs/       architecture, security model, connector contract, roadmap
 ```
+
+`git ls-files` is the map. Nothing here is generated, so nothing here can rot.
 
 ## MVP
 

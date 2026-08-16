@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from "next"
 import type { ReactNode } from "react"
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server"
 
+import { ThemeProvider } from "next-themes"
+
 import { Providers } from "./providers"
-import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/toast"
 import { BRAND, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "@/lib/site"
 import "./globals.css"
@@ -53,7 +54,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* Background, colour and font come from `body` in globals.css — the
             tokens are the SSOT, so nothing is restated as a utility here. */}
         <body className="min-h-dvh">
-          <ThemeProvider>
+          {/* attribute="class" toggles class="dark"/class="light" on <html>
+              (globals.css: dark is :root, .light overrides). defaultTheme="dark"
+              preserves the template's look; disableTransitionOnChange stops a
+              colour flash when switching. */}
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
             {/* Toaster IS the provider: it renders children plus the live
                 region, so `useToast()` can never be called outside it.
                 Outside Providers, because a toast is not Convex data. */}

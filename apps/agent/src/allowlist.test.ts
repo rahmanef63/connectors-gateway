@@ -7,7 +7,6 @@ import {
   assertLocallyAllowed,
   evaluateLocalAllowlist,
   isForbiddenActionId,
-  mostRestrictive,
 } from "./allowlist"
 
 function action(overrides: Partial<ActionDefinition> = {}): ActionDefinition {
@@ -129,17 +128,5 @@ describe("assertLocallyAllowed", () => {
 
   test("returns silently when allowed", () => {
     expect(() => assertLocallyAllowed(input())).not.toThrow()
-  })
-})
-
-describe("mostRestrictive", () => {
-  test("cloud ALLOW + local DENY = DENY", () => {
-    expect(mostRestrictive("ALLOW", "DENY")).toBe("DENY")
-    expect(mostRestrictive("ALLOW", "REQUIRE_APPROVAL")).toBe("REQUIRE_APPROVAL")
-    expect(mostRestrictive("ALLOW", "ALLOW")).toBe("ALLOW")
-  })
-
-  test("no decisions at all fails closed", () => {
-    expect(mostRestrictive()).toBe("DENY")
   })
 })

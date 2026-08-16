@@ -4,10 +4,11 @@
  * Alphabet and length mirror `pairingCode()` in @cg/core.
  */
 
-export const PAIRING_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+const PAIRING_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 export const PAIRING_CODE_LENGTH = 8
 
-const ALLOWED = new Set(PAIRING_CODE_ALPHABET)
+/** `^[A-Z2-9…]{8}$`, derived so the alphabet and the length stay the SSOT. */
+const CANONICAL = new RegExp(`^[${PAIRING_CODE_ALPHABET}]{${PAIRING_CODE_LENGTH}}$`)
 
 /**
  * Returns the canonical code, or null if the input cannot be one.
@@ -15,16 +16,11 @@ const ALLOWED = new Set(PAIRING_CODE_ALPHABET)
  */
 export function parsePairingCode(raw: unknown): string | null {
   if (typeof raw !== "string") return null
-  // Cheap guard so a megabyte-long query param never reaches the regex/loop.
+  // Cheap guard so a megabyte-long query param never reaches the regex.
   if (raw.length > 64) return null
 
   const normalized = raw.replace(/[\s-]/g, "").toUpperCase()
-  if (normalized.length !== PAIRING_CODE_LENGTH) return null
-
-  for (const character of normalized) {
-    if (!ALLOWED.has(character)) return null
-  }
-  return normalized
+  return CANONICAL.test(normalized) ? normalized : null
 }
 
 /** Display form: `ABCD-EFGH`. Input must already be canonical. */

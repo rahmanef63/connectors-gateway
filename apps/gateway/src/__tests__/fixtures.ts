@@ -149,7 +149,6 @@ export function fakeDevices(devices: Device[] = []): DeviceStore {
     listForUser: async () => devices,
     authenticate: async () => null,
     setPresence: async () => {},
-    revoke: async () => {},
   }
 }
 
@@ -233,8 +232,6 @@ export function fakePairing(overrides: Partial<PairingStore> = {}): PairingStore
       status: "pending",
       expiresAt: 1_700_000_300_000,
     }),
-    getByCode: async () => null,
-    approve: async () => {},
     claim: async (challengeId) =>
       challengeId === "pair_0123456789abcdef0123456789abcd"
         ? { device: makeDevice(), credential: "cgd_dev_1_abcdefabcdefabcdef" }
@@ -246,7 +243,6 @@ export function fakePairing(overrides: Partial<PairingStore> = {}): PairingStore
 export const testConfig: GatewayConfig = {
   env: "development",
   port: 8787,
-  publicUrl: "http://localhost:8787",
   webPublicUrl: "http://localhost:3000",
   convexUrl: "http://127.0.0.1:3210",
   serviceToken: "a-service-token-long-enough",

@@ -8,5 +8,4 @@ Requirements:
 - structured events;
 - secret redaction;
 - connector/action labels;
-- latency measurement;
 - no raw token logging.

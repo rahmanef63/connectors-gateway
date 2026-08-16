@@ -11,6 +11,7 @@
  * The code is printed for the human. The credential never is: it goes straight
  * into the credential store (AGENTS.md invariant 4 and P0).
  */
+import { setTimeout as nodeSleep } from "node:timers/promises"
 import type { DevicePlatform } from "@cg/core"
 import { GatewayError } from "@cg/core"
 import { backoffDelay } from "./backoff"
@@ -44,7 +45,7 @@ export async function runPairing(options: PairingOptions): Promise<AgentConfig> 
   const base = httpBaseFrom(options.gatewayUrl)
   const print = options.print ?? ((line: string) => console.log(line))
   const now = options.now ?? Date.now
-  const sleep = options.sleep ?? defaultSleep
+  const sleep = options.sleep ?? ((ms: number) => nodeSleep(ms))
 
   const started = startResponse(
     await postJson(`${base}${PAIR_START_PATH}`, {
@@ -118,10 +119,4 @@ const RETRYABLE_CODES: readonly string[] = ["UPSTREAM_ERROR", "TIMEOUT", "APPROV
 function asRetryable(cause: unknown): GatewayError {
   if (cause instanceof GatewayError && RETRYABLE_CODES.includes(cause.code)) return cause
   throw cause
-}
-
-function defaultSleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms)
-  })
 }

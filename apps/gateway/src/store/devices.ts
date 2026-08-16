@@ -4,7 +4,6 @@
  * The credential hash never leaves this module: callers get a `Device` or an
  * auth verdict, never the stored material (AGENTS.md invariant 4).
  */
-import { GatewayError } from "@cg/core"
 import type { Device, DeviceStore } from "@cg/core"
 import { verifyDeviceCredential } from "@cg/auth"
 import type { ControlPlaneClient } from "./client"
@@ -65,12 +64,6 @@ export function createDeviceStore(client: ControlPlaneClient): GatewayDeviceStor
     setPresence: async (deviceId: string, online: boolean, capabilities?: string[]) => {
       const args = capabilities ? { deviceId, online, capabilities } : { deviceId, online }
       await client.mutation(REFS.devicesSetPresence, args)
-    },
-    revoke: async () => {
-      // Revocation is a USER action: apps/web calls features/devices/mutations:revoke
-      // with a @convex-dev/auth session. The gateway holds a service token, which
-      // must never be usable to act on a user's behalf.
-      throw new GatewayError("NOT_AUTHORIZED", "Devices are revoked from the dashboard.")
     },
     authenticateDevice,
   }

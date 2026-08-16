@@ -35,17 +35,6 @@ export function createPairingStore(client: ControlPlaneClient): PairingStore {
       return challenge
     },
 
-    async getByCode(code: string): Promise<PairingChallenge | null> {
-      return toPairingChallenge(await client.query(REFS.pairingGetByCode, { code }))
-    },
-
-    async approve(): Promise<void> {
-      // Approval requires a signed-in human: apps/web calls
-      // features/pairing/mutations:approve. The gateway has no user session and
-      // must not be able to approve a device with its service token.
-      throw new GatewayError("NOT_AUTHORIZED", "Pairing is approved from the dashboard.")
-    },
-
     /**
      * One-time. `service/pairing:claim` is atomic and enforces
      * approved + unclaimed + unexpired; a null return means one of those failed

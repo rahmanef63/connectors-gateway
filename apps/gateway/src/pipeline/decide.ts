@@ -7,7 +7,7 @@
  */
 import type { ActionDefinition, ConnectorManifest, PolicyDecision, Principal } from "@cg/core"
 import { evaluatePolicy } from "@cg/policy"
-import { deviceCapabilitiesFor } from "../capabilities"
+import { announcedCapabilities } from "../capabilities"
 import type { PipelineDeps } from "./types"
 
 export async function decide(
@@ -19,7 +19,7 @@ export async function decide(
   const rules = await deps.policy.listRules(principal.userId, connector.id)
   const deviceCapabilities =
     connector.executor === "local"
-      ? await deviceCapabilitiesFor(deps.devices, principal.userId)
+      ? announcedCapabilities(await deps.devices.listForUser(principal.userId))
       : undefined
 
   const evaluation = evaluatePolicy({

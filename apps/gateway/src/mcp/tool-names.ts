@@ -1,12 +1,13 @@
 /**
- * Action id <-> MCP tool name.
+ * Action id -> MCP tool name.
  *
  * MCP tool names are a flat, restricted namespace; connector action ids are
- * dotted (`blender.scene.render`). The mapping is a pure character swap so it
- * round-trips: `blender.scene.render` <-> `blender_scene_render`.
+ * dotted (`blender.scene.render`). The mapping is a pure character swap:
+ * `blender.scene.render` becomes `blender_scene_render`.
  *
- * Nothing routes on the reverse mapping alone — `lookupTool` resolves against
- * the caller's own catalog, so an invented tool name cannot reach the pipeline.
+ * There is deliberately no reverse function. `lookupTool` resolves a name
+ * against the caller's own catalog, so an invented tool name cannot be decoded
+ * into an action id and reach the pipeline.
  */
 import { GatewayError } from "@cg/core"
 
@@ -19,13 +20,6 @@ export function toolNameFor(actionId: string): string {
     throw new GatewayError("INTERNAL", "An action id cannot be exposed as an MCP tool name.")
   }
   return actionId.replaceAll(".", "_")
-}
-
-export function actionIdFromToolName(toolName: string): string {
-  if (!TOOL_NAME_RE.test(toolName)) {
-    throw new GatewayError("ACTION_NOT_FOUND", "Unknown tool.")
-  }
-  return toolName.replaceAll("_", ".")
 }
 
 export type ToolTarget = { connectorId: string; actionId: string }

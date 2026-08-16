@@ -34,7 +34,6 @@ export interface DeviceStore {
   /** Verify a presented credential. Returns null for wrong/rotated/revoked. */
   authenticate(deviceId: string, credential: string): Promise<Device | null>
   setPresence(deviceId: string, online: boolean, capabilities?: string[]): Promise<void>
-  revoke(deviceId: string, userId: string): Promise<void>
 }
 
 export interface PairingStore {
@@ -44,9 +43,6 @@ export interface PairingStore {
     platform: DevicePlatform
     ttlMs: number
   }): Promise<PairingChallenge>
-  getByCode(code: string): Promise<PairingChallenge | null>
-  /** Browser side: an authenticated user approves the code. */
-  approve(code: string, userId: string): Promise<void>
   /** Agent side: one-time claim of the device credential. */
   claim(challengeId: string): Promise<DeviceRegistration | null>
 }

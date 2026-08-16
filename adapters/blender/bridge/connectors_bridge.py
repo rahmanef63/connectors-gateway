@@ -5,17 +5,6 @@ The bind address is a constant, not a preference: there is no supported way to w
 Actions live in handlers.py; this file is transport, threading and registration only.
 """
 
-bl_info = {
-    "name": "Connectors Gateway Bridge",
-    "author": "connectors-gateway",
-    "version": (0, 1, 0),
-    "blender": (4, 0, 0),
-    "location": "Edit > Preferences > Add-ons",
-    "description": "Loopback-only JSON bridge for the Connectors Gateway local agent.",
-    "warning": "Serves on 127.0.0.1 only. Never expose this port.",
-    "category": "System",
-}
-
 import json
 import os
 import queue
@@ -24,17 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import bpy
 
-if __package__:
-    from . import handlers
-else:
-    # Loose-file install: load the sibling module explicitly instead of polluting sys.path.
-    import importlib.util
-
-    _spec = importlib.util.spec_from_file_location(
-        "cg_bridge_handlers", os.path.join(os.path.dirname(os.path.abspath(__file__)), "handlers.py")
-    )
-    handlers = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(handlers)
+from . import handlers
 
 BRIDGE_VERSION = "0.1.0"
 # Hard-coded on purpose. Never 0.0.0.0, never a preference.

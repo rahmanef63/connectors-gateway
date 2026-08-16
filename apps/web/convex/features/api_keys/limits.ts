@@ -32,7 +32,3 @@ export const MAX_API_KEYS_PAGE = 200
  * identical shape.
  */
 export const API_KEY_ID_PREFIX = "key"
-
-/** A human label, same bounds as a device display name. */
-export const MIN_API_KEY_LABEL_LENGTH = 1
-export const MAX_API_KEY_LABEL_LENGTH = 64

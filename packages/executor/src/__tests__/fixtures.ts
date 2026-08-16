@@ -98,6 +98,5 @@ export function fakeDevices(devices: Device[]): DeviceStore {
       return null
     },
     async setPresence(): Promise<void> {},
-    async revoke(): Promise<void> {},
   }
 }

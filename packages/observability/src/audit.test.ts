@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { AuditEvent } from "@cg/core"
-import { buildAuditEvent, createLoggingAuditSink } from "./audit"
-import { createLogger } from "./logger"
+import { buildAuditEvent } from "./audit"
 
 const AUDIT_FIELDS = [
   "requestId",
@@ -96,34 +95,5 @@ describe("buildAuditEvent", () => {
     expect("workspaceId" in event).toBe(false)
     expect("deviceId" in event).toBe(false)
     expect("errorCode" in event).toBe(false)
-  })
-})
-
-describe("createLoggingAuditSink", () => {
-  test("writes one redacted audit line and drops smuggled payload fields", async () => {
-    const lines: string[] = []
-    const logger = createLogger("audit", { write: (line) => void lines.push(line) })
-    const sink = createLoggingAuditSink(logger)
-
-    await sink.append({
-      ...baseInput(),
-      deviceId: "dev_1",
-      output: { path: "/home/user/frame.png" },
-    } as unknown as AuditEvent)
-
-    expect(lines).toHaveLength(1)
-    const record = JSON.parse(lines[0] ?? "{}")
-    expect(record).toMatchObject({
-      kind: "audit",
-      requestId: "req_1",
-      connectorId: "blender",
-      actionId: "blender.scene.render",
-      executorKind: "local",
-      deviceId: "dev_1",
-      status: "success",
-      latencyMs: 42,
-    })
-    expect(record.output).toBeUndefined()
-    expect(lines[0]).not.toContain("/home/user")
   })
 })

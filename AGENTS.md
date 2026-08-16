@@ -35,7 +35,7 @@ If working on the local agent, also read:
 8. Every action has explicit risk metadata.
 9. Cloud and local connectors implement the same logical connector contract.
 10. Protocol-specific details belong at adapters/edges; business-level action schemas stay normalized.
-11. `rahmanef63/connectors` remains the cookbook/SSOT. Do not duplicate long-form recipes here when a link/reference is enough.
+11. `rahmanef63/connectors` remains the cookbook/SSOT. Do not duplicate long-form recipes here when a link/reference is enough. When a runtime fix here uncovers a reusable lesson: fix it here, write the recipe there, link back to this implementation — never explain it twice.
 12. Secrets, refresh tokens, device credentials, and raw OAuth tokens must never be committed to the repository.
 
 ## MVP boundary

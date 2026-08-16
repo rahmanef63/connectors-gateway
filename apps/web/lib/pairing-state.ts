@@ -10,15 +10,13 @@ export type PairingChallengeView = Pick<
   "code" | "deviceName" | "platform" | "status" | "expiresAt"
 >
 
-export const PAIRING_VIEW_STATES = [
-  "missing_code",
-  "unknown",
-  "claimed",
-  "expired",
-  "approved",
-  "ready",
-] as const
-export type PairingViewState = (typeof PAIRING_VIEW_STATES)[number]
+export type PairingViewState =
+  | "missing_code"
+  | "unknown"
+  | "claimed"
+  | "expired"
+  | "approved"
+  | "ready"
 
 const CHALLENGE_STATUSES: readonly PairingChallenge["status"][] = [
   "pending",

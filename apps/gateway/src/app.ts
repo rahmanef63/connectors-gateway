@@ -4,21 +4,20 @@
  * against in-memory fakes without a single conditional in production code.
  */
 import { open } from "@cg/auth"
+import { manifest as blenderManifest } from "@cg/adapter-blender"
 import { REMOTE_MCP_MANIFESTS, createRemoteMcpAdapter } from "@cg/adapter-remote-mcp"
 import { createCloudExecutor, createLocalExecutor, createRouter } from "@cg/executor"
 import type { CloudAdapter } from "@cg/executor"
 import { createLogger } from "@cg/observability"
 import type { Logger } from "@cg/observability"
-import { signJob } from "@cg/protocol"
+import { importPrivateKey, signJob } from "@cg/protocol"
 import type { JobEnvelope } from "@cg/protocol"
+import { createRegistry } from "@cg/registry"
 import type { GatewayConfig } from "./config"
 import type { GatewayDeps } from "./deps"
 import { createRateLimiter } from "./http/rate-limit"
-import { createBuiltInRegistry } from "./registry"
 import { createRelay } from "./relay/relay"
-import { resolveSecrets } from "./secrets"
 import { createConvexControlPlane } from "./store/convex"
-import type { GatewayControlPlane } from "./store/convex"
 
 /** 5 code mints per 10 minutes per peer — docs/14 "pairing code brute force". */
 const PAIRING_LIMIT = 5
@@ -48,39 +47,35 @@ const EDGE_LIMIT = 120
 const EDGE_WINDOW_MS = 60_000
 
 export type GatewayApp = {
-  config: GatewayConfig
   deps: GatewayDeps
   logger: Logger
   stop(): void
 }
 
-export type AppOverrides = {
-  logger?: Logger
-  controlPlane?: GatewayControlPlane
-}
+export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
+  const logger = createLogger("gateway")
+  const controlPlane = createConvexControlPlane({
+    url: config.convexUrl,
+    serviceToken: config.serviceToken,
+    logger,
+  })
 
-export async function createApp(
-  config: GatewayConfig,
-  overrides: AppOverrides = {},
-): Promise<GatewayApp> {
-  const logger = overrides.logger ?? createLogger("gateway")
-  const controlPlane =
-    overrides.controlPlane ??
-    createConvexControlPlane({ url: config.convexUrl, serviceToken: config.serviceToken, logger })
-
-  const registry = createBuiltInRegistry()
-  const secrets = await resolveSecrets(config, logger)
+  // Boot-time gate: a manifest that fails its own contract stops the process.
+  const registry = createRegistry([...REMOTE_MCP_MANIFESTS, blenderManifest])
+  const signingPrivateKey = await importPrivateKey(config.signing.privateKey)
+  const keyId = config.signing.keyId
 
   const relay = createRelay({
     devices: controlPlane.devices,
     logger: logger.child({ scope: "relay" }),
-    signingPublicKey: secrets.signingPublicKey,
-    keyId: secrets.keyId,
+    signingPublicKey: config.signing.publicKey,
+    keyId,
   })
 
-  // Cloud adapters run IN this process. Local adapters never do: blender's
-  // manifest is registered for catalog/policy (./registry), and its adapter is
-  // deliberately not even imported here — it executes inside apps/agent.
+  // Cloud adapters run IN this process. Local adapters never do: blender
+  // contributes its MANIFEST only — registered above for catalog and policy —
+  // and its adapter is deliberately not even imported here, because it executes
+  // inside apps/agent on the user's machine (AGENTS.md invariant 1/3).
   //
   // Every remote MCP connector is the SAME adapter bound to a different manifest, so a
   // new one is a JSON file in @cg/adapter-remote-mcp and nothing here changes.
@@ -92,13 +87,12 @@ export async function createApp(
     adapters,
     connections: controlPlane.connections,
     // The ONLY place a stored connection token is decrypted.
-    openCredential: (tokenCipher: string) => open(tokenCipher, secrets.credentialKey),
+    openCredential: (tokenCipher: string) => open(tokenCipher, config.credentialEncryptionKey),
   })
   const local = createLocalExecutor({
     devices: controlPlane.devices,
     dispatcher: relay.dispatcher,
-    signJob: (envelope: JobEnvelope) =>
-      signJob(envelope, { privateKey: secrets.signingPrivateKey, keyId: secrets.keyId }),
+    signJob: (envelope: JobEnvelope) => signJob(envelope, { privateKey: signingPrivateKey, keyId }),
   })
 
   const deps: GatewayDeps = {
@@ -118,5 +112,5 @@ export async function createApp(
     logger,
   }
 
-  return { config, deps, logger, stop: () => relay.stop() }
+  return { deps, logger, stop: () => relay.stop() }
 }

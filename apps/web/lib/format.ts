@@ -49,9 +49,3 @@ const PLATFORM_LABELS = new Map<string, string>([
 export function formatPlatform(platform: string): string {
   return PLATFORM_LABELS.get(platform) ?? "Unknown platform"
 }
-
-export function formatDuration(milliseconds: number): string {
-  if (!Number.isFinite(milliseconds) || milliseconds < 0) return "—"
-  if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`
-  return `${(milliseconds / 1000).toFixed(1)} s`
-}

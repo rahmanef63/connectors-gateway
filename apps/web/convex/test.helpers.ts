@@ -5,7 +5,8 @@
 import { expect } from "vitest"
 import { convexTest, type TestConvex } from "convex-test"
 import type { Doc, Id } from "./_generated/dataModel"
-import { errorCodeOf, type ControlPlaneErrorCode } from "./_shared/errors"
+import type { ErrorCode } from "@cg/core"
+import { errorCodeOf } from "./_shared/errors"
 import schema from "./schema"
 
 export const modules = import.meta.glob("./**/*.*s")
@@ -35,7 +36,7 @@ export function asUser(t: TestClient, userId: Id<"users">): TestClient {
 
 export async function expectRejected(
   call: Promise<unknown>,
-  code: ControlPlaneErrorCode,
+  code: ErrorCode,
 ): Promise<void> {
   try {
     await call

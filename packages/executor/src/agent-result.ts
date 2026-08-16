@@ -6,7 +6,7 @@ import { GatewayError } from "@cg/core"
 import type { ExecutionResult } from "@cg/core"
 import type { AgentResult } from "@cg/protocol"
 import { errorResult, isErrorCode, normalizeFiles, successResult } from "./result"
-import { stripPaths } from "./sanitize"
+import { stripPaths } from "@cg/observability"
 
 const MAX_MESSAGE_LENGTH = 300
 

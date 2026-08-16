@@ -6,7 +6,7 @@
  * That decision is treated as one vote, not as authority: a compromised or
  * mis-configured gateway must not imply unlimited local execution.
  */
-import { DECISION_RESTRICTIVENESS, isRiskClass } from "@cg/core"
+import { isRiskClass } from "@cg/core"
 import type { ActionDefinition, PolicyDecision } from "@cg/core"
 import { GatewayError } from "@cg/core"
 import type { AvailableIndex } from "./adapters"
@@ -89,24 +89,6 @@ export function assertLocallyAllowed(input: AllowlistInput): void {
 export function isForbiddenActionId(connectorId: string, actionId: string): boolean {
   const haystack = `${connectorId}.${actionId}`.toLowerCase()
   return FORBIDDEN_ACTION_TOKENS.some((token) => haystack.includes(token))
-}
-
-/**
- * docs/09: the most restrictive decision wins. `@cg/policy` owns the cloud-side
- * copy of this; the agent cannot import it (not a declared dependency of this
- * app), so the ranking table from `@cg/core` is used directly.
- */
-export function mostRestrictive(...decisions: readonly PolicyDecision[]): PolicyDecision {
-  let worst: PolicyDecision = "DENY"
-  let rank = -1
-  for (const decision of decisions) {
-    const current = DECISION_RESTRICTIVENESS[decision] ?? DECISION_RESTRICTIVENESS.DENY
-    if (current > rank) {
-      rank = current
-      worst = decision
-    }
-  }
-  return worst
 }
 
 function deny(reason: AllowlistReason): AllowlistDecision {

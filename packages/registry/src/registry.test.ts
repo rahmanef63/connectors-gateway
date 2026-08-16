@@ -1,22 +1,18 @@
 import { describe, expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
 import { GatewayError } from "@cg/core"
 import type { ConnectorManifest } from "@cg/core"
 import { createRegistry } from "./registry"
 
-const EXAMPLES_DIR = join(import.meta.dir, "..", "..", "..", "examples")
-
-function loadExample(name: string): ConnectorManifest {
-  return JSON.parse(readFileSync(join(EXAMPLES_DIR, name), "utf8")) as ConnectorManifest
-}
-
-function manifest(id: string, actionIds: string[]): ConnectorManifest {
+function manifest(
+  id: string,
+  actionIds: string[],
+  executor: ConnectorManifest["executor"] = "cloud",
+): ConnectorManifest {
   return {
     id,
     name: id,
     version: "0.1.0",
-    executor: "cloud",
+    executor,
     auth: { type: "none" },
     actions: actionIds.map((actionId) => ({
       id: actionId,
@@ -27,6 +23,23 @@ function manifest(id: string, actionIds: string[]): ConnectorManifest {
       annotations: { readOnly: true, destructive: false },
     })),
   }
+}
+
+/**
+ * A stand-in for the shipped Blender manifest. The real one is TypeScript
+ * (`@cg/adapter-blender`), and importing it here would invert the
+ * package -> adapter dependency direction; that the shipped manifests are
+ * well-formed is proven in packages/schemas/src/manifest.test.ts and again at
+ * gateway boot, where createRegistry runs over the real ones.
+ */
+function localManifest(): ConnectorManifest {
+  const base = manifest("blender", ["blender.scene.render"], "local")
+  const action = base.actions[0]
+  if (action === undefined) throw new Error("unreachable")
+  action.risk = "R2"
+  action.requiredCapabilities = ["scene.render"]
+  action.annotations = { readOnly: false, destructive: false }
+  return base
 }
 
 function expectThrows(build: () => unknown): GatewayError {
@@ -40,11 +53,8 @@ function expectThrows(build: () => unknown): GatewayError {
 }
 
 describe("createRegistry", () => {
-  test("indexes the shipped examples", () => {
-    const registry = createRegistry([
-      loadExample("careerpack.connector.json"),
-      loadExample("blender.connector.json"),
-    ])
+  test("indexes several connectors", () => {
+    const registry = createRegistry([manifest("careerpack", ["careerpack.profile.read"]), localManifest()])
 
     expect(registry.list().map((connector) => connector.id)).toEqual(["careerpack", "blender"])
     expect(registry.get("blender")?.executor).toBe("local")
@@ -93,7 +103,7 @@ describe("createRegistry", () => {
 })
 
 describe("resolve", () => {
-  const registry = createRegistry([loadExample("blender.connector.json")])
+  const registry = createRegistry([localManifest()])
 
   test("returns the connector and the action", () => {
     const resolved = registry.resolve("blender", "blender.scene.render")

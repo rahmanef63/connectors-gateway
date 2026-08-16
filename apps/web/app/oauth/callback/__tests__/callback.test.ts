@@ -48,7 +48,7 @@ vi.mock("@convex-dev/auth/nextjs/server", () => ({
 }))
 
 const { GET } = await import("../route")
-const { writeFlowState } = await import("@/lib/oauth")
+const { writeFlowState } = await import("@/lib/oauth/state")
 
 const FLOW = {
   connectorId: "careerpack",

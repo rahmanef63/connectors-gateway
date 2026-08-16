@@ -12,7 +12,6 @@ function devices(result: DeviceAuthResult): GatewayDeviceStore {
     listForUser: async () => [],
     authenticate: async () => null,
     setPresence: async () => {},
-    revoke: async () => {},
     authenticateDevice: async () => result,
   }
 }

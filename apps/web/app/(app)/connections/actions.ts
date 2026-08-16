@@ -31,10 +31,10 @@ import {
   clientCredentialsGrant,
   createPkce,
   createState,
-  discoverAuthServer,
   registerClient,
-  writeFlowState,
-} from "@/lib/oauth"
+} from "@/lib/oauth/client"
+import { discoverAuthServer } from "@/lib/oauth/discovery"
+import { writeFlowState } from "@/lib/oauth/state"
 import {
   classify,
   collectCredential,

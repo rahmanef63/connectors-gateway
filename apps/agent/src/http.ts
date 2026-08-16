@@ -16,7 +16,6 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
 export type PostJsonOptions = {
   fetchImpl?: FetchLike
-  timeoutMs?: number
 }
 
 export async function postJson(
@@ -25,7 +24,6 @@ export async function postJson(
   options: PostJsonOptions = {},
 ): Promise<Record<string, unknown>> {
   const fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init))
-  const timeoutMs = options.timeoutMs ?? DEFAULT_HTTP_TIMEOUT_MS
 
   let response: Response
   try {
@@ -33,7 +31,7 @@ export async function postJson(
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(DEFAULT_HTTP_TIMEOUT_MS),
     })
   } catch (cause) {
     // The cause can carry request headers or a resolved address; it is dropped.

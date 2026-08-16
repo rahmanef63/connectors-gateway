@@ -30,48 +30,12 @@ Connectors Agent:
 outbound encrypted connection → Gateway
 ```
 
-## Safe MVP action surface
+## Action surface and adapter responsibilities
 
-Start narrow:
-
-```text
-blender.scene.inspect
-blender.scene.render
-blender.object.list
-blender.object.create
-blender.object.transform
-blender.material.list
-blender.material.apply
-blender.file.export
-```
-
-Optional later:
-
-```text
-blender.object.delete
-blender.asset.import
-blender.camera.configure
-blender.light.configure
-```
-
-Disabled by default:
-
-```text
-blender.python.execute
-blender.shell.execute
-blender.filesystem.raw
-```
-
-## Adapter responsibilities
-
-- detect Blender availability;
-- detect bridge/add-on version;
-- translate normalized action → Blender bridge call;
-- validate paths;
-- enforce timeouts;
-- normalize Blender errors;
-- return files through the gateway file/result mechanism;
-- never accept arbitrary code for ordinary actions.
+`adapters/blender/README.md` lists both against the code that actually ships — the
+shipped action ids with their risk tiers, the three actions that are never implemented
+(absent, not present-and-disabled), and what the adapter owes the gateway. This file does
+not restate them, so the two cannot disagree.
 
 ## Capability report
 

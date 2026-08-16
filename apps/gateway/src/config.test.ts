@@ -1,32 +1,29 @@
 import { describe, expect, test } from "bun:test"
 import { loadConfig } from "./config"
 
+// Crypto material is required in development too, so it belongs in BASE.
 const BASE = {
   CONVEX_URL: "http://127.0.0.1:3210",
   GATEWAY_SERVICE_TOKEN: "a-service-token-long-enough",
+  JOB_SIGNING_PRIVATE_KEY: "cHJpdmF0ZQ==",
+  JOB_SIGNING_PUBLIC_KEY: "cHVibGlj",
+  CREDENTIAL_ENCRYPTION_KEY: "a2V5",
 }
 
 const PROD = {
   ...BASE,
   NODE_ENV: "production",
   CONVEX_URL: "https://example.convex.cloud",
-  GATEWAY_PUBLIC_URL: "https://connect.example.com",
   WEB_PUBLIC_URL: "https://app.example.com",
-  JOB_SIGNING_PRIVATE_KEY: "cHJpdmF0ZQ==",
-  JOB_SIGNING_PUBLIC_KEY: "cHVibGlj",
-  CREDENTIAL_ENCRYPTION_KEY: "a2V5",
 }
 
 describe("loadConfig — development defaults", () => {
-  test("fills port and urls, and allows missing crypto material", () => {
+  test("fills port, url and key id", () => {
     const config = loadConfig(BASE)
     expect(config.env).toBe("development")
     expect(config.port).toBe(8787)
-    expect(config.publicUrl).toBe("http://localhost:8787")
     expect(config.webPublicUrl).toBe("http://localhost:3000")
     expect(config.signing.keyId).toBe("k1")
-    expect(config.signing.privateKey).toBe("")
-    expect(config.credentialEncryptionKey).toBe("")
   })
 
   test("a trailing slash is normalized away", () => {
@@ -38,9 +35,8 @@ describe("loadConfig — development defaults", () => {
 
 describe("loadConfig — fail fast", () => {
   test("CONVEX_URL is required in every environment", () => {
-    expect(() => loadConfig({ GATEWAY_SERVICE_TOKEN: BASE.GATEWAY_SERVICE_TOKEN })).toThrow(
-      "CONVEX_URL",
-    )
+    const { CONVEX_URL: _url, ...rest } = BASE
+    expect(() => loadConfig(rest)).toThrow("CONVEX_URL")
   })
 
   test("GATEWAY_SERVICE_TOKEN is required and must not be trivial", () => {
@@ -57,15 +53,26 @@ describe("loadConfig — fail fast", () => {
     expect(() => loadConfig({ ...BASE, WEB_PUBLIC_URL: "javascript:alert(1)" })).toThrow(
       "WEB_PUBLIC_URL",
     )
-    expect(() => loadConfig({ ...BASE, GATEWAY_PUBLIC_URL: "not a url" })).toThrow(
-      "GATEWAY_PUBLIC_URL",
-    )
+    expect(() => loadConfig({ ...BASE, WEB_PUBLIC_URL: "not a url" })).toThrow("WEB_PUBLIC_URL")
   })
 
-  test("half a signing keypair is refused", () => {
-    expect(() => loadConfig({ ...BASE, JOB_SIGNING_PRIVATE_KEY: "cHJpdmF0ZQ==" })).toThrow(
-      "must be set together",
-    )
+  // An ephemeral dev key signs jobs that stop verifying at the next restart, and
+  // seals credentials nothing can reopen. Development gets no exemption.
+  test("the signing keypair is required in development too", () => {
+    const { JOB_SIGNING_PRIVATE_KEY: _p, ...noPrivate } = BASE
+    expect(() => loadConfig(noPrivate)).toThrow("JOB_SIGNING_PRIVATE_KEY")
+    const { JOB_SIGNING_PUBLIC_KEY: _q, ...noPublic } = BASE
+    expect(() => loadConfig(noPublic)).toThrow("JOB_SIGNING_PUBLIC_KEY")
+  })
+
+  test("the credential encryption key is required in development too", () => {
+    const { CREDENTIAL_ENCRYPTION_KEY: _k, ...rest } = BASE
+    expect(() => loadConfig(rest)).toThrow("CREDENTIAL_ENCRYPTION_KEY")
+  })
+
+  test("a missing secret names the command that generates it", () => {
+    const { CREDENTIAL_ENCRYPTION_KEY: _k, ...rest } = BASE
+    expect(() => loadConfig(rest)).toThrow("keygen")
   })
 })
 
@@ -73,24 +80,12 @@ describe("loadConfig — production", () => {
   test("accepts a fully populated production environment", () => {
     const config = loadConfig(PROD)
     expect(config.env).toBe("production")
-    expect(config.publicUrl).toBe("https://connect.example.com")
+    expect(config.webPublicUrl).toBe("https://app.example.com")
     expect(config.credentialEncryptionKey).toBe("a2V5")
   })
 
-  test("requires the signing keypair", () => {
-    const { JOB_SIGNING_PRIVATE_KEY: _p, JOB_SIGNING_PUBLIC_KEY: _q, ...rest } = PROD
-    expect(() => loadConfig(rest)).toThrow("JOB_SIGNING_PRIVATE_KEY")
-  })
-
-  test("requires the credential encryption key", () => {
-    const { CREDENTIAL_ENCRYPTION_KEY: _k, ...rest } = PROD
-    expect(() => loadConfig(rest)).toThrow("CREDENTIAL_ENCRYPTION_KEY")
-  })
-
   test("refuses plaintext http origins (docs/03: TLS only)", () => {
-    expect(() => loadConfig({ ...PROD, GATEWAY_PUBLIC_URL: "http://connect.example.com" })).toThrow(
-      "https",
-    )
+    expect(() => loadConfig({ ...PROD, WEB_PUBLIC_URL: "http://app.example.com" })).toThrow("https")
     expect(() => loadConfig({ ...PROD, CONVEX_URL: "http://example.convex.cloud" })).toThrow("https")
   })
 

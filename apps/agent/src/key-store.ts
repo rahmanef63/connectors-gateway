@@ -12,10 +12,23 @@
  * watching), then a signed key-rotation announcement.
  */
 import { GatewayError } from "@cg/core"
+import { importPublicKey, verifyJob } from "@cg/protocol"
 import type { JobEnvelope, SignedJob } from "@cg/protocol"
 import type { Logger } from "./log"
-import { createJobVerifier, isKeyRotation } from "./verify"
-import type { JobVerifier, PinnedKey } from "./verify"
+
+export type JobVerifier = (signed: SignedJob) => Promise<JobEnvelope>
+
+export type PinnedKey = {
+  /** base64 SPKI Ed25519. */
+  signingPublicKey: string
+  keyId: string
+}
+
+export async function createJobVerifier(key: PinnedKey): Promise<JobVerifier> {
+  const publicKey = await importPublicKey(key.signingPublicKey)
+  const keyId = key.keyId
+  return (signed: SignedJob) => verifyJob(signed, { publicKey, keyId })
+}
 
 export type TrustOutcome = "adopted" | "unchanged" | "conflict"
 
@@ -51,7 +64,10 @@ export function createKeyStore(options: KeyStoreOptions = {}): KeyStore {
     },
 
     async trust(key: PinnedKey): Promise<TrustOutcome> {
-      if (pinned !== undefined) return isKeyRotation(pinned, key) ? "conflict" : "unchanged"
+      if (pinned !== undefined) {
+        const rotated = key.keyId !== pinned.keyId || key.signingPublicKey !== pinned.signingPublicKey
+        return rotated ? "conflict" : "unchanged"
+      }
       // Importing first means a malformed key is rejected before it is stored.
       verifier = await createJobVerifier(key)
       pinned = { signingPublicKey: key.signingPublicKey, keyId: key.keyId }

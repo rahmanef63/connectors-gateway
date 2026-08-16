@@ -4,10 +4,10 @@ import { join } from "node:path"
 import { GatewayError } from "@cg/core"
 import { validateManifest } from "./manifest"
 
-const EXAMPLES_DIR = join(import.meta.dir, "..", "..", "..", "examples")
+const CONNECTORS_DIR = join(import.meta.dir, "..", "..", "..", "adapters", "remote-mcp", "connectors")
 
-function loadExample(name: string): unknown {
-  return JSON.parse(readFileSync(join(EXAMPLES_DIR, name), "utf8"))
+function loadShipped(name: string): unknown {
+  return JSON.parse(readFileSync(join(CONNECTORS_DIR, name), "utf8"))
 }
 
 function baseManifest(): Record<string, unknown> {
@@ -41,9 +41,9 @@ function expectInvalid(value: unknown): GatewayError {
 }
 
 describe("validateManifest", () => {
-  test("both shipped examples validate against the frozen schema", () => {
-    for (const file of ["careerpack.connector.json", "blender.connector.json"]) {
-      const manifest = validateManifest(loadExample(file))
+  test("both shipped connector manifests validate against the frozen schema", () => {
+    for (const file of ["careerpack.connector.json", "composio.connector.json"]) {
+      const manifest = validateManifest(loadShipped(file))
       expect(manifest.actions.length).toBeGreaterThan(0)
       for (const action of manifest.actions) {
         expect(typeof action.inputSchema).toBe("object")

@@ -100,9 +100,4 @@ describe("DeviceStore port", () => {
     await store.setPresence("dev_1", false)
     expect(mutations[0]?.args).toEqual({ deviceId: "dev_1", online: false })
   })
-
-  test("revoke is refused: the gateway must not act for a user", async () => {
-    const store = createDeviceStore(client(null))
-    await expect(store.revoke("dev_1", "usr_1")).rejects.toMatchObject({ code: "NOT_AUTHORIZED" })
-  })
 })

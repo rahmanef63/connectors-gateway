@@ -3,7 +3,7 @@ import { GatewayError } from "@cg/core"
 import { createJobEnvelope, generateSigningKeyPair, importPrivateKey, signJob } from "@cg/protocol"
 import type { SignedJob } from "@cg/protocol"
 import { createKeyStore } from "./key-store"
-import type { PinnedKey } from "./verify"
+import type { PinnedKey } from "./key-store"
 
 let gateway: PinnedKey
 let impostor: PinnedKey

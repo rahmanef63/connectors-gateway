@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest"
 import { ConvexError } from "convex/values"
-import { CONTROL_PLANE_ERROR_CODES, errorCodeOf, fail, isControlPlaneErrorCode } from "./errors"
+import { ERROR_CODES } from "@cg/core"
+import { errorCodeOf, fail, isControlPlaneErrorCode } from "./errors"
 
 describe("fail", () => {
   test("throws a ConvexError carrying a typed code", () => {
@@ -25,7 +26,7 @@ describe("errorCodeOf", () => {
 
 describe("isControlPlaneErrorCode", () => {
   test("matches the @cg/core vocabulary exactly", () => {
-    expect(CONTROL_PLANE_ERROR_CODES).toContain("NOT_AUTHORIZED")
+    expect(ERROR_CODES).toContain("NOT_AUTHORIZED")
     expect(isControlPlaneErrorCode("INVALID_INPUT")).toBe(true)
     expect(isControlPlaneErrorCode("invalid_input")).toBe(false)
     expect(isControlPlaneErrorCode(42)).toBe(false)

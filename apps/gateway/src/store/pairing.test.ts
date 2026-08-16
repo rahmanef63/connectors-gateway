@@ -95,12 +95,3 @@ describe("claim", () => {
     expect(await store.claim("pair_x")).toBeNull()
   })
 })
-
-describe("approve", () => {
-  test("is refused: only an authenticated human may approve", async () => {
-    const store = createPairingStore(client(null))
-    await expect(store.approve("ABCD2345", "usr_1")).rejects.toMatchObject({
-      code: "NOT_AUTHORIZED",
-    })
-  })
-})

@@ -89,7 +89,6 @@ describe("createAdapterRegistry", () => {
 describe("createDefaultRegistry", () => {
   test("registers the blender adapter against a loopback bridge", () => {
     const registry = createDefaultRegistry({ BLENDER_BRIDGE_URL: "http://127.0.0.1:9876" })
-    expect(registry.list()).toHaveLength(1)
     expect(registry.get("blender")?.manifest.id).toBe("blender")
   })
 

@@ -18,9 +18,7 @@
     "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
     "test": "bun test packages adapters apps/gateway apps/agent",
     "test:convex": "bun run --cwd apps/web test",
-    "audit:file-size": "bun scripts/audit-file-size.mjs",
-    "audit:slices": "bun scripts/audit-slices.mjs",
-    "validate": "bun run typecheck && bun run audit:file-size && bun run audit:slices && bun run test"
+    "validate": "bun run typecheck && bun run test"
   },
   "devDependencies": {
     "@types/bun": "1.3.14",

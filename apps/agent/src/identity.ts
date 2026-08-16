@@ -3,7 +3,7 @@
  * Everything here is announced in `hello`, so it must never carry a secret.
  */
 import { hostname } from "node:os"
-import { DEVICE_PLATFORMS, GatewayError, type DevicePlatform } from "@cg/core"
+import { GatewayError, type DevicePlatform } from "@cg/core"
 
 /** Announced in `hello`. Kept in sync with apps/agent/package.json by hand. */
 export const AGENT_VERSION = "0.1.0"
@@ -22,10 +22,6 @@ export function detectPlatform(platform: string = process.platform): DevicePlatf
   if (platform === "linux") return "linux"
   // Unknown platforms (freebsd, aix, ...) have no device record shape yet.
   throw new GatewayError("INVALID_INPUT", "This operating system is not supported by the agent.")
-}
-
-export function isDevicePlatform(value: unknown): value is DevicePlatform {
-  return typeof value === "string" && (DEVICE_PLATFORMS as readonly string[]).includes(value)
 }
 
 /**
