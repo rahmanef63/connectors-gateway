@@ -29,6 +29,21 @@ export type ActionDefinition = {
 
 export type ConnectorAuth = {
   type: AuthType
+  /**
+   * Which header carries the credential, when the upstream does not use the
+   * `Authorization: Bearer` default.
+   *
+   * Most remote MCP servers take a bearer, so this is absent almost always.
+   * It exists because some do not — Composio wants `x-api-key` — and without
+   * it "a connector to any remote MCP server is data, not code" (docs/16) is
+   * only true for the servers that happen to agree with us about a header
+   * name. One optional field keeps that claim honest; the alternative is a
+   * bespoke adapter per auth style, which is the thing this design avoids.
+   */
+  header?: string
+  /** Prefix before the credential value. Defaults to `Bearer ` for the
+   *  Authorization header and to nothing for any other header. */
+  scheme?: string
   [key: string]: unknown
 }
 

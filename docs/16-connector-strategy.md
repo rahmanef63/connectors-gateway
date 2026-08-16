@@ -64,7 +64,9 @@ Prisma, Plaid. Out for cause: Salesforce / Zendesk / Shopify admin (no first-par
 MCP endpoint found — *unverified*, do not ship on that basis); Microsoft 365 (preview,
 Copilot licence, Entra admin registration); Discord / Telegram / WhatsApp / Twilio (no
 first-party remote MCP — real custom adapters); Zapier and Rube (meta-aggregators —
-pointing at them makes us a proxy for a competitor's proxy).
+pointing at them makes us a proxy for a competitor's proxy). **Composio was in that
+last group and is now shipped — see "Composio, and the aggregator argument" below,
+which is a reversal with reasons rather than a change of mind.**
 
 Google is the outlier worth naming: its seven servers answer `initialize` unauthenticated
 (Gmail 21 tools, Calendar 9, Drive 8, Sheets 6, Chat 4, Docs 2, Slides 2) but publish no
@@ -109,6 +111,67 @@ rate limits and webhooks/triggers. Of those, only refresh is load-bearing for th
 above — an OAuth connector whose token expires with no refresh is a connector that works
 for an hour. Schema drift matters the moment a manifest is stored data rather than compiled
 code: the upstream can rename a tool under a connector already in use.
+
+## Composio, and the aggregator argument
+
+Added 2026-08-16 at the owner's direction. The exclusion above says pointing at an
+aggregator makes us "a proxy for a competitor's proxy", and that objection is still
+correct — it is just not decisive, for one reason: **catalog breadth is the stated value
+proposition and we cannot build 1,100 toolkits one manifest at a time.** Composio is a
+bridge across that gap while the first-party sixteen are built properly. The distinction
+from Zapier is what it is used *for*: a catalog source reached through the same generic
+remote-MCP path as everything else, not a routing layer we hand control to.
+
+Two things about it are genuinely different from every other connector here, and both are
+costs, not details.
+
+**It breaks per-action risk metadata, and that is invariant 8.** Every other connector
+declares N actions with N risk classes. Composio declares one executing action —
+`composio.tools.execute` — that reaches the entire catalog. One risk label now stands in
+front of "send an email", "delete a repository" and "move money", which is exactly the
+capability laundering the risk model exists to prevent. It is therefore shipped at **R3,
+`destructive: true`**: `DEFAULT_RISK_DECISION` turns that into `REQUIRE_APPROVAL`, so no
+Composio execution runs unattended. Do not "fix" that to R1 because the search tools next
+to it are R0.
+
+**Two of its tools are omitted, not disabled.** `COMPOSIO_REMOTE_BASH_TOOL` is arbitrary
+shell and `COMPOSIO_REMOTE_WORKBENCH` is a remote execution surface — both R4, both denied
+by default under AGENTS.md invariant 7. Following the `mso` precedent in this document,
+absent beats disabled: an action that is not in the manifest cannot be enabled by a policy
+edit, and cannot be reached by a caller who guesses its id.
+
+Its shape differs from the others in two ways worth knowing before connecting one:
+
+- **No `endpoint` in the manifest.** Composio issues a server per configuration —
+  `https://backend.composio.dev/v3/mcp/<SERVER_ID>?user_id=<USER_ID>` — so the address is
+  per-user and belongs in the connection row, the same as a self-hosted upstream.
+- **`x-api-key`, not a bearer.** Which is why the credential header is now a manifest
+  field; see below.
+
+*Unverified:* the documented URL answered **307** to a probe with a placeholder server id,
+and `mcp-client` refuses redirects on purpose — it will not replay a credential to a host
+named by someone else. Whether a real server id answers directly or redirects is untested
+here, and it is the first thing to check when connecting one for real.
+
+## The credential header is a manifest field now
+
+`mcp-client` hardcoded `Authorization: Bearer`. That made "a connector to any remote MCP
+server is data, not code" true only for servers that agree with us about a header name —
+and the first third-party connector did not. `auth.header` and `auth.scheme` are now part
+of the contract, defaulting to `Authorization` / `Bearer ` so every existing connector is
+unchanged. A non-Authorization header gets **no** prefix by default, because sending
+`Bearer sk-…` to a server expecting `sk-…` fails as an authentication error rather than as
+a configuration one.
+
+The header name is pattern-bounded in the manifest schema and re-checked at the call, since
+manifests become user-authored rows at step 1 — a header name is otherwise a place to smuggle
+a second header.
+
+Adding Composio also found a test that had quietly encoded a wrong assumption: every
+`x-upstream` name was asserted to be lowercase `snake_case`, which is *our* naming rule for
+servers we write, not a rule third parties follow. Composio ships `COMPOSIO_SEARCH_TOOLS`.
+A gateway that rejects a remote tool for being spelled differently is a gateway that can
+only talk to itself.
 
 ## The three decisions (owner, 2026-08-15)
 
@@ -166,6 +229,11 @@ Done since:
   `https://careerpack.local/oauth/authorize`. Production was always correct. A connector's
   `endpoint` is the one field where a wrong-but-plausible value produces a flow that
   discovers, registers and redirects perfectly — into nothing.
+
+- **Composio, plus a manifest-declared credential header.** Two shipped connectors now, one
+  of them third-party, which is what actually proved the "connectors are data" claim — and
+  found the two places it was not yet true. Read the section above before raising its risk
+  class.
 
 - **The short path: `client_credentials`.** Where a server advertises that grant, an id and
   a secret are the whole connection: one POST, no consent screen, nothing held between

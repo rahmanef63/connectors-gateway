@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { GatewayError } from "@cg/core"
 import { readToolResult } from "./mcp-parse"
+import { credentialHeaderFor } from "./mcp-client"
 
 /** Captures the thrown value, and fails loudly if nothing throws or if what
  *  throws is not a GatewayError — a bare try/catch would quietly turn a typo
@@ -61,5 +62,45 @@ describe("readToolResult — upstream error mapping", () => {
       )
       expect(err.message).not.toContain("tok_secret")
     }
+  })
+})
+
+describe("credentialHeaderFor — how the credential reaches the upstream", () => {
+  test("defaults to Authorization: Bearer, so nothing changes for existing connectors", () => {
+    expect(credentialHeaderFor(undefined, "tok")).toEqual({
+      name: "Authorization",
+      value: "Bearer tok",
+    })
+    expect(credentialHeaderFor({ type: "bearer" } as never, "tok").value).toBe("Bearer tok")
+  })
+
+  test("sends a bare value for a non-Authorization header", () => {
+    // The bug this prevents: prefixing an API key with "Bearer " makes the
+    // upstream compare "Bearer sk-1" against "sk-1" and reject a correct key.
+    expect(credentialHeaderFor({ type: "api_key", header: "x-api-key" } as never, "sk-1")).toEqual({
+      name: "x-api-key",
+      value: "sk-1",
+    })
+  })
+
+  test("honours an explicit scheme when a server wants one", () => {
+    expect(
+      credentialHeaderFor({ type: "custom", header: "X-Auth", scheme: "Token " } as never, "t")
+        .value,
+    ).toBe("Token t")
+  })
+
+  test("refuses a header name that could smuggle a second header", () => {
+    for (const bad of ["X-Bad: y\r\nX-Evil", "has space", "x".repeat(65), "x:y"]) {
+      expect(() => credentialHeaderFor({ type: "api_key", header: bad } as never, "t")).toThrow()
+    }
+  })
+
+  test("treats an empty header as 'not declared' rather than as an error", () => {
+    // Falling back is right: a manifest that sets the field to "" is saying
+    // nothing, and failing the call would be a worse answer than the default.
+    expect(credentialHeaderFor({ type: "bearer", header: "  " } as never, "t").name).toBe(
+      "Authorization",
+    )
   })
 })

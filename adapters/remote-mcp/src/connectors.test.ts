@@ -41,9 +41,18 @@ describe("every shipped remote-MCP connector", () => {
   })
 
   test("names an upstream tool for every action it declares", () => {
+    // Deliberately NOT `^[a-z][a-z0-9_]*$`, which is what this asserted until
+    // the first third-party server arrived. Lowercase snake_case is the naming
+    // rule for servers WE write; an upstream we merely consume picks its own,
+    // and Composio ships `COMPOSIO_SEARCH_TOOLS`. A gateway that rejects a
+    // remote tool for being spelled differently is a gateway that can only
+    // talk to itself.
+    //
+    // What still matters is that the name is safe to put in a JSON-RPC
+    // `params.name`: present, single-token, no whitespace or control bytes.
     for (const manifest of REMOTE_MCP_MANIFESTS) {
       for (const action of manifest.actions) {
-        expect(resolveUpstreamTool(manifest, action.id)).toMatch(/^[a-z][a-z0-9_]*$/)
+        expect(resolveUpstreamTool(manifest, action.id)).toMatch(/^[A-Za-z][A-Za-z0-9_.-]{0,127}$/)
       }
     }
   })

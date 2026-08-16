@@ -32,17 +32,48 @@ let requestCounter = 0
  * `token` leaves this module only inside the Authorization header — never in a thrown
  * error, never in the returned value.
  */
+/**
+ * Where the credential goes on the wire.
+ *
+ * `Authorization: Bearer <token>` unless the manifest says otherwise. A header
+ * name is validated against the manifest schema before it reaches here, so it
+ * cannot be used to inject a second header or a CRLF — but it is re-checked
+ * below anyway, because this function is also reachable from tests and from a
+ * future path where manifests are user-authored rows rather than shipped files.
+ */
+export type CredentialHeader = { name: string; value: string }
+
+const HEADER_NAME = /^[A-Za-z0-9-]{1,64}$/
+
+export function credentialHeaderFor(
+  auth: { header?: string; scheme?: string } | undefined,
+  token: string,
+): CredentialHeader {
+  const name = auth?.header?.trim() || "Authorization"
+  if (!HEADER_NAME.test(name)) {
+    throw new GatewayError("INVALID_INPUT", "The connector declares an unusable auth header.")
+  }
+  // A bearer needs its prefix; a bare API-key header must NOT get one, or the
+  // upstream compares "Bearer sk-…" against "sk-…" and rejects a correct key.
+  const fallback = name.toLowerCase() === "authorization" ? "Bearer " : ""
+  const scheme = auth?.scheme ?? fallback
+  return { name, value: `${scheme}${token}` }
+}
+
 export async function callTool(
   baseUrl: string,
   token: string,
   name: string,
   args: Record<string, unknown>,
   signal: AbortSignal,
+  credentialHeader?: CredentialHeader,
 ): Promise<unknown> {
   const endpoint = endpointFor(baseUrl)
   if (signal.aborted) {
     throw new GatewayError("CANCELLED", "The upstream call was cancelled.")
   }
+
+  const cred = credentialHeader ?? credentialHeaderFor(undefined, token)
 
   requestCounter += 1
   const body = JSON.stringify({
@@ -57,7 +88,7 @@ export async function callTool(
     response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        [cred.name]: cred.value,
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
         "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
@@ -66,8 +97,8 @@ export async function callTool(
       signal,
       // `manual` over `error` so a redirect is reported as a redirect rather than as an
       // indistinguishable TypeError. Either way the hop is never taken: fetch replays the
-      // Authorization header on a cross-origin redirect in some runtimes, so following a
-      // 302 would hand this connection's bearer to whatever host Location names.
+      // credential header on a cross-origin redirect in some runtimes, so following a
+      // 302 would hand this connection's secret to whatever host Location names.
       redirect: "manual",
     })
   } catch (cause) {

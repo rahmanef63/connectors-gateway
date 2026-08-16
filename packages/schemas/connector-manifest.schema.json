@@ -50,6 +50,17 @@
             "device",
             "custom"
           ]
+        },
+        "header": {
+          "type": "string",
+          "description": "Header carrying the credential. Absent means Authorization.",
+          "pattern": "^[A-Za-z0-9-]+$",
+          "maxLength": 64
+        },
+        "scheme": {
+          "type": "string",
+          "description": "Prefix before the credential. Absent means 'Bearer ' for Authorization, nothing otherwise.",
+          "maxLength": 32
         }
       },
       "additionalProperties": true
@@ -137,7 +148,7 @@
         "x-upstream": {
           "type": "string",
           "minLength": 1,
-          "description": "Name of the tool to invoke on the upstream server, for connector types that proxy an existing published tool surface (remote MCP). Optional: a connector whose adapter implements the action itself declares none. The gateway NEVER derives this from the action id — an action that proxies and omits it is ACTION_NOT_FOUND, because a guessed name can resolve to a different real tool."
+          "description": "Name of the tool to invoke on the upstream server, for connector types that proxy an existing published tool surface (remote MCP). Optional: a connector whose adapter implements the action itself declares none. The gateway NEVER derives this from the action id \u2014 an action that proxies and omits it is ACTION_NOT_FOUND, because a guessed name can resolve to a different real tool."
         }
       },
       "additionalProperties": true

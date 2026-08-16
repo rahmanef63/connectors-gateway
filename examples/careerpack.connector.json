@@ -24,12 +24,15 @@
         "destructive": false,
         "idempotent": true
       },
-      "x-upstream": "profile_get"
+      "x-upstream": "profile_get",
+      "requiredScopes": [
+        "mcp.read"
+      ]
     },
     {
       "id": "careerpack.application.create",
       "title": "Create job application",
-      "description": "Record a new job application. company, position, location and source are all required — source is where the job was found ('LinkedIn', 'JobStreet', 'referral', 'company website'); ask the user rather than guessing it. status defaults to 'applied'; set it only when the user says they are already further along ('I have an interview next week' -> 'interview'). The applied date is set to now, so do not use this to backfill an application from months ago without telling the user the date will be today.",
+      "description": "Record a new job application. company, position, location and source are all required \u2014 source is where the job was found ('LinkedIn', 'JobStreet', 'referral', 'company website'); ask the user rather than guessing it. status defaults to 'applied'; set it only when the user says they are already further along ('I have an interview next week' -> 'interview'). The applied date is set to now, so do not use this to backfill an application from months ago without telling the user the date will be today.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -85,7 +88,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64,
-            "description": "CareerPack CV id — the CV sent with this application."
+            "description": "CareerPack CV id \u2014 the CV sent with this application."
           }
         },
         "required": [
@@ -102,7 +105,10 @@
         "destructive": false,
         "idempotent": false
       },
-      "x-upstream": "applications_create"
+      "x-upstream": "applications_create",
+      "requiredScopes": [
+        "mcp.write"
+      ]
     }
   ]
 }
