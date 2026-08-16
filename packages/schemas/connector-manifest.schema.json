@@ -61,6 +61,49 @@
           "type": "string",
           "description": "Prefix before the credential. Absent means 'Bearer ' for Authorization, nothing otherwise.",
           "maxLength": 32
+        },
+        "fields": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "label"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,39}$"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "hint": {
+                "type": "string",
+                "maxLength": 240
+              },
+              "secret": {
+                "type": "boolean"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "placeholder": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "role": {
+                "enum": [
+                  "endpoint",
+                  "credential"
+                ]
+              }
+            }
+          }
         }
       },
       "additionalProperties": true

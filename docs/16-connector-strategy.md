@@ -243,19 +243,26 @@ Done since:
 
 Next, in order:
 
-0. **Composio needs a real key against a real server.** Everything below it is untested against
+0. **The web test suite is not gated.** `bun run validate` runs
+   `packages adapters apps/gateway apps/agent` — `apps/web` has its own 624-test vitest suite
+   behind `test:convex`, and nothing runs it. On a clean checkout today it failed 5 tests in a
+   full run while passing them individually, which is order-dependent pollution that has had
+   room to accumulate precisely because no gate looks. Either add it to `validate` or accept
+   that it drifts; there is no third option where it stays honest on its own.
+
+1. **Composio needs a real key against a real server.** Everything below it is untested against
    Composio specifically: the manifest, the `x-api-key` path and the BYOK form are all written
    and none has met a live Composio server. Its documented URL answered 307 to a probe and
    `mcp-client` refuses redirects on purpose, so that is the first thing to find out.
 
-1. **Connectors as data** — a `connectors` table, per-owner CRUD, and discovery that calls
+2. **Connectors as data** — a `connectors` table, per-owner CRUD, and discovery that calls
    the upstream's `tools/list` so a user picks which tools to expose. Decision 1 requires it.
    `adapters/remote-mcp/src/connectors.ts` is the file-backed stand-in for that table, and
    validates every manifest at the boundary precisely so the rows can replace the files.
    `executor` must be `v.literal("cloud")`: a user-declared *local* manifest could only alias
    an action a compiled agent adapter already implements, so its one reachable use is
    relabelling an R3 local action as R1 to skip the approval gate.
-2. ~~**Approval persistence.**~~ **Done 2026-08-16.** An `approvals` row is keyed by a
+3. ~~**Approval persistence.**~~ **Done 2026-08-16.** An `approvals` row is keyed by a
    `requestHash` over connector + action + canonicalised input, so approving "delete issue 5"
    cannot be replayed as "delete issue 500" — an approval keyed on the action alone would have
    been a standing grant wearing a confirmation screen's clothes. Claiming is a *mutation*, not
@@ -266,7 +273,7 @@ Next, in order:
    a re-request never revives a denial, a failed queue write still refuses the call, and a
    gateway with no approval store configured refuses rather than allows — absence of a control
    plane must not read as permission.
-3. **The catalog.** Rows, not sprints.
+4. **The catalog.** Rows, not sprints.
 
 ### What multi-tenancy makes urgent that was previously ignorable
 

@@ -75,6 +75,7 @@ export function ConnectionsView({
             // A catalog entry with no endpoint is one the manifest cannot
             // locate — the user supplies the address along with the key.
             needsEndpoint={target !== null && target.endpoint === null}
+            credentialFields={target?.credentialFields ?? []}
             notice={notice}
             startOAuth={startOAuthConnect}
             saveToken={saveTokenConnection}

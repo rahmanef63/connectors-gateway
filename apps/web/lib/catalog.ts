@@ -10,7 +10,7 @@
  * bundle, and the card data below is a deliberate subset — `x-upstream` and any other
  * internal field must never reach the client.
  */
-import type { ConnectorManifest } from "@cg/core"
+import type { ConnectorManifest, CredentialField } from "@cg/core"
 import { manifest as blenderManifest } from "@cg/adapter-blender"
 import { REMOTE_MCP_MANIFESTS } from "@cg/adapter-remote-mcp"
 
@@ -20,6 +20,8 @@ export type CatalogEntry = {
   version: string
   executor: "cloud" | "local"
   authType: string
+  /** Declared by the manifest; the connect form renders exactly these. */
+  credentialFields: readonly CredentialField[]
   /**
    * The connector's remote MCP address, when the manifest declares one. Public
    * information — it is the URL an AI client would be told to call — and it is
@@ -46,6 +48,7 @@ function toEntry(manifest: ConnectorManifest): CatalogEntry {
     version: manifest.version,
     executor: manifest.executor,
     authType: manifest.auth.type,
+    credentialFields: manifest.auth.fields ?? [],
     endpoint: manifest.endpoint ?? null,
     actionCount: manifest.actions.length,
     topRisk,

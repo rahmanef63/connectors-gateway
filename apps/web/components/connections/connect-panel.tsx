@@ -15,6 +15,7 @@
  * on the server, and this component never holds either.
  */
 import { useActionState, useId } from "react"
+import type { CredentialField } from "@cg/core"
 
 import { CopyField } from "@/components/copy-field"
 import { ConnectKeyForm } from "./connect-key-form"
@@ -41,6 +42,8 @@ export type ConnectPanelProps = {
    * the button above is hidden and the key path becomes the only path.
    */
   needsEndpoint?: boolean
+  /** Declared by the connector's manifest; the key form renders exactly these. */
+  credentialFields?: readonly CredentialField[]
   /** Set by the OAuth callback on its way back to this page. */
   notice: { kind: "connected"; name: string } | { kind: "error"; code: ConnectErrorCode } | null
   startOAuth: ConnectAction
@@ -54,6 +57,7 @@ export function ConnectPanel({
   connectorName,
   redirectUri,
   needsEndpoint = false,
+  credentialFields = [],
   notice,
   startOAuth,
   saveToken,
@@ -147,6 +151,7 @@ export function ConnectPanel({
       <ConnectKeyForm
         connectorId={connectorId}
         needsEndpoint={needsEndpoint}
+        fields={credentialFields}
         action={tokenAction}
         pending={tokenPending}
         error={tokenState.error}

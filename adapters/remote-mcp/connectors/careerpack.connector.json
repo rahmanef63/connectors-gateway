@@ -5,7 +5,24 @@
   "executor": "cloud",
   "endpoint": "https://proficient-dove-151.convex.site/mcp",
   "auth": {
-    "type": "bearer"
+    "type": "bearer",
+    "fields": [
+      {
+        "name": "clientId",
+        "label": "Client ID",
+        "hint": "CareerPack \u2192 Settings \u2192 Koneksi MCP \u2192 API key.",
+        "secret": false,
+        "required": true,
+        "placeholder": "cp_\u2026"
+      },
+      {
+        "name": "clientSecret",
+        "label": "Client Secret",
+        "hint": "Shown once, when the key is created.",
+        "secret": true,
+        "required": true
+      }
+    ]
   },
   "actions": [
     {

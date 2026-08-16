@@ -27,8 +27,39 @@ export type ActionDefinition = {
   requiredCapabilities?: string[]
 }
 
+/**
+ * One input the connect form asks for.
+ *
+ * The point of declaring these per connector is that "what do I paste?" is a
+ * property of the service, not of this app: Composio wants one API key, a
+ * self-hosted server wants an address and a token, and a form hard-coded to
+ * either is wrong for the other. The manifest says, and the form renders it.
+ */
+export type CredentialField = {
+  /** Form field name; also the key in the sealed credential object. */
+  name: string
+  label: string
+  /** Shown under the input. One line — where to find this value. */
+  hint?: string
+  /** Rendered as a password input and never echoed back. Default true. */
+  secret?: boolean
+  /** Default true. An optional field is one the connector can work without. */
+  required?: boolean
+  placeholder?: string
+  /**
+   * This field IS the upstream address, rather than part of the credential.
+   * Only meaningful when the manifest declares no `endpoint`.
+   */
+  role?: "endpoint" | "credential"
+}
+
 export type ConnectorAuth = {
   type: AuthType
+  /**
+   * What the connect form asks for. Absent means the historical default: one
+   * secret field, and an address only when the manifest cannot name one.
+   */
+  fields?: CredentialField[]
   /**
    * Which header carries the credential, when the upstream does not use the
    * `Authorization: Bearer` default.

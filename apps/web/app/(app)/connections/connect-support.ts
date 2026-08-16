@@ -11,6 +11,7 @@ import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server"
 
 import { api } from "@convex/_generated/api"
 import { manifestFor } from "@/lib/catalog"
+export { collectCredential } from "@/lib/credential-fields"
 import { sealCredential } from "@/lib/credentials"
 import type { ConnectErrorCode } from "@/components/connections/labels"
 
@@ -99,6 +100,8 @@ export async function storeConnection(
     { token },
   )
 }
+
+
 
 /** Never surfaces a third party's error text — only a code this app owns. */
 export function classify(error: unknown): ConnectErrorCode {

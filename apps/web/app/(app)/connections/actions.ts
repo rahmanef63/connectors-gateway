@@ -37,6 +37,7 @@ import {
 } from "@/lib/oauth"
 import {
   classify,
+  collectCredential,
   connectable,
   fail,
   field,
@@ -146,19 +147,23 @@ export async function saveTokenConnection(
   const target = connectable(field(formData, "connectorId"))
   if (target === null) return fail("unknown_connector")
 
-  const secret = field(formData, "secret")
-  if (secret.length === 0) return fail("secret_required")
+  // Whatever this connector's manifest declared, read back by name. A field
+  // marked `role: "endpoint"` is the address, not part of the credential, so
+  // it is pulled out rather than sealed alongside the secrets.
+  const collected = collectCredential(target.id, formData)
+  if (collected.missing !== null) {
+    return fail(collected.missing === "__endpoint__" ? "endpoint_required" : "secret_required")
+  }
 
-  // A connector whose manifest names no server gets its address here. It is
-  // NOT validated in this file: `assertUpstreamUrl` runs inside the Convex
-  // mutation, so the SSRF gate cannot be skipped by a caller that reaches the
-  // mutation another way. Checking it twice in two places is how the two
-  // copies end up disagreeing.
-  const endpoint = target.endpoint ?? field(formData, "endpoint")
-  if (endpoint.length === 0) return fail("endpoint_required")
+  // The address is NOT validated here: `assertUpstreamUrl` runs inside the
+  // Convex mutation, so the SSRF gate cannot be skipped by a caller that
+  // reaches the mutation another way. Checking it twice is how two copies of
+  // one rule end up disagreeing.
+  const endpoint = collected.endpoint ?? target.endpoint
+  if (endpoint === null || endpoint.length === 0) return fail("endpoint_required")
 
   try {
-    await storeConnection(target, secret, token, endpoint)
+    await storeConnection(target, collected.secret, token, endpoint)
   } catch {
     return fail("save_failed")
   }

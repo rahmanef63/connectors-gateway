@@ -55,6 +55,7 @@ describe("connect error copy", () => {
     "registration_failed",
     "start_failed",
     "secret_required",
+    "endpoint_required",
     "save_failed",
     "flow_expired",
     "consent_denied",
