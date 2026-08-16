@@ -55,6 +55,11 @@ export async function startOAuthConnect(
 
   const target = connectable(field(formData, "connectorId"))
   if (target === null) return fail("unknown_connector")
+  // OAuth begins with PRM discovery against the server's own address, so a
+  // connector the manifest cannot locate has nothing to discover. Those
+  // connect by pasting a key instead — the panel hides this button for them,
+  // and this is the matching server-side refusal.
+  if (target.endpoint === null) return fail("endpoint_required")
 
   const clientIdInput = field(formData, "clientId")
   const clientSecretInput = field(formData, "clientSecret")
@@ -144,8 +149,16 @@ export async function saveTokenConnection(
   const secret = field(formData, "secret")
   if (secret.length === 0) return fail("secret_required")
 
+  // A connector whose manifest names no server gets its address here. It is
+  // NOT validated in this file: `assertUpstreamUrl` runs inside the Convex
+  // mutation, so the SSRF gate cannot be skipped by a caller that reaches the
+  // mutation another way. Checking it twice in two places is how the two
+  // copies end up disagreeing.
+  const endpoint = target.endpoint ?? field(formData, "endpoint")
+  if (endpoint.length === 0) return fail("endpoint_required")
+
   try {
-    await storeConnection(target, secret, token)
+    await storeConnection(target, secret, token, endpoint)
   } catch {
     return fail("save_failed")
   }

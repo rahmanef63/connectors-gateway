@@ -41,16 +41,35 @@ export function field(formData: FormData, name: string): string {
 
 export type Connectable = {
   readonly id: string
-  readonly endpoint: string
+  /**
+   * `null` when the manifest cannot know the address.
+   *
+   * Most connectors point at one public server, so the manifest names it and
+   * the user is never asked. Some cannot: Composio issues a server per
+   * configuration (`/v3/mcp/<SERVER_ID>?user_id=<USER_ID>`), and a self-hosted
+   * upstream is only nameable by whoever runs it. For those the address is part
+   * of the connection, not part of the connector — so the form asks, and
+   * `assertUpstreamUrl` in the Convex mutation is what makes a user-supplied
+   * URL safe to store and later call.
+   */
+  readonly endpoint: string | null
   readonly authType: AuthType
 }
 
-/** A cloud connector this build ships, with an address to talk to. */
+/** A cloud connector this build ships. `endpoint` is null when the user supplies it. */
 export function connectable(connectorId: string): Connectable | null {
   const manifest = manifestFor(connectorId)
   if (manifest === null || manifest.executor !== "cloud") return null
-  if (typeof manifest.endpoint !== "string" || manifest.endpoint.length === 0) return null
-  return { id: manifest.id, endpoint: manifest.endpoint, authType: manifest.auth.type }
+  const endpoint =
+    typeof manifest.endpoint === "string" && manifest.endpoint.length > 0
+      ? manifest.endpoint
+      : null
+  return { id: manifest.id, endpoint, authType: manifest.auth.type }
+}
+
+/** True when the connect form has to ask for an address. */
+export function needsEndpoint(connectorId: string): boolean {
+  return connectable(connectorId)?.endpoint === null
 }
 
 /**
@@ -62,12 +81,18 @@ export async function storeConnection(
   target: Connectable,
   plaintext: string,
   token: string,
+  /** Overrides `target.endpoint`; required when the manifest has none. */
+  endpoint?: string,
 ): Promise<void> {
+  const baseUrl = endpoint ?? target.endpoint
+  if (baseUrl === null) {
+    throw new Error("storeConnection called without an address")
+  }
   await fetchMutation(
     api.features.connections.mutations.upsert,
     {
       connectorId: target.id,
-      baseUrl: target.endpoint,
+      baseUrl,
       tokenCipher: await sealCredential(plaintext),
       authType: target.authType,
     },

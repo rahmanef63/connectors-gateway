@@ -53,6 +53,11 @@ export const CONNECTIONS_COPY = {
     tokenHint:
       "For a service that issues you a long-lived token directly. It is encrypted on this server before it is stored.",
     tokenLabel: "Access token",
+    keyOnlyTitle: "Connect with an API key",
+    keyOnlyHint:
+      "This service gives every user their own server address and authenticates with a key rather than a sign-in screen, so there is nothing to approve — paste both and it is connected.",
+    endpointLabel: "Server address",
+    endpointHint: "The MCP URL from the service's dashboard, including any query string it shows you.",
     tokenSubmit: "Save token",
     tokenPending: "Saving…",
     tokenSuccess: "Connection saved.",
@@ -91,6 +96,7 @@ export const CONNECTIONS_COPY = {
  * attacker-influenced input on a page we render.
  */
 export type ConnectErrorCode =
+  | "endpoint_required"
   | "not_signed_in"
   | "sealing_unavailable"
   | "unknown_connector"
@@ -116,7 +122,9 @@ export const CONNECT_ERRORS: Readonly<Record<ConnectErrorCode, string>> = Object
     "Could not work out how to sign in to that service — it did not publish OAuth metadata we could follow. Use a token instead if it issues you one.",
   registration_failed: "The service refused to register this gateway as a client.",
   start_failed: "Could not start the connection. Try again.",
-  secret_required: "Paste the token first.",
+  secret_required: "Paste the token first."
+  , endpoint_required:
+    "This service gives every user their own server address, so paste that too — it is the URL its dashboard shows you.",
   save_failed: "The connection could not be saved. Try again.",
   flow_expired: "That took too long. Start the connection again.",
   consent_denied: "Access was not granted, so nothing was connected.",

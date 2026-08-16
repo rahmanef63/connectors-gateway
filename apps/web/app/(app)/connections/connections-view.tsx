@@ -72,6 +72,9 @@ export function ConnectionsView({
             connectorId={target?.id ?? null}
             connectorName={target?.name ?? null}
             redirectUri={redirectUri}
+            // A catalog entry with no endpoint is one the manifest cannot
+            // locate — the user supplies the address along with the key.
+            needsEndpoint={target !== null && target.endpoint === null}
             notice={notice}
             startOAuth={startOAuthConnect}
             saveToken={saveTokenConnection}

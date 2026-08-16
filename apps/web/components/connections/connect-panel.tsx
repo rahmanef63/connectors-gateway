@@ -17,7 +17,8 @@
 import { useActionState, useId } from "react"
 
 import { CopyField } from "@/components/copy-field"
-import { FormField } from "./form-field"
+import { ConnectKeyForm } from "./connect-key-form"
+import { FormField, FormError } from "./form-field"
 import { CONNECTIONS_COPY, CONNECT_ERRORS, type ConnectErrorCode } from "./labels"
 import { TONE_CLASSES } from "@/components/status-badge"
 import { cn } from "@/lib/cn"
@@ -33,6 +34,13 @@ export type ConnectPanelProps = {
   connectorId: string | null
   connectorName: string | null
   redirectUri: string
+  /**
+   * True when the manifest cannot name the server, so the user must. Composio
+   * issues one address per configuration; a self-hosted upstream is only
+   * nameable by whoever runs it. For these, OAuth has nothing to discover, so
+   * the button above is hidden and the key path becomes the only path.
+   */
+  needsEndpoint?: boolean
   /** Set by the OAuth callback on its way back to this page. */
   notice: { kind: "connected"; name: string } | { kind: "error"; code: ConnectErrorCode } | null
   startOAuth: ConnectAction
@@ -45,6 +53,7 @@ export function ConnectPanel({
   connectorId,
   connectorName,
   redirectUri,
+  needsEndpoint = false,
   notice,
   startOAuth,
   saveToken,
@@ -54,8 +63,8 @@ export function ConnectPanel({
   // A submission that finished without a redirect reports success here; the
   // OAuth round trip reports it in the query string instead. Same banner.
   const done = oauthState.connected ?? tokenState.connected
-  const ids = { clientId: useId(), clientSecret: useId(), secret: useId() }
-  const errorIds = { clientId: useId(), clientSecret: useId(), secret: useId() }
+  const ids = { clientId: useId(), clientSecret: useId() }
+  const errorIds = { clientId: useId(), clientSecret: useId() }
 
   if (connectorId === null || connectorName === null) {
     return (
@@ -75,6 +84,7 @@ export function ConnectPanel({
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{COPY.lead}</p>
       </div>
 
+      {!needsEndpoint && (
       <form action={oauthAction} className="space-y-4">
         <input type="hidden" name="connectorId" value={connectorId} />
 
@@ -132,48 +142,19 @@ export function ConnectPanel({
           </div>
         </details>
       </form>
+      )}
 
-      <details className="rounded-lg border border-border p-4">
-        <summary className="cursor-pointer text-sm font-medium">{COPY.tokenTitle}</summary>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{COPY.tokenHint}</p>
-        <form action={tokenAction} className="mt-4 space-y-4">
-          <input type="hidden" name="connectorId" value={connectorId} />
-          <FormField
-            id={ids.secret}
-            errorId={errorIds.secret}
-            label={COPY.tokenLabel}
-            hint=""
-            error={null}
-          >
-            <input
-              id={ids.secret}
-              name="secret"
-              type="password"
-              className="field font-mono text-xs"
-              autoComplete="off"
-              spellCheck={false}
-              maxLength={4096}
-              disabled={tokenPending}
-            />
-          </FormField>
-          <FormError code={tokenState.error} />
-          <button type="submit" className="btn-ghost" disabled={tokenPending}>
-            {tokenPending ? COPY.tokenPending : COPY.tokenSubmit}
-          </button>
-        </form>
-      </details>
+      <ConnectKeyForm
+        connectorId={connectorId}
+        needsEndpoint={needsEndpoint}
+        action={tokenAction}
+        pending={tokenPending}
+        error={tokenState.error}
+      />
     </div>
   )
 }
 
-function FormError({ code }: { code: ConnectErrorCode | null }) {
-  if (code === null) return null
-  return (
-    <p role="alert" className={cn("text-sm leading-relaxed", TONE_CLASSES.danger.text)}>
-      {CONNECT_ERRORS[code]}
-    </p>
-  )
-}
 
 function Notice({ notice }: { notice: ConnectPanelProps["notice"] }) {
   if (notice === null) return null
