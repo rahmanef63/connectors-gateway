@@ -1,19 +1,21 @@
 "use server"
 
 /**
- * The two ways a connection gets created, both of them server-side.
+ * The three ways a connection gets created, all of them server-side. Which one
+ * runs is decided by what the connector's own authorization server advertises,
+ * never by a setting:
  *
- * OAUTH (the button): the user clicks Connect, this discovers the connector's
- * authorization server, obtains a client id — registering one automatically if
- * the server offers RFC 7591 — and sends the browser to the consent screen.
- * Nothing is stored until the code comes back to /oauth/callback.
+ * 1. CLIENT CREDENTIALS — the server offers the grant and the user brought an id
+ *    and a secret. One POST, no browser round trip, done before the page
+ *    repaints. This is the shortest honest path and it is tried first.
+ * 2. AUTHORIZATION CODE — everything else. Discover, obtain a client id
+ *    (registering one via RFC 7591 if the server allows it, so the user types
+ *    nothing at all), then send the browser to consent. Nothing is stored until
+ *    the code comes back to /oauth/callback.
+ * 3. TOKEN PASTE — for a service that just hands out a long-lived token.
  *
- * TOKEN (the fallback): the user pastes a credential the upstream issued them,
- * and it is sealed HERE before it is stored. That replaced a form asking for a
- * base URL, an auth type, and ciphertext the user had to produce by SSHing to
- * the gateway host and running a CLI. Three of those four inputs were already
- * known from the connector's manifest, and the fourth was the reason nobody but
- * the operator could connect anything.
+ * All three replaced a form asking for a base URL, an auth type, and ciphertext
+ * the user had to produce by SSHing to the gateway host and running a CLI.
  *
  * P0: every action re-verifies the caller against Convex with their own session
  * token. `connectorId` is only ever used to look up a shipped manifest, so a
@@ -21,56 +23,27 @@
  * choosing.
  */
 import { redirect } from "next/navigation"
-import type { AuthType } from "@cg/core"
-import { fetchMutation, fetchQuery } from "convex/nextjs"
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server"
 
-import { api } from "@convex/_generated/api"
-import { manifestFor } from "@/lib/catalog"
 import { oauthRedirectUri } from "@/lib/app-origin"
-import { sealCredential, sealingAvailable } from "@/lib/credentials"
+import { sealingAvailable } from "@/lib/credentials"
 import {
   authorizeUrl,
+  clientCredentialsGrant,
   createPkce,
   createState,
   discoverAuthServer,
   registerClient,
   writeFlowState,
 } from "@/lib/oauth"
-import type { ConnectErrorCode } from "@/components/connections/labels"
-
-// A "use server" module may export nothing but async functions, so the idle
-// state and the copy live in `components/connections/labels.ts` instead.
-export type ConnectFormState = { readonly error: ConnectErrorCode | null }
-
-const fail = (error: ConnectErrorCode): ConnectFormState => ({ error })
-
-/** The caller's identity, proven by Convex rather than assumed from a cookie. */
-async function requireViewerToken(): Promise<string | null> {
-  const token = await convexAuthNextjsToken()
-  if (token === undefined || token.length === 0) return null
-  try {
-    await fetchQuery(api.features.auth.queries.viewer, {}, { token })
-    return token
-  } catch {
-    return null
-  }
-}
-
-function field(formData: FormData, name: string): string {
-  const value = formData.get(name)
-  return typeof value === "string" ? value.trim() : ""
-}
-
-type Connectable = { readonly id: string; readonly endpoint: string; readonly authType: AuthType }
-
-/** A cloud connector this build ships, with an address to talk to. */
-function connectable(connectorId: string): Connectable | null {
-  const manifest = manifestFor(connectorId)
-  if (manifest === null || manifest.executor !== "cloud") return null
-  if (typeof manifest.endpoint !== "string" || manifest.endpoint.length === 0) return null
-  return { id: manifest.id, endpoint: manifest.endpoint, authType: manifest.auth.type }
-}
+import {
+  classify,
+  connectable,
+  fail,
+  field,
+  requireViewerToken,
+  storeConnection,
+  type ConnectFormState,
+} from "./connect-support"
 
 export async function startOAuthConnect(
   _previous: ConnectFormState,
@@ -89,6 +62,26 @@ export async function startOAuthConnect(
   let destination: string
   try {
     const server = await discoverAuthServer(target.endpoint)
+
+    // THE SHORT PATH. A server that advertises `client_credentials` can issue a
+    // token from an id and a secret alone — no browser round trip, no consent
+    // screen, nothing stored between two requests. If the user brought both
+    // values and the server offers the grant, connecting is over here.
+    if (
+      clientIdInput.length > 0 &&
+      clientSecretInput.length > 0 &&
+      server.grantTypes.includes("client_credentials")
+    ) {
+      const { accessToken } = await clientCredentialsGrant({
+        tokenEndpoint: server.tokenEndpoint,
+        clientId: clientIdInput,
+        clientSecret: clientSecretInput,
+        scope: server.scope,
+        resource: server.resource,
+      })
+      await storeConnection(target, accessToken, token)
+      return { error: null, connected: target.id }
+    }
 
     let clientId = clientIdInput
     let clientSecret: string | null = clientSecretInput.length > 0 ? clientSecretInput : null
@@ -152,27 +145,9 @@ export async function saveTokenConnection(
   if (secret.length === 0) return fail("secret_required")
 
   try {
-    await fetchMutation(
-      api.features.connections.mutations.upsert,
-      {
-        connectorId: target.id,
-        baseUrl: target.endpoint,
-        tokenCipher: await sealCredential(secret),
-        authType: target.authType,
-      },
-      { token },
-    )
+    await storeConnection(target, secret, token)
   } catch {
     return fail("save_failed")
   }
-  return { error: null }
-}
-
-/** Never surfaces a third party's error text — only a code this app owns. */
-function classify(error: unknown): ConnectErrorCode {
-  const name = error instanceof Error ? error.name : ""
-  if (name === "DiscoveryError") return "discovery_failed"
-  if (name === "OAuthExchangeError") return "registration_failed"
-  if (name === "SealUnavailableError") return "sealing_unavailable"
-  return "start_failed"
+  return { error: null, connected: target.id }
 }

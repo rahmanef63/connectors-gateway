@@ -37,13 +37,13 @@ export const CONNECTIONS_COPY = {
   connect: {
     idle: "Pick a connector above to connect it.",
     heading: (name: string) => `Connect ${name}`,
-    lead: "You will be sent to the service to approve access. The token it issues comes straight back here, is encrypted before it is stored, and is never shown again — not to you, and not to an AI client.",
+    lead: "Where the service needs your approval, you will be sent there and back. The token it issues is encrypted before it is stored, and is never shown again — not to you, and not to an AI client.",
     submit: "Connect",
     pending: "Starting…",
 
     byoTitle: "Use your own OAuth app",
     byoHint:
-      "Most services want you to create an app in their developer console and bring its two values back here. Leave both empty and the gateway will register itself, which only works where the service allows it.",
+      "Create an app in the service's developer console and bring its two values back here. Where the service allows it, that is the whole connection — no approval screen, the credential is issued straight to the gateway. Leave both empty and the gateway registers itself instead, which only some services permit.",
     clientId: "Client ID",
     clientSecret: "Client secret",
     clientSecretHint: "Leave empty for a public client — the service will say if it needs one.",

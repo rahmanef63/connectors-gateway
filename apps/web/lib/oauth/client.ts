@@ -115,6 +115,43 @@ export function authorizeUrl(params: AuthorizeParams): string {
   return url.toString()
 }
 
+export type ClientCredentialsParams = {
+  readonly tokenEndpoint: string
+  readonly clientId: string
+  readonly clientSecret: string
+  readonly scope: string | null
+  readonly resource: string
+}
+
+/**
+ * RFC 6749 §4.4, kept in OAuth 2.1 for exactly this case: a credential that
+ * belongs to a machine, not to a browser session. No redirect, no consent
+ * screen, no PKCE — the secret IS the proof — so a connector whose server
+ * offers this grant is connected by pasting two values and pressing a button.
+ *
+ * Only ever used when the server ADVERTISES the grant. Sending it speculatively
+ * to a server that does not support it produces an `unsupported_grant_type`
+ * that would read to the user as "your credentials are wrong".
+ */
+export async function clientCredentialsGrant(
+  params: ClientCredentialsParams,
+): Promise<TokenResponse> {
+  const body = new URLSearchParams({
+    grant_type: "client_credentials",
+    client_id: params.clientId,
+    client_secret: params.clientSecret,
+    resource: params.resource,
+  })
+  if (params.scope !== null) body.set("scope", params.scope)
+
+  const document = await postJson(
+    params.tokenEndpoint,
+    body.toString(),
+    "application/x-www-form-urlencoded",
+  )
+  return readToken(document)
+}
+
 export type ExchangeParams = {
   readonly tokenEndpoint: string
   readonly code: string
@@ -146,6 +183,11 @@ export async function exchangeCode(params: ExchangeParams): Promise<TokenRespons
     body.toString(),
     "application/x-www-form-urlencoded",
   )
+  return readToken(document)
+}
+
+/** A 200 with no `access_token` is a failure, not an empty credential. */
+function readToken(document: Record<string, unknown>): TokenResponse {
   const token = document["access_token"]
   if (typeof token !== "string" || token.length === 0) {
     throw new OAuthExchangeError("invalid_response", "no access_token")

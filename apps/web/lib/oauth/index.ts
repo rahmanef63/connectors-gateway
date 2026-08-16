@@ -6,8 +6,20 @@
  */
 export { discoverAuthServer, DiscoveryError } from "./discovery"
 export type { AuthServer } from "./discovery"
-export { authorizeUrl, exchangeCode, registerClient, OAuthExchangeError } from "./client"
-export type { AuthorizeParams, ExchangeParams, RegisteredClient, TokenResponse } from "./client"
+export {
+  authorizeUrl,
+  clientCredentialsGrant,
+  exchangeCode,
+  registerClient,
+  OAuthExchangeError,
+} from "./client"
+export type {
+  AuthorizeParams,
+  ClientCredentialsParams,
+  ExchangeParams,
+  RegisteredClient,
+  TokenResponse,
+} from "./client"
 export { createPkce, createState } from "./pkce"
 export type { Pkce } from "./pkce"
 export {

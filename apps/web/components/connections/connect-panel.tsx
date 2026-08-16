@@ -5,12 +5,13 @@
  *
  * The panel asks for as little as the connector allows. For a service that
  * registers clients on demand (RFC 7591) that is nothing: press Connect,
- * approve, done. For one that does not, it is the two values its developer
- * console gives you. Everything else — where the service lives, how the
- * credential is presented, how it is encrypted — is a property of the connector
- * or of this server, and neither is a question for the user.
+ * approve, done. For one that issues client credentials, it is the two values
+ * its console gives you and no approval screen at all. Everything else — where
+ * the service lives, how the credential is presented, how it is encrypted — is
+ * a property of the connector or of this server, and neither is a question for
+ * the user.
  *
- * Both paths are Server Actions: the credential and the sealing key exist only
+ * Every path is a Server Action: the credential and the sealing key exist only
  * on the server, and this component never holds either.
  */
 import { useActionState, useId } from "react"
@@ -23,10 +24,9 @@ import { cn } from "@/lib/cn"
 
 const COPY = CONNECTIONS_COPY.connect
 
-export type ConnectAction = (
-  state: { error: ConnectErrorCode | null },
-  formData: FormData,
-) => Promise<{ error: ConnectErrorCode | null }>
+export type ConnectResult = { error: ConnectErrorCode | null; connected?: string }
+
+export type ConnectAction = (state: ConnectResult, formData: FormData) => Promise<ConnectResult>
 
 export type ConnectPanelProps = {
   /** The card the user picked, or null before they pick one. */
@@ -39,7 +39,7 @@ export type ConnectPanelProps = {
   saveToken: ConnectAction
 }
 
-const IDLE = { error: null as ConnectErrorCode | null }
+const IDLE: ConnectResult = { error: null }
 
 export function ConnectPanel({
   connectorId,
@@ -51,6 +51,9 @@ export function ConnectPanel({
 }: ConnectPanelProps) {
   const [oauthState, oauthAction, oauthPending] = useActionState(startOAuth, IDLE)
   const [tokenState, tokenAction, tokenPending] = useActionState(saveToken, IDLE)
+  // A submission that finished without a redirect reports success here; the
+  // OAuth round trip reports it in the query string instead. Same banner.
+  const done = oauthState.connected ?? tokenState.connected
   const ids = { clientId: useId(), clientSecret: useId(), secret: useId() }
   const errorIds = { clientId: useId(), clientSecret: useId(), secret: useId() }
 
@@ -65,7 +68,7 @@ export function ConnectPanel({
 
   return (
     <div className="space-y-5">
-      <Notice notice={notice} />
+      <Notice notice={done === undefined ? notice : { kind: "connected", name: connectorName }} />
 
       <div>
         <p className="text-sm font-semibold">{COPY.heading(connectorName)}</p>

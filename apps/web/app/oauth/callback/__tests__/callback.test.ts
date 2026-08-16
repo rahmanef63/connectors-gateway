@@ -16,7 +16,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import { open } from "@cg/auth"
 
 const KEY = Buffer.alloc(32, 7).toString("base64")
-const RESOURCE = "https://effervescent-hedgehog-352.convex.site/mcp"
+/** CareerPack PRODUCTION — the manifest is the source of truth for this. */
+const RESOURCE = "https://proficient-dove-151.convex.site/mcp"
 const REDIRECT = "https://connectors.example.com/oauth/callback"
 
 const cookieJar = new Map<string, string>()

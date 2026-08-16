@@ -2,7 +2,7 @@
  * Connections surface — public shape. Everything else here is internal.
  */
 export { ConnectPanel } from "./connect-panel"
-export type { ConnectAction, ConnectPanelProps } from "./connect-panel"
+export type { ConnectAction, ConnectPanelProps, ConnectResult } from "./connect-panel"
 export { FormField } from "./form-field"
 export { ConnectionList } from "./connection-list"
 export type { ConnectionRow } from "./connection-list"

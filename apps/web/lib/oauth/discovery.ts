@@ -21,6 +21,13 @@ export type AuthServer = {
   readonly tokenEndpoint: string
   /** RFC 7591. Present means we can obtain a client id without a human. */
   readonly registrationEndpoint: string | null
+  /**
+   * `grant_types_supported`. The one that matters here is
+   * `client_credentials`: a server offering it can issue a token from an id and
+   * a secret alone, with no browser round trip and no consent screen — which is
+   * the whole connect flow reduced to two fields and one button.
+   */
+  readonly grantTypes: readonly string[]
   readonly scope: string | null
   /** RFC 8707 — the resource the token must be audience-bound to. */
   readonly resource: string
@@ -129,6 +136,7 @@ export async function discoverAuthServer(resourceUrl: string): Promise<AuthServe
 
   const scopes = prm["scopes_supported"] ?? asDocument["scopes_supported"]
   const registration = readString(asDocument, "registration_endpoint")
+  const grants = asDocument["grant_types_supported"]
 
   return {
     issuer,
@@ -138,6 +146,11 @@ export async function discoverAuthServer(resourceUrl: string): Promise<AuthServe
     ),
     tokenEndpoint: endpointOrThrow(readString(asDocument, "token_endpoint"), "token_endpoint"),
     registrationEndpoint: registration === null ? null : endpointOrThrow(registration, "registration_endpoint"),
+    // RFC 8414 §2: absent means `["authorization_code", "implicit"]`. Implicit
+    // is gone in OAuth 2.1 and unused here, so the default is the code grant.
+    grantTypes: Array.isArray(grants)
+      ? grants.filter((grant): grant is string => typeof grant === "string")
+      : ["authorization_code"],
     scope: Array.isArray(scopes) ? scopes.filter((s) => typeof s === "string").join(" ") : null,
     resource,
   }

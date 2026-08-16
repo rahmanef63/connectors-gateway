@@ -6,7 +6,13 @@
  */
 import { afterEach, describe, expect, test, vi } from "vitest"
 
-import { authorizeUrl, exchangeCode, registerClient, OAuthExchangeError } from "../client"
+import {
+  authorizeUrl,
+  clientCredentialsGrant,
+  exchangeCode,
+  registerClient,
+  OAuthExchangeError,
+} from "../client"
 import { discoverAuthServer, DiscoveryError } from "../discovery"
 import { createPkce, createState } from "../pkce"
 import { parseFlowState, type OAuthFlowState } from "../state"
@@ -19,6 +25,7 @@ const AS_DOCUMENT = {
   authorization_endpoint: "https://app.example.com/oauth/authorize",
   token_endpoint: "https://app.example.com/api/oauth/token",
   registration_endpoint: `${ISSUER}/oauth/register`,
+  grant_types_supported: ["authorization_code"],
   code_challenge_methods_supported: ["S256"],
   scopes_supported: ["mcp.read", "mcp.write"],
 }
@@ -79,6 +86,31 @@ describe("discovery", () => {
     expect(server.registrationEndpoint).toBe(AS_DOCUMENT.registration_endpoint)
     expect(server.scope).toBe("mcp.read mcp.write")
     expect(server.resource).toBe(RESOURCE)
+  })
+
+  test("reports the grants the server advertises", async () => {
+    stubFetch({
+      [`${ISSUER}/.well-known/oauth-protected-resource`]: PRM_DOCUMENT,
+      [`${ISSUER}/.well-known/oauth-authorization-server`]: {
+        ...AS_DOCUMENT,
+        grant_types_supported: ["authorization_code", "client_credentials"],
+      },
+    })
+    const server = await discoverAuthServer(RESOURCE)
+    expect(server.grantTypes).toContain("client_credentials")
+  })
+
+  test("a server that states no grants is treated as code-only", async () => {
+    // RFC 8414 §2 defaults to authorization_code + implicit. Defaulting to
+    // anything that includes client_credentials would send a secret to a server
+    // that never offered the grant.
+    const { grant_types_supported: _omitted, ...withoutGrants } = AS_DOCUMENT
+    stubFetch({
+      [`${ISSUER}/.well-known/oauth-protected-resource`]: PRM_DOCUMENT,
+      [`${ISSUER}/.well-known/oauth-authorization-server`]: withoutGrants,
+    })
+    const server = await discoverAuthServer(RESOURCE)
+    expect(server.grantTypes).toEqual(["authorization_code"])
   })
 
   test("falls back to the path-less well-known form", async () => {
@@ -213,6 +245,55 @@ describe("token exchange", () => {
     await expect(exchangeCode({ ...base, clientSecret: null })).rejects.toBeInstanceOf(
       OAuthExchangeError,
     )
+  })
+})
+
+describe("client credentials", () => {
+  test("one POST, and the secret travels in the body", async () => {
+    const bodies: string[] = []
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: string | URL, init?: RequestInit) => {
+        bodies.push(String(init?.body ?? ""))
+        return new Response(JSON.stringify({ access_token: "cc_tok" }), { status: 200 })
+      }),
+    )
+    const result = await clientCredentialsGrant({
+      tokenEndpoint: AS_DOCUMENT.token_endpoint,
+      clientId: "client_1",
+      clientSecret: "shh",
+      scope: "mcp.read",
+      resource: RESOURCE,
+    })
+    expect(result.accessToken).toBe("cc_tok")
+
+    const sent = new URLSearchParams(bodies[0] ?? "")
+    expect(sent.get("grant_type")).toBe("client_credentials")
+    expect(sent.get("client_secret")).toBe("shh")
+    expect(sent.get("resource")).toBe(RESOURCE)
+    // No PKCE, no code, no redirect: there is no browser in this flow.
+    expect(sent.get("code")).toBeNull()
+    expect(sent.get("code_verifier")).toBeNull()
+    expect(sent.get("redirect_uri")).toBeNull()
+  })
+
+  test("a refusal is an error, not a connection", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ error: "invalid_client" }), { status: 401 }),
+      ),
+    )
+    await expect(
+      clientCredentialsGrant({
+        tokenEndpoint: AS_DOCUMENT.token_endpoint,
+        clientId: "client_1",
+        clientSecret: "wrong",
+        scope: null,
+        resource: RESOURCE,
+      }),
+    ).rejects.toBeInstanceOf(OAuthExchangeError)
   })
 })
 
