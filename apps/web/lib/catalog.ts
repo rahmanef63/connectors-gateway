@@ -20,6 +20,13 @@ export type CatalogEntry = {
   version: string
   executor: "cloud" | "local"
   authType: string
+  /**
+   * The connector's remote MCP address, when the manifest declares one. Public
+   * information — it is the URL an AI client would be told to call — and it is
+   * what turns Connect into a button instead of a form: with it, the base URL
+   * and the authorization server are both derivable.
+   */
+  endpoint: string | null
   actionCount: number
   /** Highest risk class any of its actions carries — what the card warns about. */
   topRisk: "R0" | "R1" | "R2" | "R3" | "R4"
@@ -39,6 +46,7 @@ function toEntry(manifest: ConnectorManifest): CatalogEntry {
     version: manifest.version,
     executor: manifest.executor,
     authType: manifest.auth.type,
+    endpoint: manifest.endpoint ?? null,
     actionCount: manifest.actions.length,
     topRisk,
     sampleActions: manifest.actions.slice(0, 3).map((action) => action.id),
@@ -47,7 +55,21 @@ function toEntry(manifest: ConnectorManifest): CatalogEntry {
 
 /** Every connector this build can run, cloud and local, sorted for a stable grid. */
 export function catalogEntries(): CatalogEntry[] {
+  return manifests().map(toEntry).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function manifests(): ConnectorManifest[] {
   return [...REMOTE_MCP_MANIFESTS, blenderManifest]
-    .map(toEntry)
-    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
+ * The full manifest behind a card, for the server paths that need more than the
+ * card shows — the connect flow needs `endpoint` and `auth.type`.
+ *
+ * Returns null for an id this build does not ship, which is what makes a
+ * hand-crafted connector id in a form submission a dead end rather than a way
+ * to point a connection at an arbitrary host.
+ */
+export function manifestFor(connectorId: string): ConnectorManifest | null {
+  return manifests().find((manifest) => manifest.id === connectorId) ?? null
 }

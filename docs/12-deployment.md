@@ -104,6 +104,16 @@ CONVEX_SELF_HOSTED_ADMIN_KEY=<key> bunx convex deploy --yes
 # 4. the gateway application (second app, not modelled by deploy.js)
 ```
 
+## Dashboard environment
+
+Two runtime variables the dashboard needs beyond `NEXT_PUBLIC_CONVEX_URL`. Both are
+server-only — never `NEXT_PUBLIC_` — and neither is a build argument.
+
+| Variable | Why |
+|---|---|
+| `CREDENTIAL_ENCRYPTION_KEY` | The same base64 32-byte key the gateway holds. The connect flow seals a credential here, because the OAuth token arrives on a redirect this process handles. Convex is never given it. Unset, connecting fails with a message naming the variable rather than storing a credential the gateway could not open. |
+| `APP_ORIGIN` | This deployment's public origin, e.g. `https://connectors.rahmanef.com`. The OAuth redirect URI is built from it. Deliberately NOT derived from the `Host` header: a redirect URI taken from a header the client controls is how an authorization code ends up delivered somewhere else. |
+
 ## Scaling boundary
 
 A persistent relay is stateful by connection presence, but job metadata and device ownership should live in shared storage so multiple relay instances can coexist later.

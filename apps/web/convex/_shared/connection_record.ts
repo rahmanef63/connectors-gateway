@@ -1,7 +1,8 @@
 /**
  * Connection wire shapes. `tokenCipher` leaves this deployment through exactly
  * one function (`service/connections:resolveCredential`) and is ciphertext at
- * every point — the gateway holds `CREDENTIAL_ENCRYPTION_KEY`, Convex does not.
+ * every point — the gateway and the dashboard's connect flow hold
+ * `CREDENTIAL_ENCRYPTION_KEY`; Convex never does.
  */
 import { type Infer, v } from "convex/values"
 import type { Doc } from "../_generated/dataModel"

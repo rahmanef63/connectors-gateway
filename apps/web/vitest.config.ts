@@ -28,6 +28,9 @@ export default defineConfig({
   test: {
     environment: "edge-runtime",
     include: [
+      // Route handlers are code with branches, not configuration: /oauth/callback
+      // decides whether a credential gets stored.
+      "app/**/*.test.ts",
       "components/**/*.test.ts",
       "convex/**/*.test.ts",
       "lib/**/*.test.ts",

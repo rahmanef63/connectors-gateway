@@ -3,6 +3,7 @@
   "name": "CareerPack",
   "version": "0.1.0",
   "executor": "cloud",
+  "endpoint": "https://effervescent-hedgehog-352.convex.site/mcp",
   "auth": {
     "type": "bearer"
   },

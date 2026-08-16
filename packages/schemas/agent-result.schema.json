@@ -101,6 +101,7 @@
             "DEVICE_OFFLINE",
             "DEVICE_REVOKED",
             "CAPABILITY_UNAVAILABLE",
+            "INSUFFICIENT_SCOPE",
             "UPSTREAM_ERROR",
             "TIMEOUT",
             "CANCELLED",

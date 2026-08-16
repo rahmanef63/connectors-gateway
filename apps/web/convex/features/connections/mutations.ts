@@ -1,11 +1,12 @@
 /**
  * Dashboard connection writes — one row per (user, connector).
  *
- * `tokenCipher` arrives ALREADY SEALED. `CREDENTIAL_ENCRYPTION_KEY` lives only
- * in the gateway process, so Convex can neither seal nor open it and must never
- * try. What it can do is refuse to store something that is obviously not a
- * sealed envelope: an unsealed token stored here would come back as an opaque
- * INTERNAL error at call time, hours later, far from the mistake.
+ * `tokenCipher` arrives ALREADY SEALED — by the dashboard's connect flow
+ * (`apps/web/lib/credentials.ts`) or by the gateway. `CREDENTIAL_ENCRYPTION_KEY`
+ * is never given to Convex, so this function can neither seal nor open one and
+ * must never try. What it can do is refuse to store something that is obviously
+ * not a sealed envelope: an unsealed token stored here would come back as an
+ * opaque INTERNAL error at call time, hours later, far from the mistake.
  */
 import { v } from "convex/values"
 import { mutation } from "../../_generated/server"

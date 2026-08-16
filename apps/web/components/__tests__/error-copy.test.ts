@@ -5,8 +5,7 @@ import { ERROR_CODES } from "@cg/core"
 
 import { API_KEYS_ERROR_COPY } from "../api-keys/labels"
 import { resolveErrorMessage, type ErrorCopy } from "../convex-error"
-import { CONNECTIONS_ERROR_COPY, FIELD_ISSUE_COPY, SEAL_COMMAND } from "../connections/labels"
-import { validateBaseUrl, validateConnectionForm, type FieldIssue } from "../connections/validate"
+import { CONNECTIONS_ERROR_COPY, CONNECT_ERRORS, type ConnectErrorCode } from "../connections/labels"
 
 const SURFACES: ReadonlyArray<[string, ErrorCopy]> = [
   ["connections", CONNECTIONS_ERROR_COPY],
@@ -45,47 +44,45 @@ describe.each(SURFACES)("%s error copy", (_name, copy) => {
   })
 })
 
-describe("field issue copy", () => {
-  /** Every issue the validators can produce, listed once. */
-  const ISSUES: readonly FieldIssue[] = [
-    "connector_empty",
-    "connector_shape",
-    "url_empty",
-    "url_invalid",
-    "url_scheme",
-    "url_credentials",
-    "url_unreachable",
-    "url_port",
-    "url_self",
-    "token_empty",
-    "token_not_sealed",
+describe("connect error copy", () => {
+  /** Every code the connect actions and the OAuth callback can return. */
+  const CODES: readonly ConnectErrorCode[] = [
+    "not_signed_in",
+    "sealing_unavailable",
+    "unknown_connector",
+    "client_id_required",
+    "discovery_failed",
+    "registration_failed",
+    "start_failed",
+    "secret_required",
+    "save_failed",
+    "flow_expired",
+    "consent_denied",
+    "state_mismatch",
+    "exchange_failed",
   ]
 
-  test("the map is exactly the issue vocabulary — no gaps, no strays", () => {
-    expect(Object.keys(FIELD_ISSUE_COPY).sort()).toEqual([...ISSUES].sort())
+  test("the map is exactly the code vocabulary — no gaps, no strays", () => {
+    expect(Object.keys(CONNECT_ERRORS).sort()).toEqual([...CODES].sort())
   })
 
-  test("the unreachable-host case reads as a sentence, not a stack trace", () => {
-    const result = validateBaseUrl("https://192.168.1.10")
-    expect(result.ok).toBe(false)
-    const copy = FIELD_ISSUE_COPY.url_unreachable
-    expect(copy).toContain("not reachable from the gateway")
-    expect(copy).not.toMatch(/[A-Z_]{6,}/) // no INVALID_INPUT leaking through
-  })
-
-  test("the raw-token case names the command that produces a sealed value", () => {
-    const result = validateConnectionForm({
-      connectorId: "careerpack",
-      baseUrl: "https://careerpack.example.com",
-      tokenCipher: "sk-live-not-sealed",
-    })
-    expect(result).toEqual({ ok: false, field: "tokenCipher", issue: "token_not_sealed" })
-    expect(FIELD_ISSUE_COPY.token_not_sealed).toContain(SEAL_COMMAND)
-  })
-
-  test("every issue has copy long enough to be an explanation", () => {
-    for (const issue of ISSUES) {
-      expect(FIELD_ISSUE_COPY[issue].length).toBeGreaterThan(20)
+  test("every code has copy long enough to be an explanation", () => {
+    for (const code of CODES) {
+      expect(CONNECT_ERRORS[code].length).toBeGreaterThan(20)
     }
+  })
+
+  test("DENIED: nothing tells the user to go and run a CLI on the gateway host", () => {
+    // The whole point of sealing server-side. If this string comes back, the
+    // form has regressed to something only the operator can complete.
+    for (const message of Object.values(CONNECT_ERRORS)) {
+      expect(message).not.toMatch(/gateway host|bun run|ssh/i)
+    }
+  })
+
+  test("the one operator-facing message names the missing variable", () => {
+    // A deployment with no key cannot store credentials at all, and the person
+    // who can fix that needs the variable's name, not "try again".
+    expect(CONNECT_ERRORS.sealing_unavailable).toContain("CREDENTIAL_ENCRYPTION_KEY")
   })
 })

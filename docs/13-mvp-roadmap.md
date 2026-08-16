@@ -77,7 +77,12 @@ have not been run against a real Blender install.
 
 ## Phase 4 — product UX
 
-- [x] Connections page — lists stored connections and status. No OAuth connect flow yet.
+- [x] Connections page — a catalog of cards, and Connect runs a real OAuth 2.1
+      authorization-code flow (PKCE S256, RFC 9728 + RFC 8414 discovery, RFC 7591
+      registration when the server offers it, RFC 8707 `resource`). The user is asked for
+      at most a client id and a client secret, and for nothing at all where the server
+      registers clients on demand. Credentials are sealed by the dashboard, so the old
+      "SSH to the gateway host and run `seal`" step is gone.
 - [x] Devices page.
 - [x] Connector permissions.
 - [x] Audit log.
@@ -98,7 +103,18 @@ have not been run against a real Blender install.
 4. **An MCP `tools/call` for a name outside the caller's catalog writes no audit row**,
    because it is rejected before the execution pipeline. The REST path does audit the
    equivalent miss.
-5. **Rate limits, relay presence and the agent's replay guard are per-process.** A second
+5. **No token refresh.** The exchange reads `expires_in` and drops `refresh_token`;
+   the connectors in the catalog issue long-lived tokens (CareerPack's last a year), so
+   there is nothing yet to exercise a refresh loop. A connector with short-lived tokens
+   needs one, plus the `connections` fields to store it.
+6. **CareerPack's own OAuth metadata is broken in production** — its live
+   `/.well-known/oauth-authorization-server` advertises
+   `https://careerpack.local/oauth/authorize`, because `APP_URL` is unset on its Convex
+   deployment. Discovery here works and returns exactly that, so the flow stops at a host
+   that does not resolve. No MCP client can complete OAuth against CareerPack today; the
+   fix is one env var on CareerPack, plus adding this deployment's host to its
+   `REDIRECT_HOSTS` allowlist.
+7. **Rate limits, relay presence and the agent's replay guard are per-process.** A second
    gateway instance multiplies every limit and forgets seen job ids across a restart.
    Each site is marked `ponytail:`. Correct for a single-instance MVP, load-bearing before
    horizontal scaling — `docs/12` already calls this out.

@@ -30,6 +30,11 @@
         "local"
       ]
     },
+    "endpoint": {
+      "type": "string",
+      "pattern": "^https://",
+      "maxLength": 2048
+    },
     "auth": {
       "type": "object",
       "required": [

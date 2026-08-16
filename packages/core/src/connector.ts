@@ -37,6 +37,15 @@ export type ConnectorManifest = {
   name: string
   version: string
   executor: ExecutorKind
+  /**
+   * Where a cloud connector's remote MCP server lives, when the manifest knows.
+   *
+   * Optional because a `local` connector has no such address, and because a
+   * self-hosted upstream can only be named by whoever runs it. When it IS here,
+   * nothing has to ask a human for a base URL — the connect flow reads it, and
+   * the same value is what OAuth discovery treats as the protected resource.
+   */
+  endpoint?: string
   auth: ConnectorAuth
   actions: ActionDefinition[]
 }

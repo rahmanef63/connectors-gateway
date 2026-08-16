@@ -24,7 +24,16 @@ const isSignInRoute = createRouteMatcher(["/sign-in"])
  * ungated. `/` and `/pair` are not registry entries (one redirects, the other is
  * reached from a link the agent prints), so they are named.
  */
-const isProtectedRoute = createRouteMatcher(["/", ...NAV_ROUTE_PATTERNS, "/pair(.*)"])
+const isProtectedRoute = createRouteMatcher([
+  "/",
+  ...NAV_ROUTE_PATTERNS,
+  "/pair(.*)",
+  // The OAuth callback writes a connection as the signed-in user. Gated here so
+  // a session that lapsed mid-consent lands on sign-in and comes BACK with the
+  // code intact (`signInPath` keeps the query string) rather than silently
+  // dropping a credential the user just approved.
+  "/oauth(.*)",
+])
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const authenticated = await convexAuth.isAuthenticated()
