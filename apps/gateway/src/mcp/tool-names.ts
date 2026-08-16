@@ -31,7 +31,40 @@ export function actionIdFromToolName(toolName: string): string {
 export type ToolTarget = { connectorId: string; actionId: string }
 export type ToolIndex = ReadonlyMap<string, ToolTarget>
 
+/**
+ * The name an action id flattens to, whether or not the id is legal.
+ *
+ * Collision detection must see ids `toolNameFor` would refuse: `a.b_c` is
+ * exactly how a second connector would shadow `a.b.c` in a catalog, and the
+ * useful failure names both, not just "this id is unusable".
+ */
+function flatName(actionId: string): string {
+  return actionId.replaceAll(".", "_")
+}
+
+/**
+ * Two actions may never claim one MCP tool name. Silently overwriting would let
+ * a user-authored connector shadow another's tool in the catalog, so this is a
+ * hard, named failure at catalog-build time rather than a last-writer-wins map.
+ */
+export function assertNoToolNameCollision(actionIds: readonly string[]): void {
+  const claimedBy = new Map<string, string>()
+  for (const actionId of actionIds) {
+    const name = flatName(actionId)
+    const first = claimedBy.get(name)
+    if (first !== undefined) {
+      throw new GatewayError(
+        "INTERNAL",
+        `MCP tool name "${name}" is claimed by two actions: "${first}" and "${actionId}".`,
+      )
+    }
+    claimedBy.set(name, actionId)
+  }
+}
+
 export function createToolIndex(targets: readonly ToolTarget[]): ToolIndex {
+  assertNoToolNameCollision(targets.map((target) => target.actionId))
+
   const index = new Map<string, ToolTarget>()
   for (const target of targets) index.set(toolNameFor(target.actionId), target)
   return index

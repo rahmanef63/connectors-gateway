@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@cg/adapter-blender": "workspace:*",
-    "@cg/adapter-careerpack": "workspace:*",
+    "@cg/adapter-remote-mcp": "workspace:*",
     "@cg/auth": "workspace:*",
     "@cg/core": "workspace:*",
     "@cg/executor": "workspace:*",

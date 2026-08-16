@@ -128,6 +128,11 @@
           "items": {
             "type": "string"
           }
+        },
+        "x-upstream": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the tool to invoke on the upstream server, for connector types that proxy an existing published tool surface (remote MCP). Optional: a connector whose adapter implements the action itself declares none. The gateway NEVER derives this from the action id — an action that proxies and omits it is ACTION_NOT_FOUND, because a guessed name can resolve to a different real tool."
         }
       },
       "additionalProperties": true

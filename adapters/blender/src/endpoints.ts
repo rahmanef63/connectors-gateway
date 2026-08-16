@@ -29,8 +29,7 @@ export const BRIDGE_ENDPOINTS: Readonly<Record<string, string>> = Object.freeze(
 
 /**
  * Own-key lookup only. A bare index would resolve `constructor`, `toString` and
- * friends through Object.prototype and hand a non-endpoint to the bridge client
- * (the same reason adapters/careerpack/src/upstream.ts uses `Object.hasOwn`).
+ * friends through Object.prototype and hand a non-endpoint to the bridge client.
  */
 export function endpointFor(actionId: string): string {
   const endpoint = Object.hasOwn(BRIDGE_ENDPOINTS, actionId) ? BRIDGE_ENDPOINTS[actionId] : undefined

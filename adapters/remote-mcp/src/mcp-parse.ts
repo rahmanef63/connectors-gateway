@@ -20,12 +20,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function parseRpcBody(raw: string, contentType: string | null): unknown {
   const text = contentType?.toLowerCase().includes("text/event-stream") ? lastSseData(raw) : raw.trim()
   if (text.length === 0) {
-    throw new GatewayError("UPSTREAM_ERROR", "CareerPack returned an empty response.")
+    throw new GatewayError("UPSTREAM_ERROR", "The upstream server returned an empty response.")
   }
   try {
     return JSON.parse(text)
   } catch {
-    throw new GatewayError("UPSTREAM_ERROR", "CareerPack returned a malformed response.")
+    throw new GatewayError("UPSTREAM_ERROR", "The upstream server returned a malformed response.")
   }
 }
 
@@ -43,14 +43,14 @@ function lastSseData(raw: string): string {
  */
 export function readToolResult(envelope: unknown, token: string): unknown {
   if (!isRecord(envelope)) {
-    throw new GatewayError("UPSTREAM_ERROR", "CareerPack returned a malformed response.")
+    throw new GatewayError("UPSTREAM_ERROR", "The upstream server returned a malformed response.")
   }
   if (isRecord(envelope["error"])) {
     throw upstreamError(envelope["error"]["message"], token)
   }
   const result = envelope["result"]
   if (!isRecord(result)) {
-    throw new GatewayError("UPSTREAM_ERROR", "CareerPack returned no result.")
+    throw new GatewayError("UPSTREAM_ERROR", "The upstream server returned no result.")
   }
   const text = firstText(result["content"])
   if (result["isError"] === true) {
@@ -80,6 +80,8 @@ function upstreamError(message: unknown, token: string): GatewayError {
   const safe = typeof message === "string" ? redact(message, token) : ""
   return new GatewayError(
     "UPSTREAM_ERROR",
-    safe.length > 0 ? `CareerPack rejected the call: ${safe}` : "CareerPack rejected the call.",
+    safe.length > 0
+      ? `The upstream server rejected the call: ${safe}`
+      : "The upstream server rejected the call.",
   )
 }

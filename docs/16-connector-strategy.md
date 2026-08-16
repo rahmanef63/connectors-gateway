@@ -6,15 +6,15 @@ Researched 2026-08-15 with live probes; every endpoint below answered a real MCP
 
 ## The structural fact everything rests on
 
-`adapters/careerpack` is already connector-agnostic. Its adapter does
+`adapters/remote-mcp` is connector-agnostic. Its adapter does
 
 ```ts
 callTool(baseUrl, token, tool, args, signal)   // baseUrl + token from the connections row
 ```
 
-The only connector-specific things in the package are the manifest's action list and the
-`UPSTREAM_TOOL` name map. So **a connector to any remote MCP server is data, not code** —
-a manifest plus a per-user connection row.
+Nothing in it is connector-specific: the manifest supplies the action list, and each action
+carries its own upstream tool name as `x-upstream`. So **a connector to any remote MCP server
+is data, not code** — a manifest plus a per-user connection row.
 
 That is the whole competitive position. Composio's moat is a catalog of ~1,100 toolkits.
 Ours cannot be catalog size; it is that the generic path costs nothing per connector, and
@@ -110,22 +110,75 @@ above — an OAuth connector whose token expires with no refresh is a connector 
 for an hour. Schema drift matters the moment a manifest is stored data rather than compiled
 code: the upstream can rename a tool under a connector already in use.
 
+## The three decisions (owner, 2026-08-15)
+
+The sequencing below is not a default — it follows from three answers only the owner could
+give. Written down because every one of them can be re-opened, and because the previous
+draft of this section assumed the opposite of all three.
+
+1. **Other people will hold accounts within 90 days.** So this is multi-tenant, and the
+   single-owner shortcut — manifests as files on the VPS, tokens pasted by hand — is not the
+   finish line. Connectors must become data, with per-owner scoping.
+2. **The local-device relay is a feature, not the product.** Catalog breadth is the value
+   proposition. The relay stays at "it round-tripped once"; Blender and a second local
+   adapter are parked.
+3. **The gateway holds the upstream credential** (the Composio model), not the caller. Users
+   click connect and never see a token. That makes all sixteen connectors reachable — and it
+   makes us responsible for refresh, revocation propagation, key rotation, and a breach that
+   would expose every user's mailbox at once.
+
+Decision 3 is what makes the OAuth client mandatory rather than optional: twelve of the
+sixteen accept nothing else, and decision 1 means we cannot fall back on "the owner pastes a
+bearer".
+
 ## Sequencing
 
-The set above is a **cost model, not a work order**. `AGENTS.md` puts "dozens of SaaS
-connectors" outside the MVP boundary, and the core loop is still unproven. The order that
-respects both:
+The set above is a **cost model, not a work order**. `AGENTS.md` still puts "dozens of SaaS
+connectors" outside the MVP boundary — the catalog is the destination, not the next commit.
 
-1. The front door — issue an API key, create a connection, correct the CareerPack contract.
-   Nothing else is reachable without it.
-2. One real call, end to end, against CareerPack.
-3. Pair one device and round-trip one Blender job — the thing Composio cannot do.
-4. Collapse `adapters/careerpack` into a generic `remote-mcp` type; connectors become files.
-5. Operator-supplied manifests from disk + an egress allowlist. **For a single-owner
-   product this is plausibly the finish line.**
-6. Approval persistence, before any connector with a destructive action.
-7. The OAuth 2.1 client. One feature, twelve connectors — and the largest single piece of
-   engineering here, which is exactly why it is not first.
+Done:
 
-Steps 1–5 need no new tables, no OAuth and no UI beyond two forms. Step 7 is where the
-catalog above becomes real.
+- **The front door.** Issue an API key, create a connection, correct the CareerPack contract.
+- **One real call, end to end.** Proven against the live gateway: key → policy → sealed token
+  decrypted → real HTTPS call → upstream 401 (placeholder token) → `UPSTREAM_ERROR` → one
+  audit row. Every link fired; only a real upstream token is missing.
+
+Done since:
+
+- **Collapsed `adapters/careerpack` into the generic `adapters/remote-mcp` type.** Mostly
+  deletion: the package, its bespoke adapter and its `UPSTREAM_TOOL` map are gone. A remote
+  MCP server is now a manifest in `adapters/remote-mcp/connectors/` whose actions each carry
+  an `x-upstream` name, executed by one generic adapter. Adding a connector is a JSON file
+  plus one line in `connectors.ts` — no package, no adapter, no gateway change.
+
+Next, in order:
+
+1. **The OAuth 2.1 client** — PRM discovery (RFC 9728), `resource` (RFC 8707), `iss`
+   validation (RFC 9207), refresh, and the `connections` schema delta it needs
+   (`refreshTokenCipher`, `expiresAt`, `scopes`, `issuer`, `clientId`). One to two weeks, and
+   it buys twelve connectors at once. Prove it against Linear or Notion first — small
+   surface, clean PRM, diagnosable failures.
+2. **Connectors as data** — a `connectors` table, per-owner CRUD, and discovery that calls
+   the upstream's `tools/list` so a user picks which tools to expose. Decision 1 requires it.
+   `adapters/remote-mcp/src/connectors.ts` is the file-backed stand-in for that table, and
+   validates every manifest at the boundary precisely so the rows can replace the files.
+   `executor` must be `v.literal("cloud")`: a user-declared *local* manifest could only alias
+   an action a compiled agent adapter already implements, so its one reachable use is
+   relabelling an R3 local action as R1 to skip the approval gate.
+3. **Approval persistence.** Every R2+ action is currently refused rather than queued, and
+   `/approvals` renders nothing. With other people's credentials in play, a screen that
+   claims mediated risk and delivers none is the worst kind of gap.
+4. **The catalog.** Rows, not sprints.
+
+### What multi-tenancy makes urgent that was previously ignorable
+
+- **`redact()` runs on error paths, not on success output.** While there is one tenant, a
+  hostile connector's output is self-harm. The moment one person's connector output can
+  reach another person's session, it is a prompt-injection channel. Fix before step 2.
+- **Key custody.** `CREDENTIAL_ENCRYPTION_KEY` is one env var on one box protecting every
+  user's upstream tokens. It needs a rotation story before the second tenant, not after.
+- **`ownerType: "workspace"`** is currently unreachable in every store path. Either implement
+  it deliberately or narrow the type — a half-implemented sharing axis is how cross-tenant
+  reads happen.
+- **Audit rows carry no `connectionId`.** With one tenant that is untidy; with several it is
+  the difference between "someone used a connector" and "whose credential was spent".

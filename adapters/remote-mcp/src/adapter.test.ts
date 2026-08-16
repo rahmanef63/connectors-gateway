@@ -1,11 +1,52 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { GatewayError } from "@cg/core"
+import type { ConnectorManifest } from "@cg/core"
 import type { CloudAdapterContext } from "@cg/sdk"
-import { careerpackAdapter } from "./adapter"
-import { ACTION_APPLICATION_CREATE, ACTION_PROFILE_READ } from "./manifest"
+import { createRemoteMcpAdapter } from "./adapter"
+
+/**
+ * Deliberately NOT the CareerPack manifest. The adapter is the generic type; if this file
+ * needed a real connector's data to exercise it, the collapse would not have worked.
+ * The shipped connectors are covered as data in ./connectors.test.ts.
+ */
+const READ = "fixture.thing.read"
+const WRITE = "fixture.thing.create"
+
+function fixtureManifest(overrides: Partial<ConnectorManifest> = {}): ConnectorManifest {
+  return {
+    id: "fixture",
+    name: "Fixture",
+    version: "0.1.0",
+    executor: "cloud",
+    auth: { type: "bearer" },
+    actions: [
+      {
+        id: READ,
+        title: "Read a thing",
+        description: "Read a thing.",
+        inputSchema: { type: "object", properties: {}, additionalProperties: false },
+        risk: "R0",
+        annotations: { readOnly: true, destructive: false, idempotent: true },
+        "x-upstream": "thing_get",
+      },
+      {
+        id: WRITE,
+        title: "Create a thing",
+        description: "Create a thing.",
+        inputSchema: { type: "object", additionalProperties: true },
+        risk: "R1",
+        annotations: { readOnly: false, destructive: false },
+        "x-upstream": "things_create",
+      },
+    ],
+    ...overrides,
+  } as ConnectorManifest
+}
+
+const adapter = createRemoteMcpAdapter(fixtureManifest())
 
 const TOKEN = "cp_live_9c2f4a1b7e6d8f3a5b0c1d2e3f4a5b6c"
-const BASE_URL = "https://careerpack.example.com/mcp"
+const BASE_URL = "https://upstream.example.com/mcp"
 
 const originalFetch = globalThis.fetch
 type StubCall = { url: string; init: RequestInit }
@@ -43,47 +84,58 @@ afterEach(() => {
   globalThis.fetch = originalFetch
 })
 
-describe("careerpackAdapter happy paths", () => {
-  test("returns structuredContent when present", async () => {
-    stubFetch(rpc({ structuredContent: { headline: "Backend engineer" }, content: [{ type: "text", text: "ignored" }] }))
+describe("createRemoteMcpAdapter construction", () => {
+  test("keeps the manifest it was built from", () => {
+    expect(adapter.manifest.id).toBe("fixture")
+  })
 
-    const result = await careerpackAdapter.execute(ACTION_PROFILE_READ, {}, context())
+  /**
+   * A `local` manifest routed here would leave the device relay and call the public
+   * internet. Users author manifests in docs/16 step 3, so `executor` is untrusted.
+   */
+  test("refuses a manifest that is not a cloud connector", () => {
+    let thrown: unknown
+    try {
+      createRemoteMcpAdapter(fixtureManifest({ executor: "local" }))
+    } catch (cause) {
+      thrown = cause
+    }
+    expect(thrown).toBeInstanceOf(GatewayError)
+    expect((thrown as GatewayError).code).toBe("INVALID_INPUT")
+  })
+})
+
+describe("remote-mcp adapter happy paths", () => {
+  test("returns structuredContent when present", async () => {
+    stubFetch(
+      rpc({ structuredContent: { headline: "Backend engineer" }, content: [{ type: "text", text: "ignored" }] }),
+    )
+
+    const result = await adapter.execute(READ, {}, context())
 
     expect(result.output).toEqual({ headline: "Backend engineer" })
   })
 
   test("falls back to the first text content block parsed as JSON", async () => {
-    stubFetch(rpc({ content: [{ type: "image", data: "x" }, { type: "text", text: '{"applicationId":"app_1"}' }] }))
+    stubFetch(rpc({ content: [{ type: "image", data: "x" }, { type: "text", text: '{"id":"app_1"}' }] }))
 
-    const result = await careerpackAdapter.execute(
-      ACTION_APPLICATION_CREATE,
-      { company: "Acme", position: "Backend engineer", location: "Jakarta", source: "LinkedIn", status: "applied" },
-      context(),
-    )
+    const result = await adapter.execute(WRITE, { company: "Acme" }, context())
 
-    expect(result.output).toEqual({ applicationId: "app_1" })
+    expect(result.output).toEqual({ id: "app_1" })
   })
 
   test("falls back to raw text when the text block is not JSON", async () => {
-    stubFetch(rpc({ content: [{ type: "text", text: "application created" }] }))
+    stubFetch(rpc({ content: [{ type: "text", text: "thing created" }] }))
 
-    const result = await careerpackAdapter.execute(
-      ACTION_APPLICATION_CREATE,
-      { company: "Acme", position: "Backend engineer", location: "Remote", source: "referral" },
-      context(),
-    )
+    const result = await adapter.execute(WRITE, { company: "Acme" }, context())
 
-    expect(result.output).toBe("application created")
+    expect(result.output).toBe("thing created")
   })
 
-  test("maps the action onto the upstream tool name and sends MCP headers", async () => {
+  test("maps the action onto the manifest's x-upstream name and sends MCP headers", async () => {
     stubFetch(rpc({ structuredContent: {} }))
 
-    await careerpackAdapter.execute(
-      ACTION_APPLICATION_CREATE,
-      { company: "Acme", position: "SRE", location: "Jakarta", source: "LinkedIn", notes: "referred" },
-      context(),
-    )
+    await adapter.execute(WRITE, { company: "Acme", notes: "referred" }, context())
 
     const call = calls[0]
     expect(call).toBeDefined()
@@ -97,17 +149,17 @@ describe("careerpackAdapter happy paths", () => {
     expect(body["jsonrpc"]).toBe("2.0")
     expect(body["method"]).toBe("tools/call")
     expect(body["params"]).toEqual({
-      name: "applications_create",
-      arguments: { company: "Acme", position: "SRE", location: "Jakarta", source: "LinkedIn", notes: "referred" },
+      name: "things_create",
+      arguments: { company: "Acme", notes: "referred" },
     })
   })
 })
 
-describe("careerpackAdapter failure paths", () => {
+describe("remote-mcp adapter failure paths", () => {
   test("a JSON-RPC error becomes UPSTREAM_ERROR", async () => {
     stubFetch(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "unknown argument" } }))
 
-    const error = await careerpackAdapter.execute(ACTION_PROFILE_READ, {}, context()).catch((cause: unknown) => cause)
+    const error = await adapter.execute(READ, {}, context()).catch((cause: unknown) => cause)
 
     expect(error).toBeInstanceOf(GatewayError)
     expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
@@ -117,7 +169,7 @@ describe("careerpackAdapter failure paths", () => {
   test("result.isError becomes UPSTREAM_ERROR", async () => {
     stubFetch(rpc({ isError: true, content: [{ type: "text", text: "profile is locked" }] }))
 
-    const error = await careerpackAdapter.execute(ACTION_PROFILE_READ, {}, context()).catch((cause: unknown) => cause)
+    const error = await adapter.execute(READ, {}, context()).catch((cause: unknown) => cause)
 
     expect(error).toBeInstanceOf(GatewayError)
     expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
@@ -127,11 +179,30 @@ describe("careerpackAdapter failure paths", () => {
   test("an unknown action id is ACTION_NOT_FOUND and never reaches the network", async () => {
     stubFetch(rpc({ structuredContent: {} }))
 
-    const error = await careerpackAdapter
-      .execute("careerpack.profile.delete", {}, context())
-      .catch((cause: unknown) => cause)
+    const error = await adapter.execute("fixture.thing.delete", {}, context()).catch((cause: unknown) => cause)
 
     expect(error).toBeInstanceOf(GatewayError)
+    expect((error as GatewayError).code).toBe("ACTION_NOT_FOUND")
+    expect(calls).toHaveLength(0)
+  })
+
+  /**
+   * The denied case that matters most for the collapse: an action the manifest declares
+   * but gives no `x-upstream`. Guessing `thing_get` from the id would have called a real
+   * upstream tool the manifest never described.
+   */
+  test("a declared action with no x-upstream is ACTION_NOT_FOUND, not a guess", async () => {
+    stubFetch(rpc({ structuredContent: {} }))
+    const manifest = fixtureManifest()
+    const actions = manifest.actions.map((action) => {
+      const copy = { ...action } as Record<string, unknown>
+      delete copy["x-upstream"]
+      return copy
+    })
+    const unmapped = createRemoteMcpAdapter({ ...manifest, actions } as unknown as ConnectorManifest)
+
+    const error = await unmapped.execute(READ, {}, context()).catch((cause: unknown) => cause)
+
     expect((error as GatewayError).code).toBe("ACTION_NOT_FOUND")
     expect(calls).toHaveLength(0)
   })
@@ -145,9 +216,7 @@ describe("careerpackAdapter failure paths", () => {
     stubFetch(rpc({ structuredContent: {} }))
 
     for (const input of ["everything", ["everything"], 42]) {
-      const error = await careerpackAdapter
-        .execute(ACTION_APPLICATION_CREATE, input, context())
-        .catch((cause: unknown) => cause)
+      const error = await adapter.execute(WRITE, input, context()).catch((cause: unknown) => cause)
 
       expect((error as GatewayError).code).toBe("INVALID_INPUT")
     }
@@ -167,7 +236,7 @@ describe("careerpackAdapter failure paths", () => {
       cv_id: "cv_123",
     }
 
-    await careerpackAdapter.execute(ACTION_APPLICATION_CREATE, input, context())
+    await adapter.execute(WRITE, input, context())
 
     const body = JSON.parse(String(calls[0]?.init.body)) as Record<string, Record<string, unknown>>
     expect(body["params"]?.["arguments"]).toEqual(input)
@@ -176,8 +245,8 @@ describe("careerpackAdapter failure paths", () => {
   test("a missing credential is CONNECTION_MISSING", async () => {
     stubFetch(rpc({ structuredContent: {} }))
 
-    const error = await careerpackAdapter
-      .execute(ACTION_PROFILE_READ, {}, {
+    const error = await adapter
+      .execute(READ, {}, {
         requestId: "req_test",
         credential: { connectionId: "conn_test", baseUrl: BASE_URL, token: "" },
         signal: new AbortController().signal,
@@ -191,19 +260,19 @@ describe("careerpackAdapter failure paths", () => {
   test("output echoing the credential is discarded", async () => {
     stubFetch(rpc({ structuredContent: { debug: `Bearer ${TOKEN}` } }))
 
-    const error = await careerpackAdapter.execute(ACTION_PROFILE_READ, {}, context()).catch((cause: unknown) => cause)
+    const error = await adapter.execute(READ, {}, context()).catch((cause: unknown) => cause)
 
     expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
     expect((error as GatewayError).message).not.toContain(TOKEN)
   })
 })
 
-describe("careerpackAdapter cancellation", () => {
+describe("remote-mcp adapter cancellation", () => {
   test("the caller's AbortSignal is handed to fetch", async () => {
     stubFetch(rpc({ structuredContent: {} }))
     const controller = new AbortController()
 
-    await careerpackAdapter.execute(ACTION_PROFILE_READ, {}, context(controller.signal))
+    await adapter.execute(READ, {}, context(controller.signal))
 
     expect(calls[0]?.init.signal).toBe(controller.signal)
   })
@@ -213,9 +282,7 @@ describe("careerpackAdapter cancellation", () => {
     const controller = new AbortController()
     controller.abort()
 
-    const error = await careerpackAdapter
-      .execute(ACTION_PROFILE_READ, {}, context(controller.signal))
-      .catch((cause: unknown) => cause)
+    const error = await adapter.execute(READ, {}, context(controller.signal)).catch((cause: unknown) => cause)
 
     expect((error as GatewayError).code).toBe("CANCELLED")
     expect(calls).toHaveLength(0)
@@ -249,7 +316,7 @@ describe("the bearer token never leaks", () => {
       let thrown: unknown
       let output: unknown
       try {
-        output = (await careerpackAdapter.execute(ACTION_PROFILE_READ, {}, context())).output
+        output = (await adapter.execute(READ, {}, context())).output
       } catch (cause) {
         thrown = cause
       }

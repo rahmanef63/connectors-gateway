@@ -4,7 +4,7 @@
  * against in-memory fakes without a single conditional in production code.
  */
 import { open } from "@cg/auth"
-import { careerpackAdapter } from "@cg/adapter-careerpack"
+import { REMOTE_MCP_MANIFESTS, createRemoteMcpAdapter } from "@cg/adapter-remote-mcp"
 import { createCloudExecutor, createLocalExecutor, createRouter } from "@cg/executor"
 import type { CloudAdapter } from "@cg/executor"
 import { createLogger } from "@cg/observability"
@@ -81,9 +81,12 @@ export async function createApp(
   // Cloud adapters run IN this process. Local adapters never do: blender's
   // manifest is registered for catalog/policy (./registry), and its adapter is
   // deliberately not even imported here — it executes inside apps/agent.
-  const adapters = new Map<string, CloudAdapter>([
-    [careerpackAdapter.manifest.id, careerpackAdapter as CloudAdapter],
-  ])
+  //
+  // Every remote MCP connector is the SAME adapter bound to a different manifest, so a
+  // new one is a JSON file in @cg/adapter-remote-mcp and nothing here changes.
+  const adapters = new Map<string, CloudAdapter>(
+    REMOTE_MCP_MANIFESTS.map((manifest) => [manifest.id, createRemoteMcpAdapter(manifest)]),
+  )
 
   const cloud = createCloudExecutor({
     adapters,

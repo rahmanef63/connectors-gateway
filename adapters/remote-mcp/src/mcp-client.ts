@@ -1,8 +1,11 @@
 /**
  * Minimal remote-MCP client: one JSON-RPC 2.0 `tools/call` over HTTP POST.
  *
+ * Server-agnostic on purpose — `baseUrl`, `token` and `name` are the only inputs, so the
+ * same function reaches every remote MCP server in the catalog (docs/16).
+ *
  * ponytail: no `initialize` handshake, no session id, no SSE streaming state, no retry.
- * CareerPack's remote server answers a single-shot tools/call, which is all the MVP needs.
+ * The servers we connect answer a single-shot tools/call, which is all the MVP needs.
  * Upgrade path is the official MCP TypeScript SDK transport once sessions, sampling, or
  * progress notifications are required.
  */
@@ -15,10 +18,10 @@ export const MCP_PROTOCOL_VERSION = "2025-06-18"
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
 
 /**
- * A tools/call result is a profile or an application id, not a download. 1 MiB is far
- * above anything CareerPack returns and far below what would matter if a compromised or
- * impersonated endpoint answered with an endless stream: without a cap, one call can
- * exhaust the gateway's memory for every other tenant.
+ * A tools/call result is a record or an id, not a download. 1 MiB is far above anything
+ * these servers return and far below what would matter if a compromised or impersonated
+ * endpoint answered with an endless stream: without a cap, one call can exhaust the
+ * gateway's memory for every other tenant.
  */
 export const MAX_RESPONSE_BYTES = 1_048_576
 
@@ -38,7 +41,7 @@ export async function callTool(
 ): Promise<unknown> {
   const endpoint = endpointFor(baseUrl)
   if (signal.aborted) {
-    throw new GatewayError("CANCELLED", "The CareerPack call was cancelled.")
+    throw new GatewayError("CANCELLED", "The upstream call was cancelled.")
   }
 
   requestCounter += 1
@@ -64,7 +67,7 @@ export async function callTool(
       // `manual` over `error` so a redirect is reported as a redirect rather than as an
       // indistinguishable TypeError. Either way the hop is never taken: fetch replays the
       // Authorization header on a cross-origin redirect in some runtimes, so following a
-      // 302 would hand this connection's CareerPack bearer to whatever host Location names.
+      // 302 would hand this connection's bearer to whatever host Location names.
       redirect: "manual",
     })
   } catch (cause) {
@@ -76,13 +79,16 @@ export async function callTool(
     // The Location value is deliberately not echoed: it is attacker-chosen text.
     throw new GatewayError(
       "UPSTREAM_ERROR",
-      "CareerPack redirected the call; the credential was not forwarded.",
+      "The upstream server redirected the call; the credential was not forwarded.",
     )
   }
 
   if (!response.ok) {
     // Only the status is surfaced: an upstream error body may repeat the bearer.
-    throw new GatewayError("UPSTREAM_ERROR", `CareerPack refused the call (HTTP ${response.status}).`)
+    throw new GatewayError(
+      "UPSTREAM_ERROR",
+      `The upstream server refused the call (HTTP ${response.status}).`,
+    )
   }
 
   const raw = await readCappedBody(response)
@@ -135,7 +141,7 @@ async function readCappedBody(response: Response): Promise<string> {
 }
 
 function tooLarge(): GatewayError {
-  return new GatewayError("UPSTREAM_ERROR", "CareerPack returned an oversized response.")
+  return new GatewayError("UPSTREAM_ERROR", "The upstream server returned an oversized response.")
 }
 
 /** The endpoint comes from stored connection config, but it is still validated. */
@@ -144,19 +150,19 @@ function endpointFor(baseUrl: string): URL {
   try {
     url = new URL(baseUrl)
   } catch {
-    throw new GatewayError("UPSTREAM_ERROR", "The CareerPack connection has an invalid endpoint URL.")
+    throw new GatewayError("UPSTREAM_ERROR", "This connection has an invalid endpoint URL.")
   }
   const isLoopback = LOOPBACK_HOSTS.has(url.hostname)
   if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback)) {
-    throw new GatewayError("UPSTREAM_ERROR", "CareerPack must be reached over HTTPS.")
+    throw new GatewayError("UPSTREAM_ERROR", "The upstream server must be reached over HTTPS.")
   }
   return url
 }
 
 function transportError(cause: unknown): GatewayError {
   const name = cause instanceof Error ? cause.name : ""
-  if (name === "AbortError") return new GatewayError("CANCELLED", "The CareerPack call was cancelled.")
-  if (name === "TimeoutError") return new GatewayError("TIMEOUT", "The CareerPack call timed out.")
+  if (name === "AbortError") return new GatewayError("CANCELLED", "The upstream call was cancelled.")
+  if (name === "TimeoutError") return new GatewayError("TIMEOUT", "The upstream call timed out.")
   // The raw network error is dropped: it can carry the request headers.
-  return new GatewayError("UPSTREAM_ERROR", "CareerPack is unreachable.")
+  return new GatewayError("UPSTREAM_ERROR", "The upstream server is unreachable.")
 }

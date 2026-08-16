@@ -1,9 +1,9 @@
 {
-  "name": "@cg/adapter-careerpack",
+  "name": "@cg/adapter-remote-mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "CareerPack cloud adapter (remote MCP).",
+  "description": "One generic cloud adapter for any remote MCP server. Connectors are manifests, not packages.",
   "exports": {
     ".": "./src/index.ts",
     "./package.json": "./package.json"
@@ -11,6 +11,7 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@cg/core": "workspace:*",
+    "@cg/schemas": "workspace:*",
     "@cg/sdk": "workspace:*"
   }
 }

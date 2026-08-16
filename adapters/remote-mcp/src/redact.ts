@@ -1,5 +1,5 @@
 /**
- * Message redaction for anything that came back from CareerPack.
+ * Message redaction for anything that came back from an upstream MCP server.
  *
  * Invariant 5 (AGENTS.md): connector credentials never appear in tool output — and by
  * extension never in an error message or a log line. Upstream servers habitually echo

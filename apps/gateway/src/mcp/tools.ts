@@ -7,7 +7,7 @@
  */
 import type { ActionDefinition } from "@cg/core"
 import type { CatalogEntry } from "@cg/registry"
-import { toolNameFor } from "./tool-names"
+import { assertNoToolNameCollision, toolNameFor } from "./tool-names"
 import type { ToolTarget } from "./tool-names"
 
 export type McpTool = {
@@ -41,7 +41,13 @@ function toTool(connectorName: string, action: ActionDefinition): McpTool {
   }
 }
 
+function actionIdsOf(entries: readonly CatalogEntry[]): string[] {
+  return entries.flatMap((entry) => entry.actions.map((action) => action.id))
+}
+
+/** A catalog whose tools would collide is not listed at all — see docs/09. */
 export function toolsFor(entries: readonly CatalogEntry[]): McpTool[] {
+  assertNoToolNameCollision(actionIdsOf(entries))
   return entries.flatMap((entry) =>
     entry.actions.map((action) => toTool(entry.connector.name, action)),
   )

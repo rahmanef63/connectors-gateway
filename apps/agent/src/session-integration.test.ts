@@ -31,6 +31,28 @@ function sleep(ms: number): Promise<void> {
   })
 }
 
+/**
+ * Wait for an OUTCOME, never for a duration.
+ *
+ * Delivering a frame kicks off async work the test cannot await directly — Ed25519
+ * verification via WebCrypto, then the adapter — and a fixed `sleep(5)` is a bet on how
+ * long that takes. The bet loses on a loaded machine, which made this file fail roughly
+ * once in eight runs (a different test each time) while the agent was perfectly correct.
+ * Polling for the condition is both faster in the normal case and stable in the slow one.
+ */
+async function waitFor(predicate: () => boolean, label: string, timeoutMs = 5_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error(`timed out after ${timeoutMs}ms waiting for ${label}`)
+    await sleep(1)
+  }
+}
+
+/** Frames of a given type the agent has sent so far. */
+function framesOfType(gw: { frames: () => AgentMessage[] }, type: AgentMessage["type"]): AgentMessage[] {
+  return gw.frames().filter((frame) => frame.type === type)
+}
+
 const config: AgentConfig = {
   deviceId: "dev_int",
   credential: "cgd_integration_credential",
@@ -139,19 +161,19 @@ describe("agent <-> gateway wire", () => {
     const gw = await gateway()
     gw.session.start()
     gw.fire().open()
-    await sleep(2)
+    await waitFor(() => gw.frames().length > 0, "the hello frame")
 
     const hello = gw.frames()[0]
     expect(hello?.type).toBe("hello")
 
     gw.fire().message(gw.welcome())
-    await sleep(2)
+    await waitFor(() => gw.keys.pinned() !== undefined, "the signing key to be pinned")
     expect(gw.keys.pinned()?.keyId).toBe("k1")
     expect(gw.session.state()).toBe("online")
 
     const { raw, signed } = await gw.job()
     gw.fire().message(raw)
-    await sleep(5)
+    await waitFor(() => framesOfType(gw, "result").length > 0, "the result frame")
 
     const result = gw.frames().find((frame) => frame.type === "result")
     expect(result?.type).toBe("result")
@@ -165,11 +187,11 @@ describe("agent <-> gateway wire", () => {
     const gw = await gateway()
     gw.session.start()
     gw.fire().open()
-    await sleep(2)
+    await waitFor(() => gw.frames().length > 0, "the hello frame")
 
     const { raw } = await gw.job()
     gw.fire().message(raw)
-    await sleep(5)
+    await waitFor(() => framesOfType(gw, "result").length > 0, "the result frame")
 
     const result = gw.frames().find((frame) => frame.type === "result")
     if (result?.type !== "result") throw new Error("no result frame")
@@ -181,15 +203,17 @@ describe("agent <-> gateway wire", () => {
     const gw = await gateway()
     gw.session.start()
     gw.fire().open()
-    await sleep(2)
+    await waitFor(() => gw.frames().length > 0, "the hello frame")
     gw.fire().message(gw.welcome())
-    await sleep(2)
+    await waitFor(() => gw.keys.pinned() !== undefined, "the signing key to be pinned")
 
     const { raw } = await gw.job()
     gw.fire().message(raw)
-    await sleep(5)
+    // The two deliveries must be ordered: the replay guard only refuses the SECOND one,
+    // so the first result has to have landed before the job is sent again.
+    await waitFor(() => framesOfType(gw, "result").length === 1, "the first result frame")
     gw.fire().message(raw)
-    await sleep(5)
+    await waitFor(() => framesOfType(gw, "result").length === 2, "the second result frame")
 
     const results = gw.frames().filter((frame) => frame.type === "result")
     expect(results).toHaveLength(2)
@@ -203,11 +227,14 @@ describe("agent <-> gateway wire", () => {
     const gw = await gateway()
     gw.session.start()
     gw.fire().open()
-    await sleep(2)
+    await waitFor(() => gw.frames().length > 0, "the hello frame")
     gw.fire().message(gw.welcome())
+    // Pin before dispatching, so this exercises the EXECUTED path rather than racing into
+    // a NOT_AUTHORIZED rejection that would never have reached the adapter at all.
+    await waitFor(() => gw.keys.pinned() !== undefined, "the signing key to be pinned")
     const { raw } = await gw.job()
     gw.fire().message(raw)
-    await sleep(5)
+    await waitFor(() => framesOfType(gw, "result").length > 0, "the result frame")
 
     expect(gw.sent[0]).toContain(config.credential)
     for (const frame of gw.sent.slice(1)) expect(frame).not.toContain(config.credential)

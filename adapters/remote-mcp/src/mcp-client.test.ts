@@ -3,7 +3,7 @@ import { GatewayError } from "@cg/core"
 import { MAX_RESPONSE_BYTES, MCP_PROTOCOL_VERSION, callTool } from "./mcp-client"
 
 const TOKEN = "cp_live_9c2f4a1b7e6d8f3a5b0c1d2e3f4a5b6c"
-const BASE_URL = "https://careerpack.example.com/mcp"
+const BASE_URL = "https://upstream.example.com/mcp"
 
 const originalFetch = globalThis.fetch
 let calls: { url: string; init: RequestInit }[] = []
@@ -32,7 +32,7 @@ function rpc(result: unknown): string {
 }
 
 function call(baseUrl = BASE_URL, signal = new AbortController().signal): Promise<unknown> {
-  return callTool(baseUrl, TOKEN, "profile_get", {}, signal)
+  return callTool(baseUrl, TOKEN, "thing_get", {}, signal)
 }
 
 beforeEach(() => {
@@ -62,7 +62,7 @@ describe("callTool transport", () => {
   test("rejects a non-loopback plaintext endpoint", async () => {
     stubFetch(rpc({ structuredContent: {} }))
 
-    const error = await call("http://careerpack.example.com/mcp").catch((cause: unknown) => cause)
+    const error = await call("http://upstream.example.com/mcp").catch((cause: unknown) => cause)
 
     expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
     expect(calls).toHaveLength(0)
@@ -123,7 +123,7 @@ describe("callTool transport", () => {
 })
 
 /**
- * Regression: the client used fetch's default `redirect: "follow"`. A CareerPack
+ * Regression: the client used fetch's default `redirect: "follow"`. An upstream
  * endpoint that answered 302 — whether compromised, hijacked by DNS, or simply
  * misconfigured — would have had the Authorization header replayed to the host named
  * in Location, handing that host a live bearer for this connection.

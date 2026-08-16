@@ -17,11 +17,12 @@
         "@cg/sdk": "workspace:*",
       },
     },
-    "adapters/careerpack": {
-      "name": "@cg/adapter-careerpack",
+    "adapters/remote-mcp": {
+      "name": "@cg/adapter-remote-mcp",
       "version": "0.1.0",
       "dependencies": {
         "@cg/core": "workspace:*",
+        "@cg/schemas": "workspace:*",
         "@cg/sdk": "workspace:*",
       },
     },
@@ -40,7 +41,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@cg/adapter-blender": "workspace:*",
-        "@cg/adapter-careerpack": "workspace:*",
+        "@cg/adapter-remote-mcp": "workspace:*",
         "@cg/auth": "workspace:*",
         "@cg/core": "workspace:*",
         "@cg/executor": "workspace:*",
@@ -149,7 +150,7 @@
 
     "@cg/adapter-blender": ["@cg/adapter-blender@workspace:adapters/blender"],
 
-    "@cg/adapter-careerpack": ["@cg/adapter-careerpack@workspace:adapters/careerpack"],
+    "@cg/adapter-remote-mcp": ["@cg/adapter-remote-mcp@workspace:adapters/remote-mcp"],
 
     "@cg/agent": ["@cg/agent@workspace:apps/agent"],
 

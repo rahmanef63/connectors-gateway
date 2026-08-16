@@ -28,8 +28,17 @@ Success condition:
 AI → Gateway → CareerPack → Gateway → AI
 ```
 
-Not yet demonstrated end to end: it needs a stored connection and the confirmed
-upstream tool names (see `adapters/careerpack/src/upstream.ts`).
+**Demonstrated against the live stack on 2026-08-15**, with one caveat. A real call ran
+the whole chain: API key → `authenticateCaller` → policy `ALLOW` (R0) → the connection's
+sealed token decrypted inside the gateway → a real HTTPS request to CareerPack → the
+upstream's answer mapped to a normalised result → exactly one audit row carrying the
+decision, status and latency.
+
+The caveat is the credential, not the code: the stored token is a placeholder, so CareerPack
+answered `401` and the chain ended in `UPSTREAM_ERROR`. A green call needs a row in
+CareerPack's own `oauthAccessTokens` — its `MCP_API_KEY` resolves to `userId: null` and every
+`tools/call` is refused. The upstream tool names ARE now confirmed against that server's
+source (`profile_get`, `applications_create`) and live in each action's `x-upstream`.
 
 ## Phase 2 — device relay
 
@@ -110,16 +119,27 @@ Proven end to end against the live stack:
 - `/v1/pair/claim` gives the same answer for an unknown challenge id as for an
   unapproved one, so it is not an enumeration oracle.
 
+- **the front door works**: an API key is minted, `listMine` returns metadata with no
+  secret, the live gateway accepts the key, and a wrong secret, an unknown key id and a
+  revoked key all return an identical `401` — so it is not an existence oracle;
+- **the SSRF gate holds**: `169.254.169.254`, `10.0.0.1`, `192.168.1.5`, the IPv4-mapped
+  IPv6 form, a userinfo URL and a URL pointing back at our own Convex deployment are all
+  rejected, while a real `*.convex.site/mcp` is accepted;
+- **the cloud chain runs end to end** — see Phase 1 above. The catalog only lists a
+  connector once a connection row exists, which is the `docs/07` intersection working.
+
 Still unproven:
 
 - **no device has ever paired.** The browser approval step and the agent's outbound
   session have not been exercised against the live gateway.
 - **no job has ever been dispatched**, so the relay, the signed envelope and the
   agent's local allowlist are untested outside unit tests.
-- **CareerPack is not connected.** No connection record exists and the upstream tool
-  names are still unconfirmed.
+- **no upstream has ever answered successfully.** CareerPack is connected and reachable,
+  but with a placeholder credential; the one thing never observed is a `200` coming back
+  through the chain with real data in it.
 - **Blender has never been driven.** The add-on has not been installed in a real
-  Blender.
+  Blender. Per the owner's 2026-08-15 decision the relay is a feature, not the product,
+  so this is parked rather than next.
 
 ## Explicitly out of MVP
 

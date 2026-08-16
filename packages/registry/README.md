@@ -18,8 +18,11 @@ The registry imports no adapter. Adapters depend on the registry, so the reverse
 would be a cycle — the composition root passes manifests in.
 
 ```ts
-const registry = createRegistry([careerpackAdapter.manifest, blenderAdapter.manifest])
+const registry = createRegistry([...REMOTE_MCP_MANIFESTS, blenderManifest])
 ```
+
+Remote-MCP connectors arrive as data — one generic adapter executes all of them —
+so adding a connector never touches this package.
 
 Every manifest is validated at construction; duplicate connector ids and
 duplicate action ids are rejected. A built-in connector that fails its own

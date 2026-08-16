@@ -22,18 +22,27 @@ const ajv = new Ajv({
 
 const compiled = new WeakMap<object, ValidateFunction>()
 
-function compileFresh(schema: JsonSchema): ValidateFunction {
-  const id = schema["$id"]
-  if (typeof id === "string") {
-    // A distinct object carrying an already-registered $id would make Ajv throw.
-    const existing = ajv.getSchema(id)
-    if (existing) return existing
-  }
-  return ajv.compile(schema)
+/**
+ * Compile the schema WITHOUT its root `$id`.
+ *
+ * `$id` is caller data: once manifests come from the database, one owner could
+ * declare the `$id` of another owner's schema. Ajv keys its global registry on
+ * `$id`, so registering it would either substitute the other schema's validator
+ * or make the second registration throw. Neither may depend on a name a caller
+ * chose, so no caller `$id` is ever registered. Internal `#/$defs/...` and
+ * `#anchor` references resolve relative to the document, not to `$id`, and are
+ * unaffected; the caller's object is never mutated.
+ */
+function withoutRootId(schema: JsonSchema): JsonSchema {
+  if (!("$id" in schema)) return schema
+  const { $id: _unregistered, ...rest } = schema
+  return rest
 }
 
 /**
  * Compile (or reuse) a validator for `schema`.
+ * Cache hits are decided by schema IDENTITY (WeakMap) alone — never by `$id`,
+ * so two schemas that share an `$id` still validate independently.
  * Throws INVALID_INPUT if the schema itself is not a valid JSON Schema —
  * the reason is deliberately not echoed, since a schema may be attacker-shaped.
  */
@@ -43,7 +52,7 @@ export function compileSchema(schema: JsonSchema): ValidateFunction {
 
   let validate: ValidateFunction
   try {
-    validate = compileFresh(schema)
+    validate = ajv.compile(withoutRootId(schema))
   } catch {
     throw new GatewayError("INVALID_INPUT", "Schema is not a valid JSON Schema document.")
   }
