@@ -47,6 +47,20 @@ export const REFS = {
     WithToken<{ challengeId: string; deviceId: string; credentialHash: string }>
   >("service/pairing:claim"),
 
+  approvalsClaim: mutation<WithToken<{ ownerId: string; requestHash: string }>>(
+    "service/approvals:claim",
+  ),
+  approvalsRequest: mutation<
+    WithToken<{
+      ownerId: string
+      connectorId: string
+      actionId: string
+      requestHash: string
+      inputPreview: string
+      risk: string
+    }>
+  >("service/approvals:request"),
+
   policyListRules: query<WithToken<{ userId: string; connectorId: string }>>(
     "service/policy:listRules",
   ),

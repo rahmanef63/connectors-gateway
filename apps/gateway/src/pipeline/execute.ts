@@ -21,6 +21,7 @@ import { toRequestContext } from "../context"
 import { appendAudit } from "./audit"
 import { decide } from "./decide"
 import { stripIdentityFields } from "./identity"
+import { approvalHash, inputPreview } from "./approval-key"
 import type { ExecuteInput, PipelineDeps } from "./types"
 
 export type { ExecuteInput, PipelineDeps } from "./types"
@@ -56,7 +57,7 @@ export async function executeAction(
 
     // 5. Policy runs per action, not per connection.
     decision = await decide(deps, principal, connector, action)
-    assertAllowed(decision)
+    await assertAllowed(deps, decision, principal, connector, action, validated)
 
     // 6. Cloud vs local is decided from the manifest, never by the caller.
     result = await deps.executor.execute({
@@ -101,19 +102,62 @@ async function authenticate(deps: PipelineDeps, token: string | null): Promise<P
 }
 
 /**
- * MVP: there is no auto-approval path. REQUIRE_APPROVAL is returned as a code
- * the dashboard can act on, and the audit row records the decision (docs/09).
+ * DENY is final. REQUIRE_APPROVAL now consults persistence instead of always
+ * refusing: if the user has already approved THIS call — same connector, same
+ * action, same arguments — the approval is spent here and execution continues.
+ * Otherwise the call is queued for a human and still refused.
+ *
+ * The claim is a write, deliberately: asking "is it approved?" and marking it
+ * used cannot be two steps, or two concurrent calls ride one decision.
+ *
+ * With no approval store configured this is exactly the old behaviour — refuse
+ * — because a missing control plane must not read as blanket permission.
  */
-function assertAllowed(decision: PolicyDecision): void {
+async function assertAllowed(
+  deps: PipelineDeps,
+  decision: PolicyDecision,
+  principal: Principal,
+  connector: ConnectorManifest,
+  action: ActionDefinition,
+  input: unknown,
+): Promise<void> {
   if (decision === "DENY") {
     throw new GatewayError("POLICY_DENIED", "This action is not permitted by policy.")
   }
-  if (decision === "REQUIRE_APPROVAL") {
+  if (decision !== "REQUIRE_APPROVAL") return
+
+  const store = deps.approvals
+  const owner = principal.userId
+  if (store === undefined || owner === undefined) {
     throw new GatewayError(
       "APPROVAL_REQUIRED",
       "This action needs approval in the dashboard before it can run.",
     )
   }
+
+  const requestHash = approvalHash(connector.id, action.id, input)
+  if (await store.claim(owner, requestHash)) return
+
+  // Queue it, then refuse. A failure to record must not become permission, so
+  // the throw happens either way — the user simply sees nothing to approve and
+  // retries, which is the safe direction to fail in.
+  try {
+    await store.request({
+      ownerId: owner,
+      connectorId: connector.id,
+      actionId: action.id,
+      requestHash,
+      inputPreview: inputPreview(input),
+      risk: action.risk,
+    })
+  } catch (error) {
+    deps.logger.warn?.("approval.request_failed", { connectorId: connector.id })
+    void error
+  }
+  throw new GatewayError(
+    "APPROVAL_REQUIRED",
+    "This action needs approval in the dashboard before it can run.",
+  )
 }
 
 type RecordInput = {

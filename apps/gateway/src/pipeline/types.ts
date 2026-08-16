@@ -4,6 +4,7 @@ import type { ApiKeyLookup } from "@cg/auth"
 import type { Logger } from "@cg/observability"
 import type { ConnectorRegistry } from "@cg/registry"
 import type { RequestScope } from "../context"
+import type { ApprovalStore } from "../store/approvals"
 
 export type PipelineDeps = {
   registry: ConnectorRegistry
@@ -13,6 +14,13 @@ export type PipelineDeps = {
   audit: AuditSink
   /** The router from @cg/executor: cloud vs local is decided from the manifest. */
   executor: Executor
+  /**
+   * Persistence for REQUIRE_APPROVAL. Optional so a deployment without a
+   * control plane still runs — but note what its absence MEANS: every R2+
+   * action is refused outright rather than queued, which is the pre-2026-08-16
+   * behaviour, not a relaxed one.
+   */
+  approvals?: ApprovalStore
   logger: Logger
 }
 

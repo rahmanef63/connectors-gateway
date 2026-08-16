@@ -62,6 +62,8 @@ describe("REFS", () => {
       "pairingCreateChallenge",
       "pairingGetByCode",
       "pairingClaim",
+      "approvalsClaim",
+      "approvalsRequest",
       "policyListRules",
       "connectionsListForUser",
       "connectionsResolveCredential",

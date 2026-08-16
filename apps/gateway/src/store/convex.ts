@@ -6,6 +6,7 @@ import type { ControlPlane } from "@cg/core"
 import type { ApiKeyLookup } from "@cg/auth"
 import type { Logger } from "@cg/observability"
 import { createApiKeyLookup } from "./api-keys"
+import { createApprovalStore, type ApprovalStore } from "./approvals"
 import { createAuditSink } from "./audit"
 import { createControlPlaneClient } from "./client"
 import type { ControlPlaneClient } from "./client"
@@ -19,6 +20,7 @@ import { createPolicyStore } from "./policy"
 export type GatewayControlPlane = ControlPlane & {
   devices: GatewayDeviceStore
   apiKeys: ApiKeyLookup
+  approvals: ApprovalStore
 }
 
 export function createControlPlane(client: ControlPlaneClient, logger: Logger): GatewayControlPlane {
@@ -29,6 +31,7 @@ export function createControlPlane(client: ControlPlaneClient, logger: Logger): 
     connections: createConnectionStore(client),
     audit: createAuditSink(client, logger),
     apiKeys: createApiKeyLookup(client),
+    approvals: createApprovalStore(client),
   }
 }
 

@@ -263,3 +263,75 @@ describe("executeAction — allowed path", () => {
     expect(result.status).toBe("success")
   })
 })
+
+
+describe("REQUIRE_APPROVAL with persistence", () => {
+  // `testcloud.risky` is R2, whose baseline decision is REQUIRE_APPROVAL.
+  const RISKY = "testcloud.risky"
+
+  function approvalStub(claimAnswer: boolean, requestThrows = false) {
+    const requested: unknown[] = []
+    let claims = 0
+    return {
+      requested,
+      claimCount: () => claims,
+      store: {
+        async claim() {
+          claims += 1
+          return claimAnswer
+        },
+        async request(input: unknown) {
+          if (requestThrows) throw new Error("control plane down")
+          requested.push(input)
+        },
+      },
+    }
+  }
+
+  async function callRisky(store?: unknown, input: Record<string, unknown> = { a: 1 }) {
+    const deps = await pipelineDeps(store === undefined ? {} : ({ approvals: store } as never))
+    const { token } = await testApiKey()
+    const result = await executeAction(deps, {
+      scope: scope(),
+      token,
+      connectorId: TEST_CONNECTOR,
+      actionId: RISKY,
+      input,
+    })
+    return { deps, result }
+  }
+
+  test("queues the call and still refuses when nothing is approved", async () => {
+    const stub = approvalStub(false)
+    const { result } = await callRisky(stub.store)
+    expect(result.error?.code).toBe("APPROVAL_REQUIRED")
+    // Refused AND recorded — a screen with nothing on it is the gap this closes.
+    expect(stub.requested).toHaveLength(1)
+  })
+
+  test("proceeds once an approval for THIS call exists, spending it", async () => {
+    const stub = approvalStub(true)
+    const { result } = await callRisky(stub.store)
+    expect(result.status).toBe("success")
+    expect(stub.claimCount()).toBe(1)
+    // Nothing re-queued: it was already answered.
+    expect(stub.requested).toHaveLength(0)
+  })
+
+  test("still refuses with no store configured — absence is not permission", async () => {
+    const { result } = await callRisky()
+    expect(result.error?.code).toBe("APPROVAL_REQUIRED")
+  })
+
+  test("refuses when the queue write fails, rather than letting the call through", async () => {
+    const stub = approvalStub(false, true)
+    const { result } = await callRisky(stub.store)
+    expect(result.error?.code).toBe("APPROVAL_REQUIRED")
+  })
+
+  test("never executes the action on the refused path", async () => {
+    const stub = approvalStub(false)
+    const { deps } = await callRisky(stub.store)
+    expect(deps.executor.requests).toHaveLength(0)
+  })
+})

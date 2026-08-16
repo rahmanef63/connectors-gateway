@@ -100,6 +100,43 @@ export default defineSchema({
     decision: policyDecisionValidator,
   }).index("by_user_connector", ["userId", "connectorId"]),
 
+  /**
+   * One pending or resolved approval for ONE call.
+   *
+   * `requestHash` is what makes this a gate rather than a formality: it covers
+   * the connector, the action AND the canonicalised input, so approving
+   * "delete issue 5" cannot be replayed as "delete issue 500". An approval that
+   * were merely per-action would be a standing grant wearing a confirmation
+   * screen's clothes.
+   *
+   * Single-use and short-lived by construction: `status` moves to `consumed`
+   * inside the same mutation that authorises the call, and `expiresAt` ends the
+   * window whether or not anyone looked at it.
+   */
+  approvals: defineTable({
+    ownerId: v.string(),
+    connectorId: v.string(),
+    actionId: v.string(),
+    /** sha256 over {connectorId, actionId, canonical input}. */
+    requestHash: v.string(),
+    /** Short, human-readable echo of the arguments for the approval screen.
+     *  Never the raw input: it can carry whatever the model wrote. */
+    inputPreview: v.string(),
+    risk: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("denied"),
+      v.literal("consumed"),
+    ),
+    requestedAt: v.number(),
+    expiresAt: v.number(),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_owner_status", ["ownerId", "status"])
+    // The lookup the gateway does on every gated call.
+    .index("by_owner_hash", ["ownerId", "requestHash"]),
+
   auditLogs: defineTable({
     requestId: v.string(),
     timestamp: v.number(),

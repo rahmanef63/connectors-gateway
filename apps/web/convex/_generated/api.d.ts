@@ -27,6 +27,8 @@ import type * as auth from "../auth.js";
 import type * as features_api_keys_limits from "../features/api_keys/limits.js";
 import type * as features_api_keys_mutations from "../features/api_keys/mutations.js";
 import type * as features_api_keys_queries from "../features/api_keys/queries.js";
+import type * as features_approvals_mutations from "../features/approvals/mutations.js";
+import type * as features_approvals_queries from "../features/approvals/queries.js";
 import type * as features_audit_queries from "../features/audit/queries.js";
 import type * as features_auth_queries from "../features/auth/queries.js";
 import type * as features_connections_mutations from "../features/connections/mutations.js";
@@ -39,6 +41,7 @@ import type * as features_policy_mutations from "../features/policy/mutations.js
 import type * as features_policy_queries from "../features/policy/queries.js";
 import type * as http from "../http.js";
 import type * as service_apiKeys from "../service/apiKeys.js";
+import type * as service_approvals from "../service/approvals.js";
 import type * as service_audit from "../service/audit.js";
 import type * as service_connections from "../service/connections.js";
 import type * as service_devices from "../service/devices.js";
@@ -71,6 +74,8 @@ declare const fullApi: ApiFromModules<{
   "features/api_keys/limits": typeof features_api_keys_limits;
   "features/api_keys/mutations": typeof features_api_keys_mutations;
   "features/api_keys/queries": typeof features_api_keys_queries;
+  "features/approvals/mutations": typeof features_approvals_mutations;
+  "features/approvals/queries": typeof features_approvals_queries;
   "features/audit/queries": typeof features_audit_queries;
   "features/auth/queries": typeof features_auth_queries;
   "features/connections/mutations": typeof features_connections_mutations;
@@ -83,6 +88,7 @@ declare const fullApi: ApiFromModules<{
   "features/policy/queries": typeof features_policy_queries;
   http: typeof http;
   "service/apiKeys": typeof service_apiKeys;
+  "service/approvals": typeof service_approvals;
   "service/audit": typeof service_audit;
   "service/connections": typeof service_connections;
   "service/devices": typeof service_devices;
