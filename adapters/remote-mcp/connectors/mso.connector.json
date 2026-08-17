@@ -1,0 +1,450 @@
+{
+  "id": "mso",
+  "name": "mso — Manef Shell OS",
+  "version": "0.1.0",
+  "executor": "cloud",
+  "endpoint": "https://mso.rahmanef.com/mcp",
+  "auth": {
+    "type": "oauth2",
+    "fields": []
+  },
+  "actions": [
+    {
+      "id": "mso.fs.list",
+      "title": "List a directory on the VPS",
+      "description": "List a directory on the VPS; returns each entry's name and type. Call this FIRST to discover a path — guessing one wastes a call. The size field is always 0 and is NOT a real size, so never conclude a file is empty from it. Reads are bounded to the server's allowed roots and credential paths are refused.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          },
+          "includeHidden": {
+            "type": "boolean",
+            "description": "Include dotfiles. Default true."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "fs_list",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.fs.read",
+      "title": "Read a text file on the VPS",
+      "description": "Return the contents of a text file on the VPS. Binary files come back as garbage — check the extension via mso.fs.list first. This is not how you FIND a file; use mso.fs.search for that. Rated above the other reads because it returns file contents rather than metadata.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "fs_read",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.fs.search",
+      "title": "Find a directory by name",
+      "description": "Find DIRECTORIES whose name contains a fragment, recursively, under a root. Use it to locate a project folder before mso.fs.list. It does NOT match file names or file contents.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Substring matched against directory names."
+          },
+          "root": {
+            "type": "string",
+            "description": "Where to search from. Defaults to ~/projects."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "query"
+        ]
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "fs_search",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.fs.usage",
+      "title": "Disk usage for a path",
+      "description": "Total, used and free bytes for a path on the VPS. This is the cheap answer to \"is the VPS full?\".",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "fs_usage",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.sys.stats",
+      "title": "Live VPS health",
+      "description": "CPU load, memory, disk and uptime for the VPS in one call. Use this for \"how is the server doing\" rather than reading files or asking for a shell.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "sys_stats",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.sys.processes",
+      "title": "Top processes by CPU",
+      "description": "Top processes by CPU with pid, command, cpu% and memory%. Use it to find what is eating the box.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "sys_processes",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.apps.list",
+      "title": "List managed applications",
+      "description": "List the applications mso can install and control on this VPS, with their install and running state. These are server-side daemons, not the mso desktop UI surfaces. Call this before mso.apps.logs or mso.apps.power to get valid ids.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "apps_list",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.apps.logs",
+      "title": "Read a managed application's logs",
+      "description": "Recent log output for one managed application. This is the right way to answer \"why is X down\" — the same question through a shell would need far more trust. Get valid ids from mso.apps.list.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Managed app id from mso.apps.list, e.g. hermes."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ]
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "apps_logs",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.browser.status",
+      "title": "Anti-fingerprinting browser status",
+      "description": "Whether the Camoufox browser is installed, running and set to autostart. The viewer URL and its VNC password are deliberately NOT returned — that session holds live logins, so its credentials never leave the box in a tool result.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "browser_status",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.fs.write",
+      "title": "Write a text file on the VPS",
+      "description": "Create or overwrite a text file on the VPS. It OVERWRITES WITHOUT WARNING and there is no undo — read the file with mso.fs.read first if the old contents matter. Bounded to the server's writable roots.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          },
+          "content": {
+            "type": "string",
+            "description": "Full new contents of the file."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "content"
+        ]
+      },
+      "risk": "R2",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "fs_write",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "mso.fs.mkdir",
+      "title": "Create a directory on the VPS",
+      "description": "Create a directory on the VPS, including any missing parents. Safe to repeat: an existing directory is not an error.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "fs_mkdir",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "mso.fs.move",
+      "title": "Move or rename on the VPS",
+      "description": "Move or rename a file or directory on the VPS. The old path stops existing, so anything referring to it breaks — confirm with the user before moving something you did not create. Refused when the source holds credential paths.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Existing path."
+          },
+          "to": {
+            "type": "string",
+            "description": "New path."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "risk": "R2",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "fs_move",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "mso.fs.copy",
+      "title": "Copy a file or directory",
+      "description": "Copy a file or directory on the VPS. The cockpit's own secrets are skipped rather than duplicated.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Existing path."
+          },
+          "to": {
+            "type": "string",
+            "description": "Destination path."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "fs_copy",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "mso.fs.delete",
+      "title": "Delete a file or directory",
+      "description": "Delete a file or directory on the VPS. PERMANENT — there is no trash and no undo, and a directory goes with everything inside it. Confirm with the user before calling this on anything you did not create in this conversation.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "fs_delete",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "mso.apps.power",
+      "title": "Start, stop, restart or back up an app",
+      "description": "Start, stop, restart or back up a managed application on the VPS. Restarting or stopping one CUTS OFF whatever is currently using it — sessions in flight are lost, so say which app and which verb before calling. Check mso.apps.list or mso.apps.logs first.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Managed app id from mso.apps.list."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "stop",
+              "restart",
+              "backup"
+            ],
+            "description": "start | stop | restart | backup"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "action"
+        ]
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "apps_power",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    }
+  ]
+}
