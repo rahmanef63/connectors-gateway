@@ -139,14 +139,16 @@ which is a stateless rewrite with no `initialize` handshake and a mandatory
 
 ## Still open
 
-- **Nothing prunes `oauthCodes` or `oauthClients`.** Both tables only grow.
-  An unredeemed code expires but is never deleted, and registration is open by
-  design, so anyone can add client rows — `oauthLimiter` caps that at 20/min per
-  peer, which bounds the rate and not the total. Neither is a correctness bug:
-  an expired code is refused on read and a client row grants nothing on its own.
-  It is a storage and tidiness gap, and the fix is a scheduled sweeper of the
-  kind `admin/cleanup` does elsewhere. **Two `probe` client rows from verifying
-  the live endpoint are sitting in production right now.**
+- ~~**Nothing prunes `oauthCodes` or `oauthClients`.**~~ **Closed.** An hourly
+  cron (`convex/crons.ts` → `maintenance/oauth_sweep`) deletes lapsed codes and
+  client rows that registered and never completed an exchange. Two properties
+  are load-bearing and pinned by tests: a client with `lastUsedAt` set is
+  **never** pruned however old — deleting one breaks its owner's next reconnect
+  with "unknown client", undiagnosable from their side — and each pass is capped
+  at `OAUTH_SWEEP_BATCH`, so a deployment that has fallen behind spills into the
+  next tick rather than failing a transaction and retrying forever. The two
+  `probe` rows left in production while verifying the live endpoint age out on
+  their own under the never-used rule.
 - **No refresh tokens.** Tokens last 90 days and a client re-runs the flow. A
   short TTL without refresh would only train the user to click Approve weekly,
   which is worse than the long TTL.
