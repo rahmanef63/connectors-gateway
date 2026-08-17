@@ -12,6 +12,7 @@ import { authenticateCaller } from "@cg/auth"
 import type { RequestScope } from "../context"
 import { resolveCatalog } from "../catalog"
 import type { CatalogDeps } from "../catalog"
+import { appendAudit, safeId } from "../pipeline/audit"
 import { executeAction } from "../pipeline/execute"
 import type { PipelineDeps } from "../pipeline/execute"
 import { JSONRPC_ERRORS, jsonRpcError, jsonRpcResult, parseJsonRpcRequest } from "./jsonrpc"
@@ -127,7 +128,15 @@ async function callTool(
   request: JsonRpcRequest,
 ): Promise<unknown> {
   const entries = await resolveCatalog(deps, principal)
-  const target = lookupTool(createToolIndex(targetsFor(entries)), request.params.name)
+
+  let target
+  try {
+    target = lookupTool(createToolIndex(targetsFor(entries)), request.params.name)
+  } catch (cause) {
+    await auditCatalogMiss(deps, input, principal, request.params.name, cause)
+    throw cause
+  }
+
   const args = request.params.arguments
 
   const result = await executeAction(deps, {
@@ -139,6 +148,51 @@ async function callTool(
     input: typeof args === "object" && args !== null && !Array.isArray(args) ? args : {},
   })
   return toToolResult(result)
+}
+
+/**
+ * A `tools/call` for a name outside the caller's catalog is refused here,
+ * before the execution pipeline — so the pipeline's own `finally` never sees
+ * it, and for a long time that meant the PRIMARY entry point left no trace
+ * while the REST path recorded the identical miss (docs/13 gap 4). Probing tool
+ * names over MCP was invisible, and an empty audit log reads as "nobody tried".
+ *
+ * The name is caller-supplied, so it goes through `safeId` like every other
+ * untrusted id that reaches the audit store. There is deliberately NO attempt
+ * to decode it into a connector/action pair: `tool-names.ts` ships no reverse
+ * function on purpose, and inventing one here would give a made-up tool name a
+ * route into the pipeline.
+ *
+ * `policyDecision: "DENY"` because the outcome was a refusal; policy itself
+ * never ran, which is what `executorKind: "none"` records.
+ */
+async function auditCatalogMiss(
+  deps: McpDeps,
+  input: McpInput,
+  principal: Principal,
+  toolName: unknown,
+  cause: unknown,
+): Promise<void> {
+  const error = toGatewayError(cause)
+  try {
+    await appendAudit(deps.audit, {
+      requestId: input.scope.requestId,
+      principal,
+      connectorId: "unknown",
+      actionId: safeId(typeof toolName === "string" ? toolName : ""),
+      executorKind: "none",
+      policyDecision: "DENY",
+      status: "error",
+      latencyMs: Math.max(0, Date.now() - input.scope.receivedAt),
+      errorCode: error.code,
+    })
+  } catch (sinkFailure) {
+    // Mirrors the pipeline: a failing sink is logged, never fatal. Losing the
+    // row is bad; turning a 404 into a 500 because of it is worse.
+    input.scope.logger.error("audit sink failed for an unknown tool name", {
+      error: sinkFailure instanceof Error ? sinkFailure.message : "unknown",
+    })
+  }
 }
 
 /**

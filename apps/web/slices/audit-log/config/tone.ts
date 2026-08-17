@@ -10,7 +10,7 @@
  * in @cg/core makes this file fail to typecheck rather than fall through to a
  * default and paint a denial like an allow.
  */
-import type { ExecutorKind, PolicyDecision } from "@cg/core"
+import type { AuditExecutorKind, PolicyDecision } from "@cg/core"
 import type { AuditStatus, Tone } from "../types"
 
 export const DECISION_TONES: Readonly<Record<PolicyDecision, Tone>> = Object.freeze({
@@ -24,9 +24,10 @@ export const DECISION_TONES: Readonly<Record<PolicyDecision, Tone>> = Object.fre
  * the label carries the difference. Toning one of them would read as a warning
  * about a device that did nothing wrong.
  */
-export const EXECUTOR_TONES: Readonly<Record<ExecutorKind, Tone>> = Object.freeze({
+export const EXECUTOR_TONES: Readonly<Record<AuditExecutorKind, Tone>> = Object.freeze({
   cloud: "neutral",
   local: "neutral",
+  none: "neutral",
 })
 
 export const STATUS_TONES: Readonly<Record<AuditStatus, Tone>> = Object.freeze({
@@ -38,7 +39,7 @@ export function toneForDecision(decision: PolicyDecision): Tone {
   return DECISION_TONES[decision]
 }
 
-export function toneForExecutor(executor: ExecutorKind): Tone {
+export function toneForExecutor(executor: AuditExecutorKind): Tone {
   return EXECUTOR_TONES[executor]
 }
 

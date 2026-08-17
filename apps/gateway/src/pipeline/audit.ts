@@ -7,9 +7,9 @@
  */
 import type {
   AuditEvent,
+  AuditExecutorKind,
   AuditSink,
   ErrorCode,
-  ExecutorKind,
   PolicyDecision,
   Principal,
 } from "@cg/core"
@@ -28,7 +28,7 @@ export type AuditInput = {
   principal: Principal
   connectorId: string
   actionId: string
-  executorKind: ExecutorKind
+  executorKind: AuditExecutorKind
   policyDecision: PolicyDecision
   status: "success" | "error"
   latencyMs: number

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, test } from "vitest"
-import { EXECUTOR_KINDS, POLICY_DECISIONS } from "@cg/core"
+import { AUDIT_EXECUTOR_KINDS, POLICY_DECISIONS } from "@cg/core"
 import { POLICY_DECISION_TONES, TONES } from "@/components/status-badge"
 import {
   DECISION_TONES,
@@ -43,14 +43,15 @@ describe("decision → tone", () => {
 
 describe("executor → tone", () => {
   test("covers every executor kind from @cg/core", () => {
-    expect(Object.keys(EXECUTOR_TONES).sort()).toEqual([...EXECUTOR_KINDS].sort())
-    expect(Object.keys(DEFAULT_AUDIT_LABELS.executor).sort()).toEqual([...EXECUTOR_KINDS].sort())
+    expect(Object.keys(EXECUTOR_TONES).sort()).toEqual([...AUDIT_EXECUTOR_KINDS].sort())
+    expect(Object.keys(DEFAULT_AUDIT_LABELS.executor).sort()).toEqual([...AUDIT_EXECUTOR_KINDS].sort())
   })
 
-  // Where an action ran is not a verdict: the label says cloud or local, the
+  // Where an action ran is not a verdict: the label says cloud, local or not
+  // routed at all, the
   // colour says nothing. Toning one of them would read as a warning.
   test("every executor is neutral", () => {
-    for (const executor of EXECUTOR_KINDS) expect(toneForExecutor(executor)).toBe("neutral")
+    for (const executor of AUDIT_EXECUTOR_KINDS) expect(toneForExecutor(executor)).toBe("neutral")
   })
 })
 

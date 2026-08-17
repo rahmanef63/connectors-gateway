@@ -125,6 +125,6 @@ export const claim = mutation({
 
     const device = await ctx.db.get(rowId)
     if (device === null) fail("INTERNAL", "Device could not be created.")
-    return { device: toDeviceRecord(device) }
+    return { device: toDeviceRecord(device, Date.now()) }
   },
 })

@@ -102,11 +102,30 @@ describe("handleMcpRequest — tools/call", () => {
     expect(deps.audit.events).toHaveLength(1)
   })
 
-  test("an unknown tool name never reaches the pipeline", async () => {
+  test("an unknown tool name never reaches the pipeline, but is audited", async () => {
     const { deps, outcome } = await call(rpc("tools/call", { name: "testcloud_python_execute" }))
     expect(outcome.body?.error).toMatchObject({ code: -32601 })
     expect(deps.executor.requests).toHaveLength(0)
-    expect(deps.audit.events).toHaveLength(0)
+
+    // docs/13 gap 4: this used to leave no trace at all, so probing tool names
+    // over the primary entry point was invisible while REST logged the same miss.
+    expect(deps.audit.events).toHaveLength(1)
+    expect(deps.audit.events[0]).toMatchObject({
+      actionId: "testcloud_python_execute",
+      executorKind: "none",
+      policyDecision: "DENY",
+      status: "error",
+    })
+  })
+
+  test("a hostile tool name is truncated and control-stripped before it is stored", async () => {
+    // NUL and newline would both corrupt a JSON log line; `safeId` drops them.
+    const hostile = `evil\u0000name\n${"x".repeat(500)}`
+    const { deps } = await call(rpc("tools/call", { name: hostile }))
+    expect(deps.audit.events).toHaveLength(1)
+    const actionId = deps.audit.events[0]?.actionId ?? ""
+    expect(actionId).toBe(`evilname${"x".repeat(120)}`)
+    expect(actionId.length).toBe(128)
   })
 
   test("a denied action comes back as a tool RESULT, not a transport error", async () => {

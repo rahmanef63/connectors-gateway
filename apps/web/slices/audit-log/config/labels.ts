@@ -38,6 +38,8 @@ export const DEFAULT_AUDIT_LABELS: AuditLabels = {
   executor: {
     cloud: "Cloud",
     local: "Local",
+    // Refused before it resolved to a connector, so it never reached an executor.
+    none: "Not routed",
   },
   status: {
     success: "Success",

@@ -16,6 +16,7 @@ import type {
   Principal,
 } from "@cg/core"
 import { authenticateCaller } from "@cg/auth"
+import { stripCredentials, stripCredentialsDeep } from "@cg/observability"
 import { validateActionInput } from "@cg/schemas"
 import { toRequestContext } from "../context"
 import { appendAudit } from "./audit"
@@ -60,19 +61,35 @@ export async function executeAction(
     await assertAllowed(deps, decision, principal, connector, action, validated)
 
     // 6. Cloud vs local is decided from the manifest, never by the caller.
-    result = await deps.executor.execute({
+    const executed = await deps.executor.execute({
       context: toRequestContext(request.scope, principal),
       connector,
       action,
       input,
     })
+
+    // 6b. An upstream can echo back the header it was called with — a 401 body
+    // quoting `Authorization`, an error naming the URL it was given. That would
+    // hand the caller's own live gateway credential straight to the model, and
+    // from there to the client's provider and its logs.
+    //
+    // Stripped HERE rather than in the MCP adapter because both surfaces read
+    // this result: the REST route returns the same `output`, and a fix in one
+    // adapter leaves the other one leaking.
+    //
+    // Only this gateway's credential grammar is removed — not keys named
+    // `token`, not paths. A connector that was asked to read a config file must
+    // still be able to return its contents; see `stripCredentials`.
+    result = withoutCredentials(executed)
     return result
   } catch (cause) {
     // 8. One normalized shape for every failure, with a code the caller can act on.
     const error = toGatewayError(cause)
     result = {
       status: "error",
-      error: { code: error.code, message: error.message },
+      // Same reason as the success path: an upstream failure message is the
+      // MOST likely place for a credential to be quoted back at us.
+      error: { code: error.code, message: stripCredentials(error.message) },
       timingMs: performance.now() - startedAt,
     }
     return result
@@ -196,4 +213,19 @@ async function record(deps: PipelineDeps, input: RecordInput): Promise<void> {
     latencyMs: input.latencyMs,
     ...(input.result?.error ? { errorCode: input.result.error.code } : {}),
   })
+}
+
+/**
+ * Remove this gateway's own credentials from a result before anyone reads it.
+ *
+ * `files` is left alone: it carries references and metadata, not upstream text,
+ * and rewriting a filename would break the reference it exists to be.
+ */
+function withoutCredentials(result: ExecutionResult): ExecutionResult {
+  const cleaned: ExecutionResult = { ...result }
+  if (result.output !== undefined) cleaned.output = stripCredentialsDeep(result.output)
+  if (result.error) {
+    cleaned.error = { code: result.error.code, message: stripCredentials(result.error.message) }
+  }
+  return cleaned
 }

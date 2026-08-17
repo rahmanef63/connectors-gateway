@@ -70,6 +70,15 @@ export async function insertDevice(
   overrides: Partial<DeviceSeed> & { deviceId: string },
 ): Promise<void> {
   await t.run(async (ctx) => {
-    await ctx.db.insert("devices", { ...DEVICE_FIXTURE, ...overrides, userId })
+    const seed = { ...DEVICE_FIXTURE, ...overrides, userId }
+    // A stored `online` expires (PRESENCE_TTL_MS): a reader treats a device as
+    // present only while `lastSeenAt` is fresh. A test that seeds "online"
+    // means "this device is connected", so stamp it now unless the test is
+    // deliberately seeding a stale row to exercise the decay.
+    const lastSeenAt = seed.status === "online" ? (seed.lastSeenAt ?? Date.now()) : seed.lastSeenAt
+    await ctx.db.insert("devices", {
+      ...seed,
+      ...(lastSeenAt === undefined ? {} : { lastSeenAt }),
+    })
   })
 }

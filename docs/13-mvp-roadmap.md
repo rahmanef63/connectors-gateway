@@ -50,6 +50,13 @@ source (`profile_get`, `applications_create`) and live in each action's `x-upstr
 - [x] Timeout and cancellation.
 - [~] Remote revocation — a revoked device fails its next `hello` and can no longer be
       selected for a job, but an already-open socket is not closed. See gap 1 below.
+- [x] Presence survives the gateway dying. `status: "online"` is a claim with an expiry,
+      not a fact: the relay re-stamps `lastSeenAt` on a throttled heartbeat, and every
+      reader treats a device as online only while that stamp is inside
+      `PRESENCE_TTL_MS`. Before this, a crash or a deploy — which happens on every push —
+      left the disconnect handler unrun and every connected device permanently `online`,
+      so the dashboard showed phantoms and `selectDevice` routed jobs to a device with no
+      socket. Enforced on read, so nothing has to sweep for it to be correct.
 
 Success condition:
 
@@ -100,9 +107,13 @@ have not been run against a real Blender install.
    them back, so the pipeline cannot populate the optional fields `docs/10` allows.
 3. **No approval persistence.** `REQUIRE_APPROVAL` is evaluated and audited but never
    queued, so there is nothing for an approvals screen to show.
-4. **An MCP `tools/call` for a name outside the caller's catalog writes no audit row**,
-   because it is rejected before the execution pipeline. The REST path does audit the
-   equivalent miss.
+4. ~~**An MCP `tools/call` for a name outside the caller's catalog writes no audit row.**~~
+   **Closed.** The refusal still happens before the execution pipeline — `tool-names.ts`
+   ships no reverse function, so an invented name must not reach it — but the MCP handler
+   now writes the row itself before rethrowing. The row carries the caller-supplied name
+   through `safeId`, and `executorKind: "none"`, a value a manifest cannot declare: the
+   request never reached an executor, and writing `cloud` for it would be a lie in the one
+   table that exists to be trusted.
 5. **No token refresh.** The exchange reads `expires_in` and drops `refresh_token`;
    the connectors in the catalog issue long-lived tokens (CareerPack's last a year), so
    there is nothing yet to exercise a refresh loop. A connector with short-lived tokens

@@ -104,7 +104,7 @@ bun run dev:agent      # local agent (needs `bun run --cwd apps/agent pair` firs
 Checks:
 
 ```bash
-bun run validate       # typecheck + file-size + slice metadata + unit tests
+bun run validate       # typecheck + unit tests
 bun run test:convex    # convex-test + slice tests
 ```
 

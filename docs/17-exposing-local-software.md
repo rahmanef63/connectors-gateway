@@ -55,25 +55,27 @@ note in this repo false for that connector.
 
 ## 3. You want ChatGPT or Claude.ai to connect to *this gateway*
 
-This is the reverse direction, and it is the one that does not work yet.
+This is the reverse direction. It is implemented — see [18 — OAuth 2.1 and MCP
+discovery](./18-oauth.md) — but has not yet completed a round trip with a real consumer
+host, so treat it as untested rather than done.
 
 The gateway authenticates AI clients with a bearer API key (`cgk_…`). That is enough for
 any host you configure with a file — **Claude Code, Claude Desktop, Cursor, mcp-remote**,
 or your own agent — because those let you set an `Authorization` header.
 
 **Consumer hosts do not.** ChatGPT's and Claude.ai's connector forms have no API-key field;
-they will only attach to a server they can complete an OAuth flow against. So supporting
-them means this gateway becomes an **OAuth 2.1 provider** — authorization endpoint, token
+they will only attach to a server they can complete an OAuth flow against. Supporting them
+meant this gateway becoming an **OAuth 2.1 provider** — authorization endpoint, token
 endpoint, PKCE, dynamic client registration, and the two discovery documents
 (`/.well-known/oauth-protected-resource`, RFC 9728, and `/.well-known/oauth-authorization-server`,
-RFC 8414).
+RFC 8414). All of that ships; `docs/18` is the walkthrough.
 
 Note that this is a *different job* from the OAuth **client** in `docs/16` step 2. That one
 is us authenticating outwards to GitHub or Notion. This one is ChatGPT authenticating
-inwards to us. Both are needed; neither exists today. The recipe for the provider half is
-the `/chatgpt-mcp` skill, which exists precisely because several of these apps already
-solved it — `models-rahmanef-com` runs full OAuth 2.1 PKCE with dynamic client
-registration today.
+inwards to us. Both are needed; the provider half is built and the client half is `docs/16`
+step 2. The recipe for the provider half is the `/chatgpt-mcp` skill, which exists
+precisely because several of these apps already solved it — `models-rahmanef-com` runs full
+OAuth 2.1 PKCE with dynamic client registration today.
 
 ## Summary
 
@@ -81,5 +83,5 @@ registration today.
 |---|---|
 | Software on a machine you control, agent installed | Pair the device. No public IP. |
 | A local MCP server, no agent | Tunnel it to a public hostname, connect it as a cloud connector with its own id and its own auth |
-| Want ChatGPT / Claude.ai to use the gateway | Not yet possible — the gateway must become an OAuth provider first |
+| Want ChatGPT / Claude.ai to use the gateway | The OAuth 2.1 provider ships (`docs/18`); no round trip with a real host has happened yet |
 | Want Claude Code / Cursor / mcp-remote to use the gateway | Works today — issue an API key on `/setup` |

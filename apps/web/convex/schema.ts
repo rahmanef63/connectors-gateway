@@ -103,7 +103,16 @@ export default defineSchema({
     /** Exact-match allowlist. A code is only ever redirected to one of these. */
     redirectUris: v.array(v.string()),
     createdAt: v.number(),
-  }).index("by_clientId", ["clientId"]),
+    /**
+     * Set the first time this client successfully exchanges a code, and never
+     * cleared. Its ABSENCE is what the sweeper prunes on: registration is open,
+     * so a scanner can add rows forever, but a row that never completed a flow
+     * is the only kind that is safe to assume nobody wants.
+     */
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index("by_clientId", ["clientId"])
+    .index("by_createdAt", ["createdAt"]),
 
   /**
    * In-flight authorization codes. Rows live for minutes and are DELETED on
@@ -127,7 +136,10 @@ export default defineSchema({
     expiresAt: v.number(),
   })
     .index("by_codeHash", ["codeHash"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    // Lets the sweeper find lapsed codes by range instead of scanning. Without
+    // it, a code nobody ever redeems is never deleted by anything.
+    .index("by_expiresAt", ["expiresAt"]),
 
   connections: defineTable({
     connectorId: v.string(),

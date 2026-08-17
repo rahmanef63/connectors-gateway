@@ -9,7 +9,7 @@ import {
   AUTH_TYPES,
   DEVICE_PLATFORMS,
   ERROR_CODES,
-  EXECUTOR_KINDS,
+  AUDIT_EXECUTOR_KINDS,
   POLICY_DECISIONS,
   type ConnectionStatus,
   type DeviceStatus,
@@ -18,7 +18,13 @@ import {
 export const platformValidator = v.union(...DEVICE_PLATFORMS.map((value) => v.literal(value)))
 export const authTypeValidator = v.union(...AUTH_TYPES.map((value) => v.literal(value)))
 export const policyDecisionValidator = v.union(...POLICY_DECISIONS.map((value) => v.literal(value)))
-export const executorKindValidator = v.union(...EXECUTOR_KINDS.map((value) => v.literal(value)))
+/**
+ * Audit rows only. Wider than a manifest's `executor` on purpose: it carries
+ * `none` for a request refused before it resolved to any connector.
+ */
+export const executorKindValidator = v.union(
+  ...AUDIT_EXECUTOR_KINDS.map((value) => v.literal(value)),
+)
 export const errorCodeValidator = v.union(...ERROR_CODES.map((value) => v.literal(value)))
 
 export const deviceStatusValidator = v.union(

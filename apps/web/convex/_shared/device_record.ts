@@ -5,6 +5,7 @@
  * credentials, and neither does the dashboard).
  */
 import { type Infer, v } from "convex/values"
+import { effectiveDeviceStatus } from "@cg/core"
 import type { Doc } from "../_generated/dataModel"
 import { deviceStatusValidator, platformValidator } from "./validators"
 
@@ -34,14 +35,19 @@ export const deviceSummaryValidator = v.object({
 export type DeviceRecord = Infer<typeof deviceRecordValidator>
 export type DeviceSummary = Infer<typeof deviceSummaryValidator>
 
-export function toDeviceRecord(doc: Doc<"devices">): DeviceRecord {
+/**
+ * `now` is required, not defaulted, on both mappers below. A stored `online`
+ * expires (see `effectiveDeviceStatus`), and a default would let a new call
+ * site read the raw status by accident — which is the bug this exists to stop.
+ */
+export function toDeviceRecord(doc: Doc<"devices">, now: number): DeviceRecord {
   return {
     deviceId: doc.deviceId,
     userId: doc.userId,
     ...(doc.workspaceId === undefined ? {} : { workspaceId: doc.workspaceId }),
     displayName: doc.displayName,
     platform: doc.platform,
-    status: doc.status,
+    status: effectiveDeviceStatus(doc.status, doc.lastSeenAt, now),
     credentialHash: doc.credentialHash,
     credentialVersion: doc.credentialVersion,
     capabilities: doc.capabilities,
@@ -49,13 +55,13 @@ export function toDeviceRecord(doc: Doc<"devices">): DeviceRecord {
   }
 }
 
-export function toDeviceSummary(doc: Doc<"devices">): DeviceSummary {
+export function toDeviceSummary(doc: Doc<"devices">, now: number): DeviceSummary {
   return {
     deviceId: doc.deviceId,
     ...(doc.workspaceId === undefined ? {} : { workspaceId: doc.workspaceId }),
     displayName: doc.displayName,
     platform: doc.platform,
-    status: doc.status,
+    status: effectiveDeviceStatus(doc.status, doc.lastSeenAt, now),
     capabilities: doc.capabilities,
     ...(doc.lastSeenAt === undefined ? {} : { lastSeenAt: doc.lastSeenAt }),
   }

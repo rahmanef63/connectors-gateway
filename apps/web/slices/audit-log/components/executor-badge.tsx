@@ -1,9 +1,9 @@
-import type { ExecutorKind } from "@cg/core"
+import type { AuditExecutorKind } from "@cg/core"
 import { StatusBadge } from "@/components/status-badge"
 import { toneForExecutor } from "../config/tone"
 
 export type ExecutorBadgeProps = {
-  executor: ExecutorKind
+  executor: AuditExecutorKind
   /** Already-localised copy for this executor. */
   label: string
 }

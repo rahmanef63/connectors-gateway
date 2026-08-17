@@ -2,7 +2,7 @@
  * View types for the `audit-log` slice.
  * The domain record is `AuditEvent` from @cg/core; nothing here redefines it.
  */
-import type { AuditEvent, ExecutorKind, PolicyDecision } from "@cg/core"
+import type { AuditEvent, AuditExecutorKind, PolicyDecision } from "@cg/core"
 
 /**
  * The ONLY fields this slice is allowed to render (docs/10).
@@ -64,7 +64,7 @@ export type AuditLabels = {
   filteredEmptyDescription: string
   columns: Record<AuditColumn, string>
   decision: Record<PolicyDecision, string>
-  executor: Record<ExecutorKind, string>
+  executor: Record<AuditExecutorKind, string>
   status: Record<AuditStatus, string>
   filters: {
     connectorLabel: string

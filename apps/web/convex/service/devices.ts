@@ -36,7 +36,7 @@ export const getRecord = query({
     requireService(ctx, args.serviceToken)
     const device = await deviceByExternalId(ctx, assertIdentifier(args.deviceId, "deviceId"))
     if (device === null) return null
-    return toDeviceRecord(device)
+    return toDeviceRecord(device, Date.now())
   },
 })
 
@@ -51,7 +51,8 @@ export const listForUser = query({
       .query("devices")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .take(MAX_DEVICES_PER_USER)
-    return devices.map(toDeviceRecord)
+    const now = Date.now()
+    return devices.map((device) => toDeviceRecord(device, now))
   },
 })
 

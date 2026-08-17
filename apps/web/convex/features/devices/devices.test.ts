@@ -1,3 +1,4 @@
+import { PRESENCE_TTL_MS } from "@cg/core"
 import { describe, expect, test } from "vitest"
 import { api } from "../../_generated/api"
 import {
@@ -94,6 +95,44 @@ describe("features/devices/mutations:revoke", () => {
       deviceId: "dev_theirs",
     })
     expect(record?.status).toBe("online")
+  })
+})
+
+describe("device presence decays", () => {
+  test("a device left online by a dead gateway reads offline once its claim is stale", async () => {
+    // The relay writes "online" on hello and only unwrites it in its disconnect
+    // handler — which never runs when the process is killed, and it is killed on
+    // every deploy. Without a TTL the row stays "online" forever, the dashboard
+    // shows a phantom, and selectDevice routes a job to a device with no socket.
+    const t = setupConvex()
+    const user = await createUser(t)
+    await insertDevice(t, user, {
+      deviceId: "dev_stale",
+      status: "online",
+      lastSeenAt: Date.now() - PRESENCE_TTL_MS - 1_000,
+    })
+
+    const record = await t.query(api.service.devices.getRecord, {
+      serviceToken: SERVICE_TOKEN,
+      deviceId: "dev_stale",
+    })
+    expect(record?.status).toBe("offline")
+
+    const [summary] = await asUser(t, user).query(api.features.devices.queries.listMine, {})
+    expect(summary?.status).toBe("offline")
+  })
+
+  test("a revoked device stays revoked however stale it is", async () => {
+    const t = setupConvex()
+    const user = await createUser(t)
+    await insertDevice(t, user, {
+      deviceId: "dev_revoked",
+      status: "revoked",
+      lastSeenAt: Date.now() - PRESENCE_TTL_MS - 1_000,
+    })
+
+    const [summary] = await asUser(t, user).query(api.features.devices.queries.listMine, {})
+    expect(summary?.status).toBe("revoked")
   })
 })
 

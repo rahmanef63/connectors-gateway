@@ -6,7 +6,7 @@
  * an unauthenticated frame is ever stored, and no frame body is ever logged —
  * `hello` carries a device credential.
  */
-import { GatewayError, newId } from "@cg/core"
+import { GatewayError, PRESENCE_REFRESH_MS, newId } from "@cg/core"
 import type { Logger } from "@cg/observability"
 import { CLOSE_CODES, HEARTBEAT_INTERVAL_MS, HEARTBEAT_TIMEOUT_MS, PROTOCOL_VERSION, parseAgentMessage } from "@cg/protocol"
 import type { AgentMessage } from "@cg/protocol"
@@ -75,6 +75,7 @@ export function createRelay(deps: RelayDeps): Relay {
     if (displaced) displaced.close(CLOSE_CODES.UNAUTHORIZED, "replaced by a newer session")
 
     await deps.devices.setPresence(deviceId, true, outcome.capabilities)
+    socket.data.presenceAt = socket.data.lastSeenAt
     sendMessage(socket, {
       type: "welcome",
       deviceId,
@@ -92,9 +93,16 @@ export function createRelay(deps: RelayDeps): Relay {
 
     switch (message.type) {
       case "heartbeat":
+        // Presence in Convex is a claim that expires (PRESENCE_TTL_MS), so a
+        // live session has to keep re-stamping it — otherwise every connected
+        // device would read as offline once its hello aged out. Throttled, so
+        // this costs one mutation per device per PRESENCE_REFRESH_MS rather
+        // than one per heartbeat.
+        await refreshPresence(socket, deviceId)
         return
       case "capabilities":
         await deps.devices.setPresence(deviceId, true, flattenCapabilities(message.capabilities))
+        socket.data.presenceAt = socket.data.lastSeenAt
         return
       case "result":
         dispatcher.settle(deviceId, message.result)
@@ -103,6 +111,30 @@ export function createRelay(deps: RelayDeps): Relay {
         // A second hello on an authenticated socket is a protocol violation.
         disconnect(socket, CLOSE_CODES.UNSUPPORTED, "already authenticated")
         return
+    }
+  }
+
+  /**
+   * Re-stamp durable presence, at most once per PRESENCE_REFRESH_MS.
+   *
+   * A failed write is logged and swallowed: presence is soft state, and a
+   * Convex hiccup must not tear down a healthy device session. The stale row
+   * expires on its own, which is the whole point of the TTL.
+   */
+  async function refreshPresence(socket: RelaySocket, deviceId: string): Promise<void> {
+    const at = socket.data.lastSeenAt
+    if (at - socket.data.presenceAt < PRESENCE_REFRESH_MS) return
+    // Claim the slot before awaiting, so concurrent heartbeats cannot stack up
+    // into a burst of identical writes.
+    socket.data.presenceAt = at
+    try {
+      await deps.devices.setPresence(deviceId, true)
+    } catch (cause) {
+      socket.data.presenceAt = 0
+      deps.logger.warn("presence refresh failed", {
+        deviceId,
+        error: cause instanceof Error ? cause.message : "unknown",
+      })
     }
   }
 

@@ -3,7 +3,7 @@
  * Only identifiers and outcomes. Never payloads, tokens, or credentials.
  */
 import type { ErrorCode } from "./errors"
-import type { ExecutorKind, PolicyDecision } from "./risk"
+import type { AuditExecutorKind, PolicyDecision } from "./risk"
 
 export type AuditEvent = {
   requestId: string
@@ -15,7 +15,7 @@ export type AuditEvent = {
   workspaceId?: string
   connectorId: string
   actionId: string
-  executorKind: ExecutorKind
+  executorKind: AuditExecutorKind
   deviceId?: string
   connectionId?: string
   policyDecision: PolicyDecision

@@ -39,6 +39,56 @@ export function redactText(value: string): string {
 }
 
 /**
+ * The narrow sibling of `redact`, for data a caller ASKED FOR.
+ *
+ * `redact` is right for logs: it blanks anything under a key called `token`,
+ * strips absolute paths, and truncates depth, because nobody needs a log line's
+ * fidelity. It is wrong for tool output. A connector that reads a config file
+ * and returns a line containing `api_key = …` is doing its job, and blanking it
+ * would answer a user's own question with `[redacted]` — the product breaking,
+ * dressed as security.
+ *
+ * This strips ONE thing: a credential in THIS gateway's own grammar
+ * (`<prefix>_<id>_<secret>`). That shape is never legitimate content in a
+ * connector's answer — it can only be an upstream echoing back the header it
+ * was called with — so removing it has no false positives on real data.
+ *
+ * What it deliberately does NOT do: key-name blanking, path stripping, depth
+ * truncation. Those belong to the log path.
+ */
+export function stripCredentials(value: string): string {
+  return value.replace(CREDENTIAL_VALUE, REDACTED)
+}
+
+/** `stripCredentials` over every string in a structure, shape preserved. */
+export function stripCredentialsDeep(value: unknown): unknown {
+  return stripWalk(value, 0, new Set<object>())
+}
+
+function stripWalk(value: unknown, depth: number, seen: Set<object>): unknown {
+  if (typeof value === "string") return stripCredentials(value)
+  if (value === null || typeof value !== "object") return value
+  // Bounded like `walk`, but the limit RETURNS the value rather than replacing
+  // it: this function must never be the reason a caller loses data it asked
+  // for. Past the depth cap a credential is not stripped, which is the same
+  // exposure as before this existed — a regression is impossible either way.
+  if (depth >= MAX_DEPTH) return value
+  const object = value as object
+  if (seen.has(object)) return value
+  seen.add(object)
+  try {
+    if (Array.isArray(value)) return value.map((item) => stripWalk(item, depth + 1, seen))
+    const out: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = stripWalk(item, depth + 1, seen)
+    }
+    return out
+  } finally {
+    seen.delete(object)
+  }
+}
+
+/**
  * Deep clone with secrets removed, absolute paths reduced to basenames,
  * cycles broken, and depth bounded. Never mutates the input.
  */

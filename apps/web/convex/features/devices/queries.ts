@@ -21,6 +21,7 @@ export const listMine = query({
       .query("devices")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .take(MAX_DEVICES_PER_USER)
-    return devices.map(toDeviceSummary)
+    const now = Date.now()
+    return devices.map((device) => toDeviceSummary(device, now))
   },
 })

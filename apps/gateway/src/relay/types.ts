@@ -15,13 +15,26 @@ export type SocketState = {
   authenticated: boolean
   /** epoch ms of the last frame received; drives the heartbeat timeout. */
   lastSeenAt: number
+  /**
+   * epoch ms of the last durable presence write. Heartbeats arrive far more
+   * often than presence needs to be re-stamped, so this throttles the mutation
+   * to PRESENCE_REFRESH_MS (see @cg/core) instead of one write per frame.
+   */
+  presenceAt: number
   helloTimer: ReturnType<typeof setTimeout> | null
 }
 
 export type RelaySocket = ServerWebSocket<SocketState>
 
 export function newSocketState(socketId: string, now: number): SocketState {
-  return { socketId, deviceId: null, authenticated: false, lastSeenAt: now, helloTimer: null }
+  return {
+    socketId,
+    deviceId: null,
+    authenticated: false,
+    lastSeenAt: now,
+    presenceAt: 0,
+    helloTimer: null,
+  }
 }
 
 /** A send failure means the socket is already gone; it is never fatal here. */

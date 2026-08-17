@@ -151,6 +151,10 @@ export const redeemCode = mutation({
       .first()
     if (client === null) return invalid
 
+    // Stamped only on success, and this is the field the sweeper reads: a client
+    // that has completed a flow is one somebody uses, and is never pruned.
+    await ctx.db.patch(client._id, { lastUsedAt: Date.now() })
+
     const issued = await issueAccessToken(ctx, {
       userId: row.userId,
       clientId: row.clientId,
