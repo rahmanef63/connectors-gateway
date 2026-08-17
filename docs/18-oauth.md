@@ -130,6 +130,14 @@ which is a stateless rewrite with no `initialize` handshake and a mandatory
 
 ## Still open
 
+- **Nothing prunes `oauthCodes` or `oauthClients`.** Both tables only grow.
+  An unredeemed code expires but is never deleted, and registration is open by
+  design, so anyone can add client rows — `oauthLimiter` caps that at 20/min per
+  peer, which bounds the rate and not the total. Neither is a correctness bug:
+  an expired code is refused on read and a client row grants nothing on its own.
+  It is a storage and tidiness gap, and the fix is a scheduled sweeper of the
+  kind `admin/cleanup` does elsewhere. **Two `probe` client rows from verifying
+  the live endpoint are sitting in production right now.**
 - **No refresh tokens.** Tokens last 90 days and a client re-runs the flow. A
   short TTL without refresh would only train the user to click Approve weekly,
   which is worse than the long TTL.
