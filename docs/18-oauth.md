@@ -81,12 +81,21 @@ for the next attempt. `{ok: false}` commits the delete; the gateway converts it
 to `invalid_grant`. This is the same trap as the rolled-back error-log insert in
 [09](./09-policy-and-approvals.md), and it will catch the next person too.
 
-**`scopes_supported` is deliberately absent.** No connector manifest declares
-`requiredScopes` and API keys are issued with `scopes: []`, so any scope string
-advertised here would gate nothing — and telling a client it holds a restricted
-token when it does not is worse than saying nothing. Authority is bounded by the
-policy engine and the approval queue. Add a scope here the day a manifest
-declares one, and not before.
+**`scopes_supported` is deliberately absent — but the first stated reason was
+wrong.** It claimed no manifest declares `requiredScopes`. `careerpack` declares
+two, and I missed them with a case-sensitive grep for `scope`. That mistake had
+teeth: while credentials were issued with `scopes: []`, `catalogFor` hid every
+scope-gated action, so **CareerPack was invisible to every credential the system
+could issue** — no error, no log, the connector simply was not in the catalog.
+Fixed by granting the vocabulary at issue time (`grantedScopes()` in `@cg/core`),
+with `apps/gateway/src/mcp/scopes.test.ts` as the guard: it fails if a manifest
+ever requires a scope the issuer cannot grant, and separately proves the scope
+check is not vacuous.
+
+The document still omits `scopes_supported`, for the real reason: there is no
+per-scope consent, so every credential carries the whole set. Advertising a menu
+the client cannot choose from misrepresents what it receives. List them the day
+the consent screen can narrow them.
 
 **Discovery is exempt from the edge rate limiter.** A hosted AI client reaches
 this gateway from a handful of shared egress addresses for all of its users, and

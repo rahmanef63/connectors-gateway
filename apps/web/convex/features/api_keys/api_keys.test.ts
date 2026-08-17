@@ -3,6 +3,7 @@
  * The hash-format compatibility with `@cg/auth` lives in `compat.test.ts`.
  */
 import { describe, expect, test } from "vitest"
+import { grantedScopes } from "@cg/core"
 import { api } from "../../_generated/api"
 import type { Id } from "../../_generated/dataModel"
 import {
@@ -57,7 +58,7 @@ describe("features/api_keys/mutations:issue", () => {
     expect(listed[0]).not.toHaveProperty("key")
   })
 
-  test("issues an active key with a trimmed label and no scopes", async () => {
+  test("issues an active key with a trimmed label and the grantable scopes", async () => {
     const t = setupConvex()
     const userId = await createUser(t)
 
@@ -73,7 +74,10 @@ describe("features/api_keys/mutations:issue", () => {
       keyId: issued.keyId,
     })
     expect(record?.userId).toBe(userId)
-    expect(record?.scopes).toEqual([])
+    // Not `[]`. An empty list reads as least privilege and behaves as a silent
+    // blackout: `catalogFor` hides every action whose manifest declares a scope,
+    // so an empty-scope key made `careerpack` vanish for its own owner.
+    expect(record?.scopes).toEqual(grantedScopes())
   })
 
   test("two keys never collide on key id or secret", async () => {

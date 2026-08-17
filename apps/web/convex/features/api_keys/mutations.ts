@@ -12,6 +12,7 @@
  * drift. `features/api_keys/compat.test.ts` is the guard on that claim.
  */
 import { v } from "convex/values"
+import { grantedScopes } from "@cg/core"
 import { TOKEN_PREFIXES, formatToken, hashSecret, newCredentialSecret } from "@cg/auth"
 import { mutation } from "../../_generated/server"
 import type { MutationCtx } from "../../_generated/server"
@@ -50,12 +51,14 @@ export const issue = mutation({
     await ctx.db.insert("apiKeys", {
       keyId,
       userId,
-      // Least privilege. An empty scope list is NOT a wildcard: `hasScopes`
-      // reports satisfied only when every *required* scope is covered, so a key
-      // with no scopes passes exactly those actions that require none — which
-      // is every action today, and nothing more the day scopes are declared.
-      // Granting scopes is a separate, later step; issuing hands out no authority.
-      scopes: [],
+      // The full vocabulary, because there is nowhere for the user to choose a
+      // subset yet. The comment that used to sit here claimed an empty list was
+      // least privilege and cost nothing "because every action requires none" —
+      // that stopped being true the moment a manifest declared `requiredScopes`,
+      // and the connector that declared them silently vanished from every
+      // catalog. Narrowing this is a real feature; it needs a UI first, and
+      // until then handing out less only hides the user's own connectors.
+      scopes: grantedScopes(),
       secretHash,
       status: "active",
       label,

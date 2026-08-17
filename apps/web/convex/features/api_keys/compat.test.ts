@@ -25,6 +25,7 @@ import {
   type ApiKeyLookup,
   type ApiKeyRecord,
 } from "@cg/auth"
+import { grantedScopes } from "@cg/core"
 import { api } from "../../_generated/api"
 import { asUser, createUser, setupConvex, SERVICE_TOKEN, type TestClient } from "../../test.helpers"
 
@@ -115,8 +116,10 @@ describe("api key hash compatibility with @cg/auth", () => {
     const principal = await authenticateCaller(issued.key, lookup)
     expect(principal.callerId).toBe(issued.keyId)
     expect(principal.userId).toBe(userId)
-    // Least privilege: an issued key grants no scope until one is granted.
-    expect(principal.scopes).toEqual([])
+    // The scopes must survive the round trip to the gateway intact: this is the
+    // list `catalogFor` checks a manifest's `requiredScopes` against, so a key
+    // that arrives here short is a key whose connectors silently disappear.
+    expect(principal.scopes).toEqual(grantedScopes())
 
     await asUser(t, userId).mutation(api.features.api_keys.mutations.revoke, {
       keyId: issued.keyId,

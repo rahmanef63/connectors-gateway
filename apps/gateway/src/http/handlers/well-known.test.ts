@@ -72,10 +72,11 @@ describe("protected resource metadata (RFC 9728)", () => {
     expect(document.authorization_servers).toEqual([testConfig.publicUrl])
   })
 
-  test("advertises no scopes, because none are enforced", () => {
-    // Deliberate. Manifests declare no requiredScopes and API keys are issued
-    // with none, so any scope named here would gate nothing. Delete this test
-    // the day a manifest declares one — and add the scope to the document.
+  test("advertises no scopes, because the client cannot choose among them", () => {
+    // Deliberate, and not because scopes are unused — they are declared and
+    // enforced. There is simply no per-scope consent: every issued credential
+    // carries the whole vocabulary. Add them here when the consent screen can
+    // narrow them, not before.
     expect(document.scopes_supported).toBeUndefined()
   })
 })

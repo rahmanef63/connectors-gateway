@@ -13,6 +13,7 @@
  * second token to whoever redeemed it fastest.
  */
 import { v } from "convex/values"
+import { grantedScopes } from "@cg/core"
 import { TOKEN_PREFIXES, formatToken, hashSecret, newCredentialSecret } from "@cg/auth"
 import { mutation } from "../_generated/server"
 import type { MutationCtx } from "../_generated/server"
@@ -189,9 +190,11 @@ async function issueAccessToken(
   await ctx.db.insert("apiKeys", {
     keyId,
     userId: grant.userId,
-    // Same least-privilege default as a hand-minted key: no scope is granted,
-    // because no action requires one. See features/api_keys/mutations.ts.
-    scopes: [],
+    // Same set a hand-minted key gets. An OAuth grant must not be quietly
+    // weaker than the key the user could mint themselves — that difference
+    // would show up as connectors missing from Claude but present in the
+    // dashboard, which reads as a broken connector, not as a scope decision.
+    scopes: grantedScopes(),
     secretHash,
     status: "active",
     label: grant.clientName,

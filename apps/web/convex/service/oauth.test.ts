@@ -6,6 +6,7 @@
  * ways a code must not be redeemable.
  */
 import { describe, expect, test } from "vitest"
+import { grantedScopes } from "@cg/core"
 import { api } from "../_generated/api"
 import { deriveCodeChallenge } from "../_shared/code_hash"
 import {
@@ -210,8 +211,10 @@ describe("redeemCode", () => {
     expect(key?.clientId).toBe(client.clientId)
     expect(key?.status).toBe("active")
     expect(key?.expiresAt).toBeGreaterThan(Date.now())
-    // Least privilege, same as a hand-minted key.
-    expect(key?.scopes).toEqual([])
+    // The same set a hand-minted key gets. An OAuth grant that were quietly
+    // narrower would surface as connectors missing in Claude but present in
+    // the dashboard — which reads as a broken connector, not a scope decision.
+    expect(key?.scopes).toEqual(grantedScopes())
   })
 
   test("the issued token expires, so a grant is never immortal", async () => {

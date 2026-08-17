@@ -53,14 +53,17 @@ export function protectedResourceMetadata(config: GatewayConfig): Record<string,
     // detail the client never has to reason about.
     authorization_servers: [config.publicUrl],
     bearer_methods_supported: ["header"],
-    // `scopes_supported` is OMITTED on purpose, and its absence is the honest
-    // answer. No connector manifest declares `requiredScopes`, and API keys are
-    // issued with `scopes: []`, so every scope string this server could name
-    // would gate exactly nothing. Advertising `connectors.read` here would tell
-    // a client it was obtaining a restricted token when it was not — the same
-    // hole as scopes that are advertised and never enforced. Authority is
-    // bounded by the policy engine and the approval queue instead; when a
-    // manifest first declares a scope, list it here and not before.
+    // `scopes_supported` is OMITTED on purpose — but NOT for the reason first
+    // written here. That comment claimed no manifest declares `requiredScopes`;
+    // it was wrong (`careerpack` declares two), and the wrongness came from a
+    // case-sensitive grep for "scope" that never matched "requiredScopes".
+    //
+    // The real reason: scopes exist and ARE enforced (`catalogFor` hides an
+    // action whose scopes the caller lacks), but there is no per-scope consent
+    // yet — every credential this server issues carries the whole vocabulary,
+    // via `grantedScopes()`. Advertising a menu the client cannot choose from
+    // would misrepresent what it is about to receive. List them here on the day
+    // the consent screen can actually narrow them.
   }
 }
 
