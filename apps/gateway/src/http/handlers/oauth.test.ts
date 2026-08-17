@@ -70,16 +70,31 @@ describe("POST /oauth/register", () => {
     expect(response.status).toBe(400)
   })
 
+  test("rejects a bad redirect URI here, not as an opaque 500 from the store", async () => {
+    // Regression, found against production: `ControlPlaneClient` flattens every
+    // control-plane failure into `UPSTREAM_ERROR`, so relying on the store to
+    // report a bad URI produced a `server_error` the client could not act on.
+    const deps = await httpDeps()
+    const response = await run(
+      registerRequest({ client_name: "Evil", redirect_uris: ["http://evil.test/cb"] }),
+      deps,
+    )
+    expect(response.status).toBe(400)
+    expect((await body(response)).error).toBe("invalid_redirect_uri")
+    // And it never reached the control plane at all.
+    expect((deps.oauth as ReturnType<typeof fakeOAuth>).calls).toEqual([])
+  })
+
   test("forwards a control-plane rejection as the client's fault", async () => {
     const deps = await httpDeps({
       oauth: fakeOAuth({
         registerClient: () => {
-          throw new GatewayError("INVALID_INPUT", "A redirect URI must be https.")
+          throw new GatewayError("INVALID_INPUT", "Bad registration.")
         },
       }),
     })
     const response = await run(
-      registerRequest({ client_name: "Evil", redirect_uris: ["http://evil.test/cb"] }),
+      registerRequest({ client_name: "Evil", redirect_uris: ["https://ok.test/cb"] }),
       deps,
     )
     expect(response.status).toBe(400)

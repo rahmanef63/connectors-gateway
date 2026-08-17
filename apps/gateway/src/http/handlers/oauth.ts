@@ -11,7 +11,7 @@
  * `{"error":{"code":"INVALID_INPUT"}}` here reads to a client as a malformed
  * response, not as a rejected grant.
  */
-import { toGatewayError } from "@cg/core"
+import { REDIRECT_URI_MESSAGE, isValidRedirectUri, toGatewayError } from "@cg/core"
 import { readFormBody, readJsonBody } from "../body"
 import type { RouteContext } from "../routes"
 
@@ -38,6 +38,8 @@ type OAuthErrorCode =
   | "invalid_grant"
   | "unauthorized_client"
   | "unsupported_grant_type"
+  /** RFC 7591 §3.2.2, registration only. */
+  | "invalid_redirect_uri"
   | "server_error"
 
 function oauthError(code: OAuthErrorCode, description: string, status = 400): Response {
@@ -82,6 +84,14 @@ export async function handleOAuthRegister(context: RouteContext): Promise<Respon
   )
   if (redirectUris.length !== rawUris.length) {
     return oauthError("invalid_request", "Every redirect_uri must be a string.")
+  }
+  // Checked HERE as well as on the write path, because `ControlPlaneClient`
+  // flattens every control-plane failure into one opaque `UPSTREAM_ERROR` — so
+  // without this, a client that sent a bad URI got a 500 it could not act on,
+  // and the `INVALID_INPUT` branch below was unreachable. Convex re-checks it;
+  // that remains the check that counts.
+  if (!redirectUris.every(isValidRedirectUri)) {
+    return oauthError("invalid_redirect_uri", REDIRECT_URI_MESSAGE)
   }
 
   const clientName =
