@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gateway": {
+      "type": "http",
+      "url": "https://connect.rahmanef.com/mcp"
+    }
+  }
+}

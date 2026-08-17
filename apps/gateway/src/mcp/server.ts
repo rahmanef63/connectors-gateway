@@ -19,7 +19,33 @@ import type { JsonRpcRequest, JsonRpcResponse } from "./jsonrpc"
 import { createToolIndex, lookupTool } from "./tool-names"
 import { targetsFor, toolsFor } from "./tools"
 
+/**
+ * Protocol revisions this server can speak, oldest first.
+ *
+ * Answering every client with one pinned revision is legal — the spec lets a
+ * server reply with a version it supports — but it drops the older clients
+ * rather than meeting them: a `2024-11-05` client is told `2025-06-18` and is
+ * entitled to disconnect instead of downgrading. Nothing in the dispatcher
+ * below differs between these three, so echoing the client's own revision
+ * costs one lookup and keeps it connected.
+ *
+ * NOT implemented, deliberately: `2025-11-25` (icons) and `2026-07-28`, which
+ * is the CURRENT revision and a stateless rewrite — no `initialize` handshake
+ * at all and a mandatory `server/discover`. That is a transport change, not a
+ * string to add to this array.
+ */
+export const MCP_PROTOCOL_VERSIONS = ["2024-11-05", "2025-03-26", "2025-06-18"] as const
+
+/** What an unrecognised or absent request gets: the newest we speak. */
 export const MCP_PROTOCOL_VERSION = "2025-06-18"
+
+export function negotiateProtocolVersion(requested: unknown): string {
+  return typeof requested === "string" &&
+    (MCP_PROTOCOL_VERSIONS as readonly string[]).includes(requested)
+    ? requested
+    : MCP_PROTOCOL_VERSION
+}
+
 export const SERVER_INFO = { name: "connectors-gateway", version: "0.1.0" } as const
 
 export type McpDeps = PipelineDeps & CatalogDeps
@@ -79,7 +105,7 @@ async function dispatch(
   switch (request.method) {
     case "initialize":
       return {
-        protocolVersion: MCP_PROTOCOL_VERSION,
+        protocolVersion: negotiateProtocolVersion(request.params.protocolVersion),
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
       }

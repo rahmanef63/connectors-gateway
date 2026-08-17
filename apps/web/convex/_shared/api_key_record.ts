@@ -15,6 +15,13 @@ export const apiKeyRecordValidator = v.object({
   scopes: v.array(v.string()),
   secretHash: v.string(),
   status: apiKeyStatusValidator,
+  /**
+   * Load-bearing, not informational: `authenticateCaller` is the ONLY thing
+   * that enforces the lifetime of an OAuth-issued token, and it can only refuse
+   * an expiry it can see. Dropping this field here would store the expiry and
+   * never apply it — every OAuth grant silently immortal.
+   */
+  expiresAt: v.optional(v.number()),
 })
 
 export type ApiKeyRecord = Infer<typeof apiKeyRecordValidator>
@@ -27,5 +34,6 @@ export function toApiKeyRecord(doc: Doc<"apiKeys">): ApiKeyRecord {
     scopes: doc.scopes,
     secretHash: doc.secretHash,
     status: doc.status,
+    ...(doc.expiresAt === undefined ? {} : { expiresAt: doc.expiresAt }),
   }
 }

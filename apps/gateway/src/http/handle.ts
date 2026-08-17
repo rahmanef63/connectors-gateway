@@ -11,6 +11,24 @@ import { matchRoute } from "./routes"
 /** Liveness probes must never be throttled — a load balancer polls them. */
 const HEALTH_PATH = "/healthz"
 
+/**
+ * Unmetered by design, alongside the health probe.
+ *
+ * The edge budget is per PEER, and a hosted AI client reaches this gateway from
+ * a handful of shared egress addresses for ALL of its users. Discovery is the
+ * first thing every one of them fetches, so metering it means one busy tenant
+ * can make the gateway undiscoverable for everybody behind the same egress —
+ * and the failure looks like "this server does not support OAuth".
+ *
+ * Safe to exempt because these two responses are static, hold no secret, touch
+ * neither the control plane nor PBKDF2, and are served `max-age=3600`. The
+ * limiter exists to protect the ~28ms hash on authenticated routes; there is
+ * nothing here to protect.
+ */
+function isDiscoveryPath(pathname: string): boolean {
+  return pathname.startsWith("/.well-known/")
+}
+
 export async function handleHttp(
   deps: GatewayDeps,
   request: Request,
@@ -35,7 +53,7 @@ export async function handleHttp(
   // BEFORE it knows whether the bearer token is real, so an anonymous caller can
   // otherwise buy ~28ms of gateway CPU and one control-plane query per request.
   // The pairing routes carry their own, much tighter limiter on top of this one.
-  if (pathname !== HEALTH_PATH && !deps.edgeLimiter.check(clientKey)) {
+  if (pathname !== HEALTH_PATH && !isDiscoveryPath(pathname) && !deps.edgeLimiter.check(clientKey)) {
     return withRequestId(
       errorResponse("RATE_LIMITED", "Too many requests. Try again shortly."),
       scope.requestId,

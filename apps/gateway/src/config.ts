@@ -15,6 +15,16 @@ export type GatewayConfig = {
   port: number
   /** Dashboard origin the pairing flow sends a user to. */
   webPublicUrl: string
+  /**
+   * THIS gateway's own public origin — where `/mcp` answers from the outside.
+   *
+   * It cannot be derived from an incoming request: behind Dokploy the Host and
+   * X-Forwarded-* headers are attacker-influenced, and every value here ends up
+   * inside a signed-looking OAuth discovery document. A client that trusted a
+   * spoofed `issuer` would walk itself to someone else's token endpoint and
+   * hand over the authorization code, so this is configuration, not inference.
+   */
+  publicUrl: string
   convexUrl: string
   /** Proves "this caller is the gateway process" to Convex. Never logged. */
   serviceToken: string
@@ -27,6 +37,7 @@ export type EnvSource = Record<string, string | undefined>
 
 const DEFAULT_PORT = "8787"
 const DEFAULT_WEB_URL = "http://localhost:3000"
+const DEFAULT_PUBLIC_URL = "http://localhost:8787"
 const DEFAULT_KEY_ID = "k1"
 const MIN_SERVICE_TOKEN_LENGTH = 16
 /** One command prints all three crypto values at once. */
@@ -117,6 +128,18 @@ export function loadConfig(source: EnvSource = process.env): GatewayConfig {
     env,
     port: parsePort(read(source, "GATEWAY_PORT") || DEFAULT_PORT),
     webPublicUrl: parseUrl(read(source, "WEB_PUBLIC_URL") || DEFAULT_WEB_URL, "WEB_PUBLIC_URL", env),
+    // Required in production rather than defaulted: every OAuth discovery
+    // document embeds this origin, so a wrong value does not degrade the
+    // service, it points clients at the wrong host. Falling back to localhost
+    // would fail later with "must use https", naming the symptom and not the
+    // omission.
+    publicUrl: parseUrl(
+      env === "production"
+        ? require_(source, "GATEWAY_PUBLIC_URL")
+        : read(source, "GATEWAY_PUBLIC_URL") || DEFAULT_PUBLIC_URL,
+      "GATEWAY_PUBLIC_URL",
+      env,
+    ),
     convexUrl: parseConvexUrl(require_(source, "CONVEX_URL"), env),
     serviceToken,
     signing: { privateKey, publicKey, keyId: read(source, "JOB_SIGNING_KEY_ID") || DEFAULT_KEY_ID },

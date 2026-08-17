@@ -46,6 +46,15 @@ const CLAIM_WINDOW_MS = 10 * 60_000
 const EDGE_LIMIT = 120
 const EDGE_WINDOW_MS = 60_000
 
+/**
+ * OAuth budget per peer. Registration is unauthenticated and writes a row, and
+ * the token endpoint is where a stolen authorization code would be brute-forced
+ * — 20 a minute is far above a real connect (one register, one exchange) and
+ * far below useful for either abuse.
+ */
+const OAUTH_LIMIT = 20
+const OAUTH_WINDOW_MS = 60_000
+
 export type GatewayApp = {
   deps: GatewayDeps
   logger: Logger
@@ -104,6 +113,8 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
     connections: controlPlane.connections,
     audit: controlPlane.audit,
     pairing: controlPlane.pairing,
+    oauth: controlPlane.oauth,
+    oauthLimiter: createRateLimiter({ limit: OAUTH_LIMIT, windowMs: OAUTH_WINDOW_MS }),
     executor: createRouter({ cloud, local }),
     pairingLimiter: createRateLimiter({ limit: PAIRING_LIMIT, windowMs: PAIRING_WINDOW_MS }),
     claimLimiter: createRateLimiter({ limit: CLAIM_LIMIT, windowMs: CLAIM_WINDOW_MS }),

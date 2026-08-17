@@ -9,10 +9,19 @@ import type { GatewayConfig } from "./config"
 import type { RateLimiter } from "./http/rate-limit"
 import type { PipelineDeps } from "./pipeline/execute"
 import type { Relay } from "./relay/relay"
+import type { OAuthStore } from "./store/oauth"
 
 export type GatewayDeps = PipelineDeps &
   CatalogDeps & {
     config: GatewayConfig
+    /** RFC 7591 registration and RFC 6749 code exchange (docs/18-oauth.md). */
+    oauth: OAuthStore
+    /**
+     * Guards POST /oauth/register and POST /oauth/token. Tighter than the edge
+     * budget: registration is unauthenticated by design and writes a row, and
+     * the token endpoint is where a stolen code would be brute-forced.
+     */
+    oauthLimiter: RateLimiter
     pairing: PairingStore
     /** Guards POST /v1/pair/start — the route that mints a code and a row. */
     pairingLimiter: RateLimiter

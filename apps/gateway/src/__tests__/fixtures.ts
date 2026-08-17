@@ -26,6 +26,7 @@ import type { RequestScope } from "../context"
 import type { GatewayDeps } from "../deps"
 import { createRateLimiter } from "../http/rate-limit"
 import type { PipelineDeps } from "../pipeline/types"
+import type { OAuthStore } from "../store/oauth"
 
 export const silentLogger: Logger = createLogger("test", { write: () => {} })
 
@@ -244,6 +245,7 @@ export const testConfig: GatewayConfig = {
   env: "development",
   port: 8787,
   webPublicUrl: "http://localhost:3000",
+  publicUrl: "http://localhost:8787",
   convexUrl: "http://127.0.0.1:3210",
   serviceToken: "a-service-token-long-enough",
   signing: { privateKey: "", publicKey: "cHVibGlj", keyId: "k1" },
@@ -252,6 +254,35 @@ export const testConfig: GatewayConfig = {
 
 export type TestGatewayDeps = GatewayDeps & TestDeps
 
+/**
+ * An OAuth store that records what it was asked and answers plausibly. The real
+ * verification lives in Convex (`service/oauth`), so what the HTTP tests need
+ * from this is the request shaping and the error mapping, not a second PKCE
+ * implementation to disagree with the first.
+ */
+export function fakeOAuth(
+  overrides: Partial<OAuthStore> = {},
+): OAuthStore & { calls: Record<string, unknown>[] } {
+  const calls: Record<string, unknown>[] = []
+  return {
+    calls,
+    async registerClient(input) {
+      calls.push({ method: "registerClient", ...input })
+      return {
+        clientId: "cgc_test",
+        clientName: input.clientName,
+        redirectUris: input.redirectUris,
+        createdAt: 1_700_000_000_000,
+      }
+    },
+    async redeemCode(input) {
+      calls.push({ method: "redeemCode", ...input })
+      return { accessToken: "cgk_key_test_" + "a".repeat(32), expiresIn: 3600 }
+    },
+    ...overrides,
+  }
+}
+
 /** Everything an HTTP handler needs. The relay is a stub: no handler touches it. */
 export async function httpDeps(overrides: Partial<TestGatewayDeps> = {}): Promise<TestGatewayDeps> {
   const base = await mcpDeps(overrides as Partial<TestMcpDeps>)
@@ -259,9 +290,11 @@ export async function httpDeps(overrides: Partial<TestGatewayDeps> = {}): Promis
     ...base,
     config: testConfig,
     pairing: fakePairing(),
+    oauth: fakeOAuth(),
     pairingLimiter: createRateLimiter({ limit: 5, windowMs: 60_000 }),
     claimLimiter: createRateLimiter({ limit: 60, windowMs: 60_000 }),
     edgeLimiter: createRateLimiter({ limit: 1_000, windowMs: 60_000 }),
+    oauthLimiter: createRateLimiter({ limit: 1_000, windowMs: 60_000 }),
     relay: {} as GatewayDeps["relay"],
     ...overrides,
   } as TestGatewayDeps

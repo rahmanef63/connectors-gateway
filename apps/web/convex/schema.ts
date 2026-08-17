@@ -75,8 +75,58 @@ export default defineSchema({
     status: apiKeyStatusValidator,
     label: v.string(),
     lastUsedAt: v.optional(v.number()),
+    /**
+     * Absent for a key a human minted in the dashboard: those are revoked, not
+     * aged out. Always set for an OAuth-issued token, because a grant the user
+     * approved once must not stay live forever — `authenticateCaller` already
+     * refuses a key past this instant, so expiry needs no sweeper to be safe.
+     */
+    expiresAt: v.optional(v.number()),
+    /** The OAuth client this token was issued to. Absent = minted by hand. */
+    clientId: v.optional(v.string()),
   })
     .index("by_keyId", ["keyId"])
+    .index("by_user", ["userId"]),
+
+  /**
+   * OAuth clients, all self-registered through RFC 7591 (`service/oauth`).
+   *
+   * No secret column, and that is the design: every client here is PUBLIC. An
+   * AI host runs the flow from software the user installed, so it cannot keep
+   * a secret, and PKCE — not a shared secret — is what binds the code to the
+   * client that asked for it. A secret stored here would be security theatre
+   * that also has to be rotated.
+   */
+  oauthClients: defineTable({
+    clientId: v.string(),
+    clientName: v.string(),
+    /** Exact-match allowlist. A code is only ever redirected to one of these. */
+    redirectUris: v.array(v.string()),
+    createdAt: v.number(),
+  }).index("by_clientId", ["clientId"]),
+
+  /**
+   * In-flight authorization codes. Rows live for minutes and are DELETED on
+   * exchange rather than flagged consumed: a code that no longer exists cannot
+   * be replayed by anyone who later reads this table, and there is no state in
+   * which a used code is still present and merely marked.
+   *
+   * Only `codeHash` is stored. The code itself exists in a URL, a browser
+   * history entry and a client's memory; a leaked database dump should not add
+   * to that list.
+   */
+  oauthCodes: defineTable({
+    /** sha256 hex of the authorization code. Never the code. */
+    codeHash: v.string(),
+    clientId: v.string(),
+    userId: v.string(),
+    /** Pinned at issue and re-checked at exchange (RFC 6749 §4.1.3). */
+    redirectUri: v.string(),
+    /** PKCE S256 challenge. `plain` is refused at both ends. */
+    codeChallenge: v.string(),
+    expiresAt: v.number(),
+  })
+    .index("by_codeHash", ["codeHash"])
     .index("by_user", ["userId"]),
 
   connections: defineTable({

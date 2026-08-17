@@ -288,7 +288,23 @@ describe("POST /mcp", () => {
     const deps = await httpDeps()
     const response = await run(deps, post("/mcp", { jsonrpc: "2.0", id: 1, method: "ping" }))
     expect(response.status).toBe(401)
-    expect(response.headers.get("www-authenticate")).toBe("Bearer")
+    // The pointer is the load-bearing part: without it a client learns only
+    // that it needs a token, with no way to discover where to get one.
+    expect(response.headers.get("www-authenticate")).toBe(
+      'Bearer resource_metadata="http://localhost:8787/.well-known/oauth-protected-resource"',
+    )
+  })
+
+  test("the challenge points at a document this gateway actually serves", async () => {
+    const deps = await httpDeps()
+    const response = await run(deps, post("/mcp", { jsonrpc: "2.0", id: 1, method: "ping" }))
+    const url = /resource_metadata="([^"]+)"/.exec(
+      response.headers.get("www-authenticate") ?? "",
+    )?.[1]
+    expect(url).toBeTruthy()
+    // A pointer to a 404 is worse than no pointer: the client stops there.
+    const followed = await run(deps, new Request(url as string))
+    expect(followed.status).toBe(200)
   })
 
   test("answers a ping for an authenticated caller", async () => {

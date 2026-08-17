@@ -69,6 +69,8 @@ describe("REFS", () => {
       "connectionsResolveCredential",
       "auditAppend",
       "apiKeysGetRecord",
+      "oauthRegisterClient",
+      "oauthRedeemCode",
     ])
   })
 })

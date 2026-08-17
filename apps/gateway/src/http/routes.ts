@@ -9,8 +9,14 @@ import { handleActionRoute } from "./handlers/actions"
 import { handleCatalog } from "./handlers/catalog"
 import { handleHealthz } from "./handlers/healthz"
 import { handleMcp } from "./handlers/mcp"
+import { handleOAuthRegister, handleOAuthToken } from "./handlers/oauth"
 import { handlePairClaim } from "./handlers/pair-claim"
 import { handlePairStart } from "./handlers/pair-start"
+import {
+  handleAuthorizationServer,
+  handleMetadataPreflight,
+  handleProtectedResource,
+} from "./handlers/well-known"
 
 export type RouteContext = {
   request: Request
@@ -30,9 +36,28 @@ export type Route = {
   handler: RouteHandler
 }
 
+/** RFC 9728 §3.1: a resource with a path is also discoverable at that path. */
+const PRM = "/.well-known/oauth-protected-resource"
+const ASM = "/.well-known/oauth-authorization-server"
+
 export const ROUTES: readonly Route[] = Object.freeze([
   { method: "GET", pattern: "/healthz", handler: handleHealthz },
   { method: "POST", pattern: "/mcp", handler: handleMcp },
+
+  // Public, unauthenticated discovery. Listed before the authenticated routes
+  // because that is the order a client actually calls them in.
+  { method: "GET", pattern: PRM, handler: handleProtectedResource },
+  { method: "GET", pattern: `${PRM}/mcp`, handler: handleProtectedResource },
+  { method: "GET", pattern: ASM, handler: handleAuthorizationServer },
+  { method: "OPTIONS", pattern: PRM, handler: handleMetadataPreflight },
+  { method: "OPTIONS", pattern: `${PRM}/mcp`, handler: handleMetadataPreflight },
+  { method: "OPTIONS", pattern: ASM, handler: handleMetadataPreflight },
+
+  // Unauthenticated by protocol: a client reaches these BEFORE it holds any
+  // credential. Both carry their own tighter limiter (see deps.oauthLimiter).
+  { method: "POST", pattern: "/oauth/register", handler: handleOAuthRegister },
+  { method: "POST", pattern: "/oauth/token", handler: handleOAuthToken },
+
   { method: "GET", pattern: "/v1/catalog", handler: handleCatalog },
   { method: "POST", pattern: "/v1/actions/:connector/:action", handler: handleActionRoute },
   { method: "POST", pattern: "/v1/pair/start", handler: handlePairStart },

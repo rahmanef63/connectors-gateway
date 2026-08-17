@@ -15,6 +15,7 @@ const PROD = {
   NODE_ENV: "production",
   CONVEX_URL: "https://example.convex.cloud",
   WEB_PUBLIC_URL: "https://app.example.com",
+  GATEWAY_PUBLIC_URL: "https://gateway.example.com",
 }
 
 describe("loadConfig — development defaults", () => {
@@ -87,6 +88,16 @@ describe("loadConfig — production", () => {
   test("refuses plaintext http origins (docs/03: TLS only)", () => {
     expect(() => loadConfig({ ...PROD, WEB_PUBLIC_URL: "http://app.example.com" })).toThrow("https")
     expect(() => loadConfig({ ...PROD, CONVEX_URL: "http://example.convex.cloud" })).toThrow("https")
+    expect(() => loadConfig({ ...PROD, GATEWAY_PUBLIC_URL: "http://gateway.example.com" })).toThrow(
+      "https",
+    )
+  })
+
+  test("demands its own public origin, naming the omission not the symptom", () => {
+    // Every OAuth discovery document embeds this value, so a default would not
+    // degrade the service — it would point clients at localhost.
+    const { GATEWAY_PUBLIC_URL: _absent, ...rest } = PROD
+    expect(() => loadConfig(rest)).toThrow("Missing required environment variable: GATEWAY_PUBLIC_URL")
   })
 
   test("an error never quotes the offending secret value", () => {

@@ -12,6 +12,7 @@ import { createControlPlaneClient } from "./client"
 import { createConnectionStore } from "./connections"
 import { createDeviceStore } from "./devices"
 import type { GatewayDeviceStore } from "./devices"
+import { createOAuthStore, type OAuthStore } from "./oauth"
 import { createPairingStore } from "./pairing"
 import { createPolicyStore } from "./policy"
 
@@ -20,6 +21,7 @@ export type GatewayControlPlane = ControlPlane & {
   devices: GatewayDeviceStore
   apiKeys: ApiKeyLookup
   approvals: ApprovalStore
+  oauth: OAuthStore
 }
 
 export function createConvexControlPlane(options: {
@@ -36,5 +38,6 @@ export function createConvexControlPlane(options: {
     audit: createAuditSink(client, options.logger),
     apiKeys: createApiKeyLookup(client),
     approvals: createApprovalStore(client),
+    oauth: createOAuthStore(client),
   }
 }

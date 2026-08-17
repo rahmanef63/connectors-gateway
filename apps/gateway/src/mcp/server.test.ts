@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import { fakeApiKeys, mcpDeps, scope, testApiKey, TEST_CONNECTOR } from "../__tests__/fixtures"
-import { handleMcpRequest, MCP_PROTOCOL_VERSION, toToolResult } from "./server"
+import {
+  handleMcpRequest,
+  MCP_PROTOCOL_VERSION,
+  MCP_PROTOCOL_VERSIONS,
+  negotiateProtocolVersion,
+  toToolResult,
+} from "./server"
 
 function rpc(method: string, params: Record<string, unknown> = {}, id: number | string = 1) {
   return { jsonrpc: "2.0", id, method, params }
@@ -40,6 +46,13 @@ describe("handleMcpRequest — methods", () => {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: { tools: { listChanged: false } },
     })
+  })
+
+  test("initialize echoes a revision the client asked for and we speak", async () => {
+    // The point of negotiating: a 2024-11-05 client stays on 2024-11-05 instead
+    // of being handed a newer number it never asked for.
+    const { outcome } = await call(rpc("initialize", { protocolVersion: "2024-11-05" }))
+    expect(outcome.body?.result).toMatchObject({ protocolVersion: "2024-11-05" })
   })
 
   test("ping answers with an empty result", async () => {
@@ -106,6 +119,24 @@ describe("handleMcpRequest — tools/call", () => {
   test("non-object arguments degrade to an empty object", async () => {
     const { deps } = await call(rpc("tools/call", { name: "testcloud_echo", arguments: "oops" }))
     expect(deps.executor.requests[0]?.input).toEqual({})
+  })
+})
+
+describe("negotiateProtocolVersion", () => {
+  test("echoes every revision we claim to speak", () => {
+    for (const version of MCP_PROTOCOL_VERSIONS) {
+      expect(negotiateProtocolVersion(version)).toBe(version)
+    }
+  })
+
+  test("falls back to the newest for an absent, unknown or non-string request", () => {
+    for (const requested of [undefined, null, 42, {}, "2026-07-28", "nonsense"]) {
+      expect(negotiateProtocolVersion(requested)).toBe(MCP_PROTOCOL_VERSION)
+    }
+  })
+
+  test("the advertised default is one we actually speak", () => {
+    expect(MCP_PROTOCOL_VERSIONS).toContain(MCP_PROTOCOL_VERSION)
   })
 })
 

@@ -73,4 +73,11 @@ export const REFS = {
   auditAppend: mutation<WithToken<{ event: Record<string, unknown> }>>("service/audit:append"),
 
   apiKeysGetRecord: query<WithToken<{ keyId: string }>>("service/apiKeys:getRecord"),
+
+  oauthRegisterClient: mutation<WithToken<{ clientName: string; redirectUris: string[] }>>(
+    "service/oauth:registerClient",
+  ),
+  oauthRedeemCode: mutation<
+    WithToken<{ code: string; codeVerifier: string; clientId: string; redirectUri: string }>
+  >("service/oauth:redeemCode"),
 } as const

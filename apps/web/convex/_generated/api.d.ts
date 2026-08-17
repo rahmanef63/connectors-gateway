@@ -11,6 +11,7 @@
 import type * as _shared_api_key_record from "../_shared/api_key_record.js";
 import type * as _shared_audit_record from "../_shared/audit_record.js";
 import type * as _shared_auth from "../_shared/auth.js";
+import type * as _shared_code_hash from "../_shared/code_hash.js";
 import type * as _shared_connection_record from "../_shared/connection_record.js";
 import type * as _shared_constant_time from "../_shared/constant_time.js";
 import type * as _shared_device_record from "../_shared/device_record.js";
@@ -21,6 +22,7 @@ import type * as _shared_limits from "../_shared/limits.js";
 import type * as _shared_lookup from "../_shared/lookup.js";
 import type * as _shared_pairing_record from "../_shared/pairing_record.js";
 import type * as _shared_policy_record from "../_shared/policy_record.js";
+import type * as _shared_redirect_uri from "../_shared/redirect_uri.js";
 import type * as _shared_upstream_url from "../_shared/upstream_url.js";
 import type * as _shared_validators from "../_shared/validators.js";
 import type * as auth from "../auth.js";
@@ -35,6 +37,8 @@ import type * as features_connections_mutations from "../features/connections/mu
 import type * as features_connections_queries from "../features/connections/queries.js";
 import type * as features_devices_mutations from "../features/devices/mutations.js";
 import type * as features_devices_queries from "../features/devices/queries.js";
+import type * as features_oauth_mutations from "../features/oauth/mutations.js";
+import type * as features_oauth_queries from "../features/oauth/queries.js";
 import type * as features_pairing_mutations from "../features/pairing/mutations.js";
 import type * as features_pairing_queries from "../features/pairing/queries.js";
 import type * as features_policy_mutations from "../features/policy/mutations.js";
@@ -45,6 +49,7 @@ import type * as service_approvals from "../service/approvals.js";
 import type * as service_audit from "../service/audit.js";
 import type * as service_connections from "../service/connections.js";
 import type * as service_devices from "../service/devices.js";
+import type * as service_oauth from "../service/oauth.js";
 import type * as service_pairing from "../service/pairing.js";
 import type * as service_policy from "../service/policy.js";
 
@@ -58,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   "_shared/api_key_record": typeof _shared_api_key_record;
   "_shared/audit_record": typeof _shared_audit_record;
   "_shared/auth": typeof _shared_auth;
+  "_shared/code_hash": typeof _shared_code_hash;
   "_shared/connection_record": typeof _shared_connection_record;
   "_shared/constant_time": typeof _shared_constant_time;
   "_shared/device_record": typeof _shared_device_record;
@@ -68,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   "_shared/lookup": typeof _shared_lookup;
   "_shared/pairing_record": typeof _shared_pairing_record;
   "_shared/policy_record": typeof _shared_policy_record;
+  "_shared/redirect_uri": typeof _shared_redirect_uri;
   "_shared/upstream_url": typeof _shared_upstream_url;
   "_shared/validators": typeof _shared_validators;
   auth: typeof auth;
@@ -82,6 +89,8 @@ declare const fullApi: ApiFromModules<{
   "features/connections/queries": typeof features_connections_queries;
   "features/devices/mutations": typeof features_devices_mutations;
   "features/devices/queries": typeof features_devices_queries;
+  "features/oauth/mutations": typeof features_oauth_mutations;
+  "features/oauth/queries": typeof features_oauth_queries;
   "features/pairing/mutations": typeof features_pairing_mutations;
   "features/pairing/queries": typeof features_pairing_queries;
   "features/policy/mutations": typeof features_policy_mutations;
@@ -92,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   "service/audit": typeof service_audit;
   "service/connections": typeof service_connections;
   "service/devices": typeof service_devices;
+  "service/oauth": typeof service_oauth;
   "service/pairing": typeof service_pairing;
   "service/policy": typeof service_policy;
 }>;
