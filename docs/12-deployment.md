@@ -50,13 +50,13 @@ Do not ask users to:
 
 Three deployables, one repo, one Dokploy project (`connectors-gateway`).
 
-| What | Domain | Dokploy service | Build |
-|---|---|---|---|
-| Dashboard (Next) | `connectors.rahmanef.com` | application **`connectors-gateway`** | root `Dockerfile` |
-| Gateway (Bun, MCP + REST + relay) | `connect.rahmanef.com` | application **`connect-gateway`** | `apps/gateway/Dockerfile` |
-| Convex control plane | `api-` / `site-` / `dash-connectors.rahmanef.com` | compose **`connectors-gateway-db`** | `docker-compose.yml` |
+| What                              | Domain                                            | Dokploy service                      | Build                     |
+| --------------------------------- | ------------------------------------------------- | ------------------------------------ | ------------------------- |
+| Dashboard (Next)                  | `connectors.rahmanef.com`                         | application **`connectors-gateway`** | root `Dockerfile`         |
+| Gateway (Bun, MCP + REST + relay) | `connect.rahmanef.com`                            | application **`connect-gateway`**    | `apps/gateway/Dockerfile` |
+| Convex control plane              | `api-` / `site-` / `dash-connectors.rahmanef.com` | compose **`connectors-gateway-db`**  | `docker-compose.yml`      |
 
-**The application names are the trap.** `connectors-gateway` is the *dashboard*;
+**The application names are the trap.** `connectors-gateway` is the _dashboard_;
 the gateway is `connect-gateway`. Match on the domain, not the service name.
 
 ### Three things that only failed in a real deploy
@@ -109,10 +109,37 @@ CONVEX_SELF_HOSTED_ADMIN_KEY=<key> bunx convex deploy --yes
 Two runtime variables the dashboard needs beyond `NEXT_PUBLIC_CONVEX_URL`. Both are
 server-only — never `NEXT_PUBLIC_` — and neither is a build argument.
 
-| Variable | Why |
-|---|---|
+| Variable                    | Why                                                                                                                                                                                                                                                                                                            |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `CREDENTIAL_ENCRYPTION_KEY` | The same base64 32-byte key the gateway holds. The connect flow seals a credential here, because the OAuth token arrives on a redirect this process handles. Convex is never given it. Unset, connecting fails with a message naming the variable rather than storing a credential the gateway could not open. |
-| `APP_ORIGIN` | This deployment's public origin, e.g. `https://connectors.rahmanef.com`. The OAuth redirect URI is built from it. Deliberately NOT derived from the `Host` header: a redirect URI taken from a header the client controls is how an authorization code ends up delivered somewhere else. |
+| `APP_ORIGIN`                | This deployment's public origin, e.g. `https://connectors.rahmanef.com`. The OAuth redirect URI is built from it. Deliberately NOT derived from the `Host` header: a redirect URI taken from a header the client controls is how an authorization code ends up delivered somewhere else.                       |
+
+## Google dashboard login
+
+Google is a Convex Auth provider, so its credentials live in the **Convex
+runtime**, not in the dashboard application and not in the public gateway.
+Create a Google OAuth **Web application** with this exact production callback:
+
+```text
+https://site-connectors.rahmanef.com/api/auth/callback/google
+```
+
+Set these as Convex environment variables through the same protected admin path
+used for the other Convex secrets:
+
+```text
+AUTH_GOOGLE_ID
+AUTH_GOOGLE_SECRET
+```
+
+Do not copy either value into `NEXT_PUBLIC_*`, Dokploy build arguments, browser
+storage, repository files or tool output. The provider requests identity only;
+it does not request offline Google API access.
+
+Password remains available for existing users. Google intentionally disables
+implicit email account linking because password sign-up does not verify email.
+A Google identity and a pre-existing password identity with the same email stay
+separate until an explicit, already-authenticated linking flow exists.
 
 ## Scaling boundary
 
