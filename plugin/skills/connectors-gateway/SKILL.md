@@ -9,8 +9,8 @@ Every tool from this server runs against **someone's real accounts and their
 own machine** — sending the mail, opening the issue, rendering the file. Treat
 each call as an action taken in the open, not a query against a sandbox.
 
-These instructions live here and not in `CLAUDE.md`: that file is not loaded as
-context for a plugin.
+These instructions are bundled with the universal plugin and are also exported
+by the MCP server, so ChatGPT, Codex, and Claude receive the same operating rules.
 
 ## The tool list is not fixed
 

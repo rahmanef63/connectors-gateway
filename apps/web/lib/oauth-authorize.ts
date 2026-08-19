@@ -5,6 +5,7 @@
  * tested without a browser: what an incoming authorization request is allowed
  * to look like, and how the browser is sent back to the client afterwards.
  */
+import { normalizeMcpResourceUri, parseMcpScopeParameter } from "@cg/core"
 
 /** Bounds every echoed parameter; `state` in particular is client-controlled. */
 const MAX_PARAM_LENGTH = 2048
@@ -14,6 +15,9 @@ export type AuthorizationRequest = {
   redirectUri: string
   codeChallenge: string
   codeChallengeMethod: string
+  /** RFC 8707 audience the eventual token is valid for. */
+  resource: string
+  scopes: string[]
   /** Opaque to us. Echoed back verbatim — it is the client's CSRF token. */
   state: string | null
 }
@@ -37,6 +41,7 @@ function single(value: string | string[] | undefined): string | null {
  */
 export function parseAuthorizationRequest(
   params: Record<string, string | string[] | undefined>,
+  expectedResource?: string | null,
 ): AuthorizationRequest | null {
   // OAuth 2.1 removed the implicit grant; `token` is not merely unsupported
   // here, it is a response type this server must never appear to offer.
@@ -51,6 +56,23 @@ export function parseAuthorizationRequest(
 
   if (clientId === null || redirectUri === null || codeChallenge === null) return null
 
+  const resourceParam = single(params.resource)
+  if (resourceParam === null && params.resource !== undefined) return null
+  // Older clients omitted RFC 8707's parameter. When the trusted deployment
+  // supplies the expected resource, bind them to that exact audience rather
+  // than issuing an unbound token. Without an expected value, omission fails.
+  const resource = normalizeMcpResourceUri(resourceParam ?? expectedResource)
+  const expected =
+    expectedResource === undefined || expectedResource === null
+      ? null
+      : normalizeMcpResourceUri(expectedResource)
+  if (resource === null || (expected !== null && resource !== expected)) return null
+
+  const scope = single(params.scope)
+  if (scope === null && params.scope !== undefined) return null
+  const scopes = parseMcpScopeParameter(scope)
+  if (scopes === null) return null
+
   // `state` is optional, but PRESENT-AND-UNUSABLE is not the same as absent.
   // Dropping an over-long or repeated state would echo back a response with no
   // state at all, which an honest client must reject as a possible attack —
@@ -58,7 +80,7 @@ export function parseAuthorizationRequest(
   const state = single(params.state)
   if (state === null && params.state !== undefined) return null
 
-  return { clientId, redirectUri, codeChallenge, codeChallengeMethod, state }
+  return { clientId, redirectUri, codeChallenge, codeChallengeMethod, resource, scopes, state }
 }
 
 /**
@@ -72,11 +94,14 @@ export function parseAuthorizationRequest(
  * (RFC 6749 §3.1.2 permits one), and `state` is echoed on both the success and
  * the denial path: a client that cannot match the response to its request has
  * to treat it as an attack, so omitting it on denial breaks honest clients.
+ * `iss` is appended on every response for RFC 9207 authorization-server mix-up
+ * protection.
  */
 export function buildRedirect(
   redirectUri: string,
   outcome: { code: string } | { error: "access_denied" | "server_error" },
   state: string | null,
+  issuer: string,
 ): string {
   const url = new URL(redirectUri)
   if ("code" in outcome) {
@@ -85,5 +110,8 @@ export function buildRedirect(
     url.searchParams.set("error", outcome.error)
   }
   if (state !== null) url.searchParams.set("state", state)
+  // RFC 9207 mix-up protection. The client must verify this is the issuer from
+  // which it obtained the authorization endpoint before redeeming the code.
+  url.searchParams.set("iss", issuer)
   return url.toString()
 }

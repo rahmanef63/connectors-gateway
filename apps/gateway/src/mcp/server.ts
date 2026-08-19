@@ -17,28 +17,27 @@ import { executeAction } from "../pipeline/execute"
 import type { PipelineDeps } from "../pipeline/execute"
 import { JSONRPC_ERRORS, jsonRpcError, jsonRpcResult, parseJsonRpcRequest } from "./jsonrpc"
 import type { JsonRpcRequest, JsonRpcResponse } from "./jsonrpc"
+import {
+  completeModernResult,
+  isModernMcpRequest,
+  MCP_MODERN_PROTOCOL_VERSION,
+  McpProtocolError,
+  validateModernMcpRequest,
+} from "./protocol"
+import type { McpTransportHeaders } from "./protocol"
+import { assertSkillUri, GATEWAY_SKILL_URI, loadGatewaySkill } from "./skill"
 import { createToolIndex, lookupTool } from "./tool-names"
 import { targetsFor, toolsFor } from "./tools"
 
-/**
- * Protocol revisions this server can speak, oldest first.
- *
- * Answering every client with one pinned revision is legal — the spec lets a
- * server reply with a version it supports — but it drops the older clients
- * rather than meeting them: a `2024-11-05` client is told `2025-06-18` and is
- * entitled to disconnect instead of downgrading. Nothing in the dispatcher
- * below differs between these three, so echoing the client's own revision
- * costs one lookup and keeps it connected.
- *
- * NOT implemented, deliberately: `2025-11-25` (icons) and `2026-07-28`, which
- * is the CURRENT revision and a stateless rewrite — no `initialize` handshake
- * at all and a mandatory `server/discover`. That is a transport change, not a
- * string to add to this array.
- */
+/** Initialize-based protocol revisions, oldest first. */
 export const MCP_PROTOCOL_VERSIONS = ["2024-11-05", "2025-03-26", "2025-06-18"] as const
-
-/** What an unrecognised or absent request gets: the newest we speak. */
+/** What an unrecognised or absent legacy initialize request gets. */
 export const MCP_PROTOCOL_VERSION = "2025-06-18"
+/** Every transport revision this endpoint can serve, newest first. */
+export const MCP_SUPPORTED_PROTOCOL_VERSIONS = [
+  MCP_MODERN_PROTOCOL_VERSION,
+  ...[...MCP_PROTOCOL_VERSIONS].reverse(),
+] as const
 
 export function negotiateProtocolVersion(requested: unknown): string {
   return typeof requested === "string" &&
@@ -47,7 +46,29 @@ export function negotiateProtocolVersion(requested: unknown): string {
     : MCP_PROTOCOL_VERSION
 }
 
-export const SERVER_INFO = { name: "connectors-gateway", version: "0.1.0" } as const
+export const SERVER_INFO = { name: "connectors-gateway", version: "0.2.0" } as const
+
+/** Shared guidance, front-loaded because ChatGPT prioritizes the first 512 chars. */
+export const SERVER_INSTRUCTIONS =
+  "Tool availability is per-user and changes with connected accounts and online devices. For multi-step MSO work, call mso_workflow_start once, pass workflow_id to later MSO calls, then finish or cancel it. Use search/schema tools before execution when available. APPROVAL_REQUIRED means stop for dashboard approval; never bypass POLICY_DENIED. Retry only TIMEOUT or UPSTREAM_ERROR. Explain destructive actions first."
+
+const LEGACY_CAPABILITIES = Object.freeze({
+  tools: { listChanged: false },
+  resources: { listChanged: false },
+  extensions: { "io.modelcontextprotocol/skills": {} },
+})
+
+const MODERN_CAPABILITIES = Object.freeze({
+  tools: {},
+  resources: {},
+  extensions: { "io.modelcontextprotocol/skills": {} },
+})
+
+const EMPTY_TRANSPORT: McpTransportHeaders = Object.freeze({
+  protocolVersion: null,
+  method: null,
+  name: null,
+})
 
 export type McpDeps = PipelineDeps & CatalogDeps
 
@@ -55,15 +76,26 @@ export type McpInput = {
   scope: RequestScope
   token: string | null
   body: unknown
+  /** Canonical RFC 8707 resource for this MCP endpoint. */
+  resource: string
+  transport?: Partial<McpTransportHeaders>
 }
 
 export type McpOutcome = { status: number; body?: JsonRpcResponse }
+
+function transportOf(input: McpInput): McpTransportHeaders {
+  return {
+    protocolVersion: input.transport?.protocolVersion ?? null,
+    method: input.transport?.method ?? null,
+    name: input.transport?.name ?? null,
+  }
+}
 
 export async function handleMcpRequest(deps: McpDeps, input: McpInput): Promise<McpOutcome> {
   let principal: Principal
   try {
     if (input.token === null) throw new GatewayError("NOT_AUTHENTICATED", "Invalid credentials.")
-    principal = await authenticateCaller(input.token, deps.apiKeys)
+    principal = await authenticateCaller(input.token, deps.apiKeys, Date.now(), input.resource)
   } catch {
     return { status: 401, body: jsonRpcError(null, JSONRPC_ERRORS.INVALID_REQUEST, "Unauthorized.") }
   }
@@ -76,21 +108,51 @@ export async function handleMcpRequest(deps: McpDeps, input: McpInput): Promise<
     return { status: 400, body: jsonRpcError(null, JSONRPC_ERRORS.INVALID_REQUEST, error.message) }
   }
 
-  // A notification expects no body; `notifications/initialized` is the only one
-  // an MCP client sends here, and it needs no work.
+  const transport = input.transport === undefined ? EMPTY_TRANSPORT : transportOf(input)
+  const modern = isModernMcpRequest(request, transport)
+  if (modern) {
+    try {
+      validateModernMcpRequest(request, transport)
+    } catch (cause) {
+      if (cause instanceof McpProtocolError) {
+        return {
+          status: cause.status,
+          body: jsonRpcError(request.id ?? null, cause.code, cause.message, cause.data),
+        }
+      }
+      throw cause
+    }
+  }
+
+  // A notification expects no body. Modern notifications still pass transport
+  // validation above so a proxy and the dispatcher cannot disagree on method.
   if (request.id === undefined) return { status: 202 }
 
   try {
-    return { status: 200, body: jsonRpcResult(request.id, await dispatch(deps, principal, input, request)) }
+    const result = await dispatch(deps, principal, input, request, modern)
+    return { status: 200, body: jsonRpcResult(request.id, result) }
   } catch (cause) {
+    if (cause instanceof McpProtocolError) {
+      return {
+        status: cause.status,
+        body: jsonRpcError(request.id, cause.code, cause.message, cause.data),
+      }
+    }
     const error = toGatewayError(cause)
-    return { status: 200, body: jsonRpcError(request.id, rpcCodeFor(error.code), error.message) }
+    const rpcCode = rpcCodeFor(error.code, request.method, modern)
+    return {
+      status: modern && rpcCode === JSONRPC_ERRORS.METHOD_NOT_FOUND ? 404 : 200,
+      body: jsonRpcError(request.id, rpcCode, error.message),
+    }
   }
 }
 
 /** Transport-level failures only; a tool's own failure is a RESULT (see below). */
-function rpcCodeFor(code: string): number {
+function rpcCodeFor(code: string, method: string, modern: boolean): number {
   if (code === "ACTION_NOT_FOUND" || code === "CONNECTOR_NOT_FOUND") {
+    // In the modern schema an unknown tool is invalid params; -32601 is reserved
+    // for an RPC method the server itself does not implement.
+    if (modern && method === "tools/call") return JSONRPC_ERRORS.INVALID_PARAMS
     return JSONRPC_ERRORS.METHOD_NOT_FOUND
   }
   if (code === "INVALID_INPUT") return JSONRPC_ERRORS.INVALID_PARAMS
@@ -102,23 +164,120 @@ async function dispatch(
   principal: Principal,
   input: McpInput,
   request: JsonRpcRequest,
+  modern: boolean,
 ): Promise<unknown> {
   switch (request.method) {
+    case "server/discover":
+      if (!modern) throw new GatewayError("ACTION_NOT_FOUND", "Unknown method.")
+      return completeModernResult(
+        {
+          supportedVersions: [MCP_MODERN_PROTOCOL_VERSION],
+          capabilities: MODERN_CAPABILITIES,
+          instructions: SERVER_INSTRUCTIONS,
+          ttlMs: 300_000,
+          cacheScope: "private",
+        },
+        SERVER_INFO,
+      )
     case "initialize":
+      if (modern) throw new GatewayError("ACTION_NOT_FOUND", "Unknown method.")
       return {
         protocolVersion: negotiateProtocolVersion(request.params.protocolVersion),
-        capabilities: { tools: { listChanged: false } },
+        capabilities: LEGACY_CAPABILITIES,
         serverInfo: SERVER_INFO,
+        instructions: SERVER_INSTRUCTIONS,
       }
     case "ping":
-      return {}
+      return modern ? completeModernResult({}, SERVER_INFO) : {}
     case "tools/list":
-      return { tools: toolsFor(await resolveCatalog(deps, principal)) }
+      return await listTools(deps, principal, modern)
     case "tools/call":
-      return await callTool(deps, principal, input, request)
+      return await callTool(deps, principal, input, request, modern)
+    case "skills/list":
+      return await listSkills(request, modern)
+    case "skills/get":
+      return await getSkill(request, modern)
+    case "resources/list":
+      return await listResources(request, modern)
+    case "resources/read":
+      return await readResource(request, modern)
     default:
       throw new GatewayError("ACTION_NOT_FOUND", "Unknown method.")
   }
+}
+
+async function sha256Json(value: unknown): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(value))
+  const digest = await crypto.subtle.digest("SHA-256", bytes)
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")
+}
+
+async function listTools(deps: McpDeps, principal: Principal, modern: boolean): Promise<unknown> {
+  const tools = toolsFor(await resolveCatalog(deps, principal))
+  const value: Record<string, unknown> = {
+    tools,
+    _meta: {
+      "com.rahmanef.connectors/toolset": {
+        version: SERVER_INFO.version,
+        digest: `sha256:${await sha256Json(tools)}`,
+      },
+    },
+  }
+  if (!modern) return value
+  return completeModernResult(
+    { ...value, ttlMs: 60_000, cacheScope: "private" },
+    SERVER_INFO,
+  )
+}
+
+async function listSkills(request: JsonRpcRequest, modern: boolean): Promise<unknown> {
+  const cursor = request.params.cursor
+  if (cursor !== undefined && cursor !== "") {
+    throw new GatewayError("INVALID_INPUT", "Unknown skills cursor.")
+  }
+  const skill = await loadGatewaySkill()
+  const value = { skills: [skill.entry] }
+  return modern ? completeModernResult(value, SERVER_INFO) : value
+}
+
+async function getSkill(request: JsonRpcRequest, modern: boolean): Promise<unknown> {
+  assertSkillUri(request.params.uri)
+  const skill = await loadGatewaySkill()
+  const value = { skill: skill.entry }
+  return modern ? completeModernResult(value, SERVER_INFO) : value
+}
+
+async function listResources(request: JsonRpcRequest, modern: boolean): Promise<unknown> {
+  const cursor = request.params.cursor
+  if (cursor !== undefined && cursor !== "") {
+    throw new GatewayError("INVALID_INPUT", "Unknown resources cursor.")
+  }
+  const skill = await loadGatewaySkill()
+  const value = {
+    resources: [
+      {
+        uri: GATEWAY_SKILL_URI,
+        name: "Connectors Gateway skill",
+        title: "Connectors Gateway operating instructions",
+        description: skill.entry.frontmatter.description,
+        mimeType: "text/markdown",
+      },
+    ],
+  }
+  return modern
+    ? completeModernResult({ ...value, ttlMs: 300_000, cacheScope: "private" }, SERVER_INFO)
+    : value
+}
+
+async function readResource(request: JsonRpcRequest, modern: boolean): Promise<unknown> {
+  assertSkillUri(request.params.uri)
+  const skill = await loadGatewaySkill()
+  const value = {
+    contents: [{ uri: GATEWAY_SKILL_URI, mimeType: "text/markdown", text: skill.text }],
+  }
+  return modern
+    ? completeModernResult({ ...value, ttlMs: 300_000, cacheScope: "private" }, SERVER_INFO)
+    : value
 }
 
 async function callTool(
@@ -126,6 +285,7 @@ async function callTool(
   principal: Principal,
   input: McpInput,
   request: JsonRpcRequest,
+  modern: boolean,
 ): Promise<unknown> {
   const entries = await resolveCatalog(deps, principal)
 
@@ -147,24 +307,14 @@ async function callTool(
     actionId: target.actionId,
     input: typeof args === "object" && args !== null && !Array.isArray(args) ? args : {},
   })
-  return toToolResult(result)
+  const value = toToolResult(result)
+  return modern ? completeModernResult(value, SERVER_INFO) : value
 }
 
 /**
- * A `tools/call` for a name outside the caller's catalog is refused here,
- * before the execution pipeline — so the pipeline's own `finally` never sees
- * it, and for a long time that meant the PRIMARY entry point left no trace
- * while the REST path recorded the identical miss (docs/13 gap 4). Probing tool
- * names over MCP was invisible, and an empty audit log reads as "nobody tried".
- *
- * The name is caller-supplied, so it goes through `safeId` like every other
- * untrusted id that reaches the audit store. There is deliberately NO attempt
- * to decode it into a connector/action pair: `tool-names.ts` ships no reverse
- * function on purpose, and inventing one here would give a made-up tool name a
- * route into the pipeline.
- *
- * `policyDecision: "DENY"` because the outcome was a refusal; policy itself
- * never ran, which is what `executorKind: "none"` records.
+ * A tools/call for a name outside the caller's catalog is refused here, before
+ * the execution pipeline. Record it so probing the primary entry point is not
+ * invisible in the audit trail.
  */
 async function auditCatalogMiss(
   deps: McpDeps,
@@ -187,19 +337,13 @@ async function auditCatalogMiss(
       errorCode: error.code,
     })
   } catch (sinkFailure) {
-    // Mirrors the pipeline: a failing sink is logged, never fatal. Losing the
-    // row is bad; turning a 404 into a 500 because of it is worse.
     input.scope.logger.error("audit sink failed for an unknown tool name", {
       error: sinkFailure instanceof Error ? sinkFailure.message : "unknown",
     })
   }
 }
 
-/**
- * Tool failures are RESULTS, not JSON-RPC errors: the model must be able to see
- * and react to them. The error code travels with the message so a client can
- * distinguish "needs approval" from "device offline".
- */
+/** Tool failures are results so the model can react to the stable error code. */
 export function toToolResult(result: ExecutionResult): Record<string, unknown> {
   if (result.status === "error") {
     const error = result.error ?? { code: "INTERNAL", message: "The action failed." }
@@ -213,9 +357,13 @@ export function toToolResult(result: ExecutionResult): Record<string, unknown> {
     content: [{ type: "text", text: JSON.stringify(output) }],
     isError: false,
   }
-  if (typeof output === "object" && output !== null && !Array.isArray(output)) {
-    body.structuredContent = output
-  }
+  // Every descriptor has an object outputSchema. Preserve object outputs and
+  // wrap scalars/arrays/null so ChatGPT always receives schema-conforming
+  // structuredContent in addition to the human-readable text block.
+  body.structuredContent =
+    typeof output === "object" && output !== null && !Array.isArray(output)
+      ? output
+      : { result: output }
   if (result.files && result.files.length > 0) body.files = result.files
   return body
 }

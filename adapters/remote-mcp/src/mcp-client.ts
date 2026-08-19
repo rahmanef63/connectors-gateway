@@ -24,6 +24,8 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
  * gateway's memory for every other tenant.
  */
 export const MAX_RESPONSE_BYTES = 1_048_576
+/** Hard ceiling for the one reviewed tool that legitimately embeds a PNG. */
+export const MAX_LARGE_RESPONSE_BYTES = 8_388_608
 
 let requestCounter = 0
 
@@ -67,8 +69,10 @@ export async function callTool(
   args: Record<string, unknown>,
   signal: AbortSignal,
   credentialHeader?: CredentialHeader,
+  maxResponseBytes: number = MAX_RESPONSE_BYTES,
 ): Promise<unknown> {
   const endpoint = endpointFor(baseUrl)
+  const responseLimit = boundedResponseLimit(maxResponseBytes)
   if (signal.aborted) {
     throw new GatewayError("CANCELLED", "The upstream call was cancelled.")
   }
@@ -122,7 +126,7 @@ export async function callTool(
     )
   }
 
-  const raw = await readCappedBody(response)
+  const raw = await readCappedBody(response, responseLimit)
   return readToolResult(parseRpcBody(raw, response.headers.get("content-type")), token)
 }
 
@@ -135,9 +139,9 @@ function isRedirect(response: Response): boolean {
  * body would surface as "malformed response", which sends the next reader hunting for a
  * parser bug instead of an oversized upstream.
  */
-async function readCappedBody(response: Response): Promise<string> {
+async function readCappedBody(response: Response, maxBytes: number): Promise<string> {
   const declared = Number(response.headers.get("content-length"))
-  if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) throw tooLarge()
+  if (Number.isFinite(declared) && declared > maxBytes) throw tooLarge()
 
   const body = response.body
   if (body === null) return ""
@@ -153,7 +157,7 @@ async function readCappedBody(response: Response): Promise<string> {
       total += value.byteLength
       // Checked per chunk, so a stream with no end is dropped on the first chunk past
       // the cap instead of being buffered to completion first.
-      if (total > MAX_RESPONSE_BYTES) throw tooLarge()
+      if (total > maxBytes) throw tooLarge()
       chunks.push(value)
     }
   } catch (cause) {
@@ -169,6 +173,11 @@ async function readCappedBody(response: Response): Promise<string> {
     offset += chunk.byteLength
   }
   return new TextDecoder().decode(joined)
+}
+
+function boundedResponseLimit(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1) return MAX_RESPONSE_BYTES
+  return Math.min(value, MAX_LARGE_RESPONSE_BYTES)
 }
 
 function tooLarge(): GatewayError {

@@ -2,8 +2,8 @@
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "connectors-gateway",
   "displayName": "Connectors Gateway",
-  "version": "0.1.0",
-  "description": "One MCP endpoint in front of every tool you have connected — SaaS APIs through the cloud, and local software on your own machine — with per-action policy and an approval gate on anything risky.",
+  "version": "0.2.0",
+  "description": "One OAuth-authenticated MCP gateway for cloud and local connectors, with per-user catalogs, policy, approvals, audit, and output redaction.",
   "homepage": "https://connectors.rahmanef.com",
   "repository": "https://github.com/rahmanef63/connectors-gateway",
   "license": "MIT",
@@ -11,5 +11,11 @@
     "name": "Rahman",
     "url": "https://connectors.rahmanef.com"
   },
-  "keywords": ["mcp", "gateway", "connectors", "oauth", "automation"]
+  "keywords": [
+    "mcp",
+    "gateway",
+    "connectors",
+    "oauth",
+    "automation"
+  ]
 }

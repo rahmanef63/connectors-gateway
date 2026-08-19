@@ -149,5 +149,7 @@ export function toApiKeyRecord(value: unknown): ApiKeyRecord | null {
   }
   if (str(row.workspaceId)) record.workspaceId = row.workspaceId
   if (typeof row.expiresAt === "number") record.expiresAt = row.expiresAt
+  if (str(row.audience)) record.audience = row.audience
+  else if (row.audience !== undefined && row.audience !== null) return null
   return record
 }

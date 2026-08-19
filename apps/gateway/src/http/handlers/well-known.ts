@@ -12,6 +12,7 @@
  * fetches them before it holds any credential, including from a browser, which
  * is why they carry CORS and are the only cacheable responses on this edge.
  */
+import { MCP_SCOPES } from "@cg/core"
 import type { GatewayConfig } from "../../config"
 import type { RouteContext } from "../routes"
 
@@ -53,17 +54,7 @@ export function protectedResourceMetadata(config: GatewayConfig): Record<string,
     // detail the client never has to reason about.
     authorization_servers: [config.publicUrl],
     bearer_methods_supported: ["header"],
-    // `scopes_supported` is OMITTED on purpose — but NOT for the reason first
-    // written here. That comment claimed no manifest declares `requiredScopes`;
-    // it was wrong (`careerpack` declares two), and the wrongness came from a
-    // case-sensitive grep for "scope" that never matched "requiredScopes".
-    //
-    // The real reason: scopes exist and ARE enforced (`catalogFor` hides an
-    // action whose scopes the caller lacks), but there is no per-scope consent
-    // yet — every credential this server issues carries the whole vocabulary,
-    // via `grantedScopes()`. Advertising a menu the client cannot choose from
-    // would misrepresent what it is about to receive. List them here on the day
-    // the consent screen can actually narrow them.
+    scopes_supported: [...MCP_SCOPES],
   }
 }
 
@@ -80,6 +71,7 @@ export function authorizationServerMetadata(config: GatewayConfig): Record<strin
     // connection modal offers a field to paste one into.
     registration_endpoint: `${config.publicUrl}/oauth/register`,
     response_types_supported: ["code"],
+    authorization_response_iss_parameter_supported: true,
     grant_types_supported: ["authorization_code"],
     // S256 only, and advertised as such so a client does not even attempt
     // `plain` — which the token endpoint refuses anyway.
@@ -88,6 +80,7 @@ export function authorizationServerMetadata(config: GatewayConfig): Record<strin
     // for a client to authenticate WITH; advertising `client_secret_post` would
     // invite a client to send a secret this server would silently ignore.
     token_endpoint_auth_methods_supported: ["none"],
+    scopes_supported: [...MCP_SCOPES],
   }
 }
 

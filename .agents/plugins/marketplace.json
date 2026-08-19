@@ -1,0 +1,20 @@
+{
+  "name": "rahmanef-connectors",
+  "plugins": [
+    {
+      "name": "connectors-gateway",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity",
+      "interface": {
+        "displayName": "Connectors Gateway"
+      }
+    }
+  ]
+}

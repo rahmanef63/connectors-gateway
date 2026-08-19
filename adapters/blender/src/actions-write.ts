@@ -3,7 +3,7 @@
  * never a generic "run this in Blender" escape hatch (docs/03 "Safe actions
  * should be explicit, narrow tool calls").
  */
-import type { ActionDefinition } from "@cg/core"
+import { SCOPE_WRITE, type ActionDefinition } from "@cg/core"
 import { defineAction } from "@cg/sdk"
 import {
   ACTION_FILE_EXPORT,
@@ -58,6 +58,7 @@ export const objectCreate: ActionDefinition = defineAction({
   outputSchema: objectSchema({ name: { type: "string" }, type: { type: "string" } }, ["name", "type"]),
   risk: "R1",
   annotations: { readOnly: false, destructive: false, idempotent: false },
+  requiredScopes: [SCOPE_WRITE],
   requiredCapabilities: ["object.create"],
 })
 
@@ -81,6 +82,7 @@ export const objectTransform: ActionDefinition = defineAction({
   outputSchema: objectSchema({ name: { type: "string" }, applied: { type: "array", items: { type: "string" } } }, ["name"]),
   risk: "R2",
   annotations: { readOnly: false, destructive: false, idempotent: true },
+  requiredScopes: [SCOPE_WRITE],
   requiredCapabilities: ["object.transform"],
 })
 
@@ -112,6 +114,7 @@ export const materialApply: ActionDefinition = defineAction({
   ),
   risk: "R2",
   annotations: { readOnly: false, destructive: false, idempotent: true },
+  requiredScopes: [SCOPE_WRITE],
   requiredCapabilities: ["material.apply"],
 })
 
@@ -133,6 +136,7 @@ export const sceneRender: ActionDefinition = defineAction({
   outputSchema: fileOutputSchema,
   risk: "R2",
   annotations: { readOnly: false, destructive: false, idempotent: false },
+  requiredScopes: [SCOPE_WRITE],
   requiredCapabilities: ["scene.render"],
 })
 
@@ -159,6 +163,7 @@ export const fileExport: ActionDefinition = defineAction({
   // R3: this writes to disk and can overwrite an existing export (docs/03 risk table).
   risk: "R3",
   annotations: { readOnly: false, destructive: true, idempotent: false },
+  requiredScopes: [SCOPE_WRITE],
   requiredCapabilities: ["file.export"],
 })
 

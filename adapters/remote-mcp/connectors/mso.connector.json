@@ -10,179 +10,20 @@
   },
   "actions": [
     {
-      "id": "mso.fs.list",
-      "title": "List a directory on the VPS",
-      "description": "List a directory on the VPS; returns each entry's name and type. Call this FIRST to discover a path — guessing one wastes a call. The size field is always 0 and is NOT a real size, so never conclude a file is empty from it. Reads are bounded to the server's allowed roots and credential paths are refused.",
-      "inputSchema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "Absolute path on the VPS, or ~/… for the owner's home."
-          },
-          "includeHidden": {
-            "type": "boolean",
-            "description": "Include dotfiles. Default true."
-          }
-        },
-        "additionalProperties": false,
-        "required": [
-          "path"
-        ]
-      },
-      "risk": "R0",
-      "annotations": {
-        "readOnly": true,
-        "destructive": false,
-        "idempotent": true
-      },
-      "x-upstream": "fs_list",
-      "requiredScopes": [
-        "mcp.read"
-      ]
-    },
-    {
-      "id": "mso.fs.read",
-      "title": "Read a text file on the VPS",
-      "description": "Return the contents of a text file on the VPS. Binary files come back as garbage — check the extension via mso.fs.list first. This is not how you FIND a file; use mso.fs.search for that. Rated above the other reads because it returns file contents rather than metadata.",
-      "inputSchema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "Absolute path on the VPS, or ~/… for the owner's home."
-          }
-        },
-        "additionalProperties": false,
-        "required": [
-          "path"
-        ]
-      },
-      "risk": "R1",
-      "annotations": {
-        "readOnly": true,
-        "destructive": false,
-        "idempotent": true
-      },
-      "x-upstream": "fs_read",
-      "requiredScopes": [
-        "mcp.read"
-      ]
-    },
-    {
-      "id": "mso.fs.search",
-      "title": "Find a directory by name",
-      "description": "Find DIRECTORIES whose name contains a fragment, recursively, under a root. Use it to locate a project folder before mso.fs.list. It does NOT match file names or file contents.",
-      "inputSchema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "query": {
-            "type": "string",
-            "description": "Substring matched against directory names."
-          },
-          "root": {
-            "type": "string",
-            "description": "Where to search from. Defaults to ~/projects."
-          }
-        },
-        "additionalProperties": false,
-        "required": [
-          "query"
-        ]
-      },
-      "risk": "R0",
-      "annotations": {
-        "readOnly": true,
-        "destructive": false,
-        "idempotent": true
-      },
-      "x-upstream": "fs_search",
-      "requiredScopes": [
-        "mcp.read"
-      ]
-    },
-    {
-      "id": "mso.fs.usage",
-      "title": "Disk usage for a path",
-      "description": "Total, used and free bytes for a path on the VPS. This is the cheap answer to \"is the VPS full?\".",
-      "inputSchema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "Absolute path on the VPS, or ~/… for the owner's home."
-          }
-        },
-        "additionalProperties": false,
-        "required": [
-          "path"
-        ]
-      },
-      "risk": "R0",
-      "annotations": {
-        "readOnly": true,
-        "destructive": false,
-        "idempotent": true
-      },
-      "x-upstream": "fs_usage",
-      "requiredScopes": [
-        "mcp.read"
-      ]
-    },
-    {
-      "id": "mso.sys.stats",
-      "title": "Live VPS health",
-      "description": "CPU load, memory, disk and uptime for the VPS in one call. Use this for \"how is the server doing\" rather than reading files or asking for a shell.",
-      "inputSchema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {},
-        "additionalProperties": false
-      },
-      "risk": "R0",
-      "annotations": {
-        "readOnly": true,
-        "destructive": false,
-        "idempotent": true
-      },
-      "x-upstream": "sys_stats",
-      "requiredScopes": [
-        "mcp.read"
-      ]
-    },
-    {
-      "id": "mso.sys.processes",
-      "title": "Top processes by CPU",
-      "description": "Top processes by CPU with pid, command, cpu% and memory%. Use it to find what is eating the box.",
-      "inputSchema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {},
-        "additionalProperties": false
-      },
-      "risk": "R0",
-      "annotations": {
-        "readOnly": true,
-        "destructive": false,
-        "idempotent": true
-      },
-      "x-upstream": "sys_processes",
-      "requiredScopes": [
-        "mcp.read"
-      ]
-    },
-    {
       "id": "mso.apps.list",
       "title": "List managed applications",
       "description": "List the applications mso can install and control on this VPS, with their install and running state. These are server-side daemons, not the mso desktop UI surfaces. Call this before mso.apps.logs or mso.apps.power to get valid ids.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "properties": {},
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          }
+        },
         "additionalProperties": false
       },
       "risk": "R0",
@@ -207,6 +48,12 @@
           "id": {
             "type": "string",
             "description": "Managed app id from mso.apps.list, e.g. hermes."
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
           }
         },
         "additionalProperties": false,
@@ -226,13 +73,66 @@
       ]
     },
     {
+      "id": "mso.apps.power",
+      "title": "Start, stop, restart or back up an app",
+      "description": "Start, stop, restart or back up a managed application on the VPS. Restarting or stopping one CUTS OFF whatever is currently using it — sessions in flight are lost, so say which app and which verb before calling. Check mso.apps.list or mso.apps.logs first.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Managed app id from mso.apps.list."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "stop",
+              "restart",
+              "backup"
+            ],
+            "description": "start | stop | restart | backup"
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "action"
+        ]
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "apps_power",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
       "id": "mso.browser.status",
       "title": "Anti-fingerprinting browser status",
       "description": "Whether the Camoufox browser is installed, running and set to autostart. The viewer URL and its VNC password are deliberately NOT returned — that session holds live logins, so its credentials never leave the box in a tool result.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
-        "properties": {},
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          }
+        },
         "additionalProperties": false
       },
       "risk": "R0",
@@ -247,9 +147,49 @@
       ]
     },
     {
-      "id": "mso.fs.write",
-      "title": "Write a text file on the VPS",
-      "description": "Create or overwrite a text file on the VPS. It OVERWRITES WITHOUT WARNING and there is no undo — read the file with mso.fs.read first if the old contents matter. Bounded to the server's writable roots.",
+      "id": "mso.fs.copy",
+      "title": "Copy a file or directory",
+      "description": "Copy a file or directory on the VPS. The cockpit's own secrets are skipped rather than duplicated.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Existing path."
+          },
+          "to": {
+            "type": "string",
+            "description": "Destination path."
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "fs_copy",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "mso.fs.delete",
+      "title": "Delete a file or directory",
+      "description": "Delete a file or directory on the VPS. PERMANENT — there is no trash and no undo, and a directory goes with everything inside it. Confirm with the user before calling this on anything you did not create in this conversation.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -258,26 +198,66 @@
             "type": "string",
             "description": "Absolute path on the VPS, or ~/… for the owner's home."
           },
-          "content": {
+          "workflow_id": {
             "type": "string",
-            "description": "Full new contents of the file."
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
           }
         },
         "additionalProperties": false,
         "required": [
-          "path",
-          "content"
+          "path"
         ]
       },
-      "risk": "R2",
+      "risk": "R3",
       "annotations": {
         "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "fs_delete",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "mso.fs.list",
+      "title": "List a directory on the VPS",
+      "description": "List a directory on the VPS; returns each entry's name and type. Call this FIRST to discover a path — guessing one wastes a call. The size field is always 0 and is NOT a real size, so never conclude a file is empty from it. Reads are bounded to the server's allowed roots and credential paths are refused.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          },
+          "includeHidden": {
+            "type": "boolean",
+            "description": "Include dotfiles. Default true."
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
         "destructive": false,
         "idempotent": true
       },
-      "x-upstream": "fs_write",
+      "x-upstream": "fs_list",
       "requiredScopes": [
-        "mcp.write"
+        "mcp.read"
       ]
     },
     {
@@ -291,6 +271,12 @@
           "path": {
             "type": "string",
             "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
           }
         },
         "additionalProperties": false,
@@ -324,6 +310,12 @@
           "to": {
             "type": "string",
             "description": "New path."
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
           }
         },
         "additionalProperties": false,
@@ -344,43 +336,9 @@
       ]
     },
     {
-      "id": "mso.fs.copy",
-      "title": "Copy a file or directory",
-      "description": "Copy a file or directory on the VPS. The cockpit's own secrets are skipped rather than duplicated.",
-      "inputSchema": {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "from": {
-            "type": "string",
-            "description": "Existing path."
-          },
-          "to": {
-            "type": "string",
-            "description": "Destination path."
-          }
-        },
-        "additionalProperties": false,
-        "required": [
-          "from",
-          "to"
-        ]
-      },
-      "risk": "R1",
-      "annotations": {
-        "readOnly": false,
-        "destructive": false,
-        "idempotent": false
-      },
-      "x-upstream": "fs_copy",
-      "requiredScopes": [
-        "mcp.write"
-      ]
-    },
-    {
-      "id": "mso.fs.delete",
-      "title": "Delete a file or directory",
-      "description": "Delete a file or directory on the VPS. PERMANENT — there is no trash and no undo, and a directory goes with everything inside it. Confirm with the user before calling this on anything you did not create in this conversation.",
+      "id": "mso.fs.read",
+      "title": "Read a text file on the VPS",
+      "description": "Return the contents of a text file on the VPS. Binary files come back as garbage — check the extension via mso.fs.list first. This is not how you FIND a file; use mso.fs.search for that. Rated above the other reads because it returns file contents rather than metadata.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -388,6 +346,12 @@
           "path": {
             "type": "string",
             "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
           }
         },
         "additionalProperties": false,
@@ -395,56 +359,415 @@
           "path"
         ]
       },
-      "risk": "R3",
+      "risk": "R1",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "fs_read",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.fs.search",
+      "title": "Find a directory by name",
+      "description": "Find DIRECTORIES whose name contains a fragment, recursively, under a root. Use it to locate a project folder before mso.fs.list. It does NOT match file names or file contents.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Substring matched against directory names."
+          },
+          "root": {
+            "type": "string",
+            "description": "Where to search from. Defaults to ~/projects."
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "query"
+        ]
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "fs_search",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.fs.usage",
+      "title": "Disk usage for a path",
+      "description": "Total, used and free bytes for a path on the VPS. This is the cheap answer to \"is the VPS full?\".",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "fs_usage",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.fs.write",
+      "title": "Write a text file on the VPS",
+      "description": "Write one bounded UTF-8 file through MSO with optional optimistic concurrency. Pass expected_sha256 from a prior read to prevent stale overwrites.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path on the VPS, or ~/… for the owner's home."
+          },
+          "content": {
+            "type": "string",
+            "description": "Full new contents of the file."
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          },
+          "expected_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 64,
+            "maxLength": 64,
+            "description": "SHA-256 returned by fs_read, or null only when the target must not exist."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "content"
+        ]
+      },
+      "risk": "R2",
       "annotations": {
         "readOnly": false,
-        "destructive": true,
-        "idempotent": false
+        "destructive": false,
+        "idempotent": true
       },
-      "x-upstream": "fs_delete",
+      "x-upstream": "fs_write",
       "requiredScopes": [
         "mcp.write"
       ]
     },
     {
-      "id": "mso.apps.power",
-      "title": "Start, stop, restart or back up an app",
-      "description": "Start, stop, restart or back up a managed application on the VPS. Restarting or stopping one CUTS OFF whatever is currently using it — sessions in flight are lost, so say which app and which verb before calling. Check mso.apps.list or mso.apps.logs first.",
+      "id": "mso.screen.capture",
+      "title": "Capture MSO Screen",
+      "description": "Capture the current MSO desktop shell after a visible UI change and return a temporary preview/download reference for verification.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "shell": {
+            "type": "string",
+            "enum": [
+              "macos",
+              "windows"
+            ]
+          },
+          "width": {
+            "type": "number",
+            "minimum": 900,
+            "maximum": 1600
+          },
+          "height": {
+            "type": "number",
+            "minimum": 600,
+            "maximum": 1000
+          },
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          }
+        },
+        "additionalProperties": false
+      },
+      "requiredScopes": [
+        "mcp.read"
+      ],
+      "requiredCapabilities": [],
+      "risk": "R1",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "approval": {
+        "mode": "auto"
+      },
+      "x-upstream": "screen_capture"
+    },
+    {
+      "id": "mso.skills.search",
+      "title": "Search MSO Skills",
+      "description": "Search MSO’s trusted operational memory for the fastest verified recipe before starting complex server, deployment, browser, or repository work.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "top_k": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "include_untrusted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "requiredScopes": [
+        "mcp.read"
+      ],
+      "requiredCapabilities": [],
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "approval": {
+        "mode": "auto"
+      },
+      "x-upstream": "skills_search"
+    },
+    {
+      "id": "mso.sys.processes",
+      "title": "Top processes by CPU",
+      "description": "Top processes by CPU with pid, command, cpu% and memory%. Use it to find what is eating the box.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "properties": {
-          "id": {
+          "workflow_id": {
             "type": "string",
-            "description": "Managed app id from mso.apps.list."
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "start",
-              "stop",
-              "restart",
-              "backup"
-            ],
-            "description": "start | stop | restart | backup"
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
           }
         },
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "action"
-        ]
+        "additionalProperties": false
       },
-      "risk": "R3",
+      "risk": "R0",
       "annotations": {
-        "readOnly": false,
-        "destructive": true,
-        "idempotent": false
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
       },
-      "x-upstream": "apps_power",
+      "x-upstream": "sys_processes",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.sys.stats",
+      "title": "Live VPS health",
+      "description": "CPU load, memory, disk and uptime for the VPS in one call. Use this for \"how is the server doing\" rather than reading files or asking for a shell.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Workflow id returned by mso.workflow.start. Omit for a standalone call."
+          }
+        },
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "sys_stats",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "mso.workflow.cancel",
+      "title": "Cancel MSO Workflow",
+      "description": "Cancel a tracked MSO workflow and record why it stopped.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "workflow_id"
+        ],
+        "additionalProperties": false
+      },
       "requiredScopes": [
         "mcp.write"
-      ]
+      ],
+      "requiredCapabilities": [],
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": true
+      },
+      "approval": {
+        "mode": "auto"
+      },
+      "x-upstream": "workflow_cancel"
+    },
+    {
+      "id": "mso.workflow.finish",
+      "title": "Finish MSO Workflow",
+      "description": "Finish a tracked MSO workflow, store its verification outcome, and optionally save a reusable trusted recipe when the work succeeded.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "success",
+              "partial",
+              "failed"
+            ]
+          },
+          "verification": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "learn": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "outcome"
+        ],
+        "additionalProperties": false
+      },
+      "requiredScopes": [
+        "mcp.write"
+      ],
+      "requiredCapabilities": [],
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": true
+      },
+      "approval": {
+        "mode": "auto"
+      },
+      "x-upstream": "workflow_finish"
+    },
+    {
+      "id": "mso.workflow.start",
+      "title": "Start MSO Workflow",
+      "description": "Start one tracked MSO workflow before any task that needs two or more operational calls. It loads trusted skills and returns the workflow_id for later calls.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "intent": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "project": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "constraints": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "intent"
+        ],
+        "additionalProperties": false
+      },
+      "requiredScopes": [
+        "mcp.write"
+      ],
+      "requiredCapabilities": [],
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "approval": {
+        "mode": "auto"
+      },
+      "x-upstream": "workflow_start"
     }
   ]
 }

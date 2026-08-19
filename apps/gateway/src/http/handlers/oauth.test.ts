@@ -29,6 +29,7 @@ const VALID_TOKEN_FIELDS = {
   code_verifier: "v".repeat(64),
   client_id: "cgc_test",
   redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+  resource: `${ORIGIN}/mcp`,
 }
 
 async function run(request: Request, deps?: TestGatewayDeps): Promise<Response> {
@@ -53,7 +54,54 @@ describe("POST /oauth/register", () => {
     // The ABSENCE of client_secret is the contract, not an omission.
     expect(payload.client_secret).toBeUndefined()
     expect(payload.token_endpoint_auth_method).toBe("none")
+    expect(payload.application_type).toBe("web")
   })
+
+  test("binds registration to this issuer and forwards the application type", async () => {
+    const deps = await httpDeps()
+    await run(
+      registerRequest({
+        client_name: "ChatGPT desktop",
+        application_type: "native",
+        redirect_uris: ["http://127.0.0.1:41234/callback"],
+      }),
+      deps,
+    )
+    expect((deps.oauth as ReturnType<typeof fakeOAuth>).calls[0]).toMatchObject({
+      method: "registerClient",
+      applicationType: "native",
+      issuer: ORIGIN,
+    })
+  })
+
+  test("returns native application_type for desktop clients", async () => {
+    const response = await run(
+      registerRequest({
+        client_name: "ChatGPT desktop",
+        application_type: "native",
+        redirect_uris: ["http://127.0.0.1:41234/callback"],
+      }),
+    )
+    expect(response.status).toBe(201)
+    expect((await body(response)).application_type).toBe("native")
+  })
+
+  test.each([null, "desktop", "NATIVE"])(
+    "rejects unsupported application_type %j before the store",
+    async (applicationType) => {
+      const deps = await httpDeps()
+      const response = await run(
+        registerRequest({
+          application_type: applicationType,
+          redirect_uris: ["https://ok.test/cb"],
+        }),
+        deps,
+      )
+      expect(response.status).toBe(400)
+      expect((await body(response)).error).toBe("invalid_request")
+      expect((deps.oauth as ReturnType<typeof fakeOAuth>).calls).toEqual([])
+    },
+  )
 
   test("needs at least one redirect uri", async () => {
     const response = await run(registerRequest({ client_name: "Claude", redirect_uris: [] }))
@@ -126,9 +174,50 @@ describe("POST /oauth/token", () => {
     expect(payload.token_type).toBe("Bearer")
     expect(payload.access_token).toContain("cgk_")
     expect(payload.expires_in).toBe(3600)
+    expect(payload.scope).toBe("mcp.read mcp.write")
     // No refresh token: an absent field is how a client learns to re-run the
     // flow rather than wait for a refresh that never arrives.
     expect(payload.refresh_token).toBeUndefined()
+  })
+
+  test("binds the exchange to the configured MCP resource", async () => {
+    const deps = await httpDeps()
+    await run(tokenRequest(VALID_TOKEN_FIELDS), deps)
+    const calls = (deps.oauth as ReturnType<typeof fakeOAuth>).calls
+    expect(calls[0]?.resource).toBe(`${ORIGIN}/mcp`)
+    expect(calls[0]?.issuer).toBe(ORIGIN)
+  })
+
+  test("accepts an omitted resource only as a legacy alias for this exact MCP endpoint", async () => {
+    const { resource: _absent, ...legacy } = VALID_TOKEN_FIELDS
+    const deps = await httpDeps()
+    expect((await run(tokenRequest(legacy), deps)).status).toBe(200)
+    expect((deps.oauth as ReturnType<typeof fakeOAuth>).calls[0]?.resource).toBe(`${ORIGIN}/mcp`)
+  })
+
+  test("rejects another resource before consuming the authorization code", async () => {
+    const deps = await httpDeps()
+    const response = await run(
+      tokenRequest({ ...VALID_TOKEN_FIELDS, resource: "https://evil.test/mcp" }),
+      deps,
+    )
+    expect(response.status).toBe(400)
+    expect((await body(response)).error).toBe("invalid_target")
+    expect((deps.oauth as ReturnType<typeof fakeOAuth>).calls).toEqual([])
+  })
+
+  test("returns the exact narrowed scope issued by the authorization server", async () => {
+    const deps = await httpDeps({
+      oauth: fakeOAuth({
+        redeemCode: async () => ({
+          accessToken: "cgk_key_test_" + "b".repeat(32),
+          expiresIn: 3600,
+          scopes: ["mcp.read"],
+        }),
+      }),
+    })
+    const payload = await body(await run(tokenRequest(VALID_TOKEN_FIELDS), deps))
+    expect(payload.scope).toBe("mcp.read")
   })
 
   test("a token response is never cacheable (RFC 6749 §5.1)", async () => {

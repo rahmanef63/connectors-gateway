@@ -155,6 +155,33 @@ describe("remote-mcp adapter happy paths", () => {
   })
 })
 
+describe("reviewed large remote-MCP responses", () => {
+  test("MSO screen_capture accepts a bounded inline PNG and returns its temporary link", async () => {
+    const mso = JSON.parse(
+      await Bun.file(
+        new URL("../connectors/mso.connector.json", import.meta.url),
+      ).text(),
+    ) as ConnectorManifest
+    const screen = createRemoteMcpAdapter(mso)
+    const temporary = "Temporary preview: https://mso.example/temp/shot"
+    stubFetch(
+      rpc({
+        content: [
+          { type: "image", data: "a".repeat(1_100_000), mimeType: "image/png" },
+          { type: "text", text: temporary },
+        ],
+      }),
+    )
+
+    const result = await screen.execute(
+      "mso.screen.capture",
+      { shell: "macos", width: 900, height: 600 },
+      context(),
+    )
+    expect(result.output).toBe(temporary)
+  })
+})
+
 describe("remote-mcp adapter failure paths", () => {
   test("a JSON-RPC error becomes UPSTREAM_ERROR", async () => {
     stubFetch(JSON.stringify({ jsonrpc: "2.0", id: 1, error: { code: -32602, message: "unknown argument" } }))

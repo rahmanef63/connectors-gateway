@@ -11,7 +11,12 @@ import { GatewayError } from "@cg/core"
 import type { ConnectorManifest } from "@cg/core"
 import type { AdapterOutput, CloudAdapter, CloudAdapterContext } from "@cg/sdk"
 import { defineCloudAdapter } from "@cg/sdk"
-import { callTool, credentialHeaderFor } from "./mcp-client"
+import {
+  callTool,
+  credentialHeaderFor,
+  MAX_LARGE_RESPONSE_BYTES,
+  MAX_RESPONSE_BYTES,
+} from "./mcp-client"
 import { resolveUpstreamTool } from "./upstream"
 
 /** Build the adapter that executes `manifest`. Data in, behaviour out. */
@@ -41,7 +46,22 @@ export function createRemoteMcpAdapter(manifest: ConnectorManifest): CloudAdapte
       // How this upstream wants the credential is a property of the connector,
       // read from its manifest — not a constant baked into the transport.
       const cred = credentialHeaderFor(manifest.auth, token)
-      const output = await callTool(baseUrl, token, tool, args, context.signal, cred)
+      // MSO screen_capture includes a PNG plus a short-lived preview/download
+      // URL. Give only that reviewed tool a larger bounded envelope; every other
+      // remote tool keeps the 1 MiB tenant-protection limit.
+      const maxResponseBytes =
+        manifest.id === "mso" && tool === "screen_capture"
+          ? MAX_LARGE_RESPONSE_BYTES
+          : MAX_RESPONSE_BYTES
+      const output = await callTool(
+        baseUrl,
+        token,
+        tool,
+        args,
+        context.signal,
+        cred,
+        maxResponseBytes,
+      )
       // Invariant 5 (AGENTS.md): a connector credential must never reach tool output,
       // not even when the upstream server echoes the Authorization header back at us.
       if (JSON.stringify(output ?? null).includes(token)) {

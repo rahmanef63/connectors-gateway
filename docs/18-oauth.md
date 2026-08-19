@@ -1,160 +1,174 @@
-# 18 — OAuth 2.1 and MCP discovery
+# OAuth 2.1 and MCP discovery
 
-How an AI client with no credential ends up holding one. Phase 1 of this server
-was bearer-only: real tokens, but a human had to mint one in the dashboard and
-paste it somewhere. That works for a plugin config file and for nothing else —
-neither claude.ai's connector form nor ChatGPT's connection modal has a field to
-paste a key into, and neither has one to paste a client id into either.
+How a ChatGPT, Codex, Claude, or other MCP client obtains a user-scoped token
+without copying a secret by hand. The authorization server supports public
+clients only, PKCE S256, dynamic client registration, least-privilege consent,
+and audience-bound access tokens.
 
-Companion to [07 — MCP gateway](./07-mcp-gateway.md) (the transport) and
-[08 — auth and identity](./08-auth-and-identity.md) (what a credential means
-once you have one).
+Companion to [07 — MCP gateway](./07-mcp-gateway.md) for transport behavior and
+[08 — auth and identity](./08-auth-and-identity.md) for the meaning of an issued
+credential.
 
-## The handshake
+## Handshake
 
 ```mermaid
 sequenceDiagram
     participant C as AI client
     participant B as Browser
-    participant G as Gateway (connect.…)
-    participant W as Dashboard (connectors.…)
+    participant G as Gateway (connect.rahmanef.com)
+    participant W as Dashboard (connectors.rahmanef.com)
 
-    C->>G: POST /mcp with no token
-    G-->>C: 401 + WWW-Authenticate: Bearer resource_metadata="…"
-    C->>G: GET /.well-known/oauth-protected-resource
-    G-->>C: resource + which authorization server
-    C->>G: GET /.well-known/oauth-authorization-server
-    G-->>C: endpoints, S256 only, auth method "none"
-    C->>G: POST /oauth/register (RFC 7591)
-    G-->>C: client_id, no secret
+    C->>G: POST /mcp without token
+    G-->>C: 401 + resource_metadata + supported scopes
+    C->>G: GET protected-resource metadata
+    C->>G: GET authorization-server metadata
+    C->>G: POST /oauth/register (application_type + redirect URIs)
+    G-->>C: client_id, no secret, issuer-bound
     Note over C: verifier ← random<br/>challenge ← S256(verifier)
-    C->>B: open /oauth/authorize?…
-    B->>W: user signs in and approves
-    W-->>B: redirect to redirect_uri?code=…&state=…
-    B-->>C: code
-    C->>G: POST /oauth/token (code + verifier)
-    G-->>C: access_token
+    C->>B: /oauth/authorize + resource + scope + PKCE
+    B->>W: user signs in and approves exact scopes
+    W-->>B: redirect_uri?code=…&state=…&iss=…
+    B-->>C: authorization response
+    C->>G: POST /oauth/token + code + verifier + resource
+    G-->>C: audience-bound access_token + granted scope
     C->>G: POST /mcp + Bearer
-    G-->>C: 200
+    G-->>C: authorized MCP response
 ```
 
-The 401 is not a failure. It is the handshake starting, and `resource_metadata`
-is the entire reason a client can walk itself from "unauthorized" to "connected"
-without a human copying anything.
+The first `401` is the discovery handshake, not a dead end. Its
+`WWW-Authenticate` challenge points to protected-resource metadata and names the
+scope vocabulary the client may request.
 
-## Where each piece lives, and why
+## Endpoint placement
 
-| Endpoint | Host | Why there |
-|---|---|---|
-| `/.well-known/oauth-protected-resource` | **gateway** | A client probes the host of the MCP URL. Serving it on the dashboard looks right in a browser and is never fetched |
-| `/.well-known/oauth-authorization-server` | **gateway** | RFC 8414: the issuer must match where the document was found |
-| `POST /oauth/register` | **gateway** | Machine-to-machine, no session |
-| `POST /oauth/token` | **gateway** | Machine-to-machine, no session |
-| `GET /oauth/authorize` | **dashboard** | The only step that needs a human and a login |
+| Endpoint | Host | Reason |
+| --- | --- | --- |
+| `/.well-known/oauth-protected-resource` | gateway | It describes the exact `/mcp` protected resource |
+| `/.well-known/oauth-protected-resource/mcp` | gateway | Path-aware discovery alias for MCP clients |
+| `/.well-known/oauth-authorization-server` | gateway | Its `issuer` is the trusted gateway origin |
+| `POST /oauth/register` | gateway | Public-client DCR, no browser session |
+| `POST /oauth/token` | gateway | Machine exchange, no browser session |
+| `GET /oauth/authorize` | dashboard | The only step that requires login and human consent |
 
-`GATEWAY_PUBLIC_URL` is **required in production**. Every discovery document
-embeds it, and it cannot be derived from the request: behind a proxy the `Host`
-and `X-Forwarded-*` headers are attacker-influenced, and a client that trusted a
-spoofed `issuer` would carry its authorization code to someone else's token
-endpoint.
+`GATEWAY_PUBLIC_URL` is required in production. Discovery, DCR issuer binding,
+RFC 9207 `iss`, and token resource validation all derive from this configured
+origin, never from attacker-influenced proxy headers.
 
-## Decisions worth knowing before you change anything
+## Security properties
 
-**The access token is an `apiKeys` row.** An OAuth grant *is* a user-scoped,
-expiring API key, so `authenticateCaller` reads it with no second branch, the
-dashboard lists it with no second screen, and revoking it uses the button that
-already exists. A dedicated token table would have duplicated all three. The one
-thing this required was making `expiresAt` cross to the gateway in
-`_shared/api_key_record.ts` — the expiry is enforced by `authenticateCaller` and
-nowhere else, so a field dropped there would be an expiry stored and never
-applied.
+### Public clients and PKCE
 
-**Every client is public; there are no client secrets.** An AI host runs from
-software the user installed and cannot keep one. PKCE S256 binds the code to the
-requester instead. `token_endpoint_auth_methods_supported` says `["none"]` so a
-client does not send a secret this server would ignore.
+Every registered AI host is public; no client secret is issued or accepted.
+`token_endpoint_auth_methods_supported` is `none`. Authorization codes are bound
+to an S256 PKCE challenge, expire quickly, are stored only as digests, and are
+single-use. A failed valid-shape exchange burns the code by returning `{ok:
+false}` from the Convex transaction rather than throwing and rolling back the
+delete.
 
-**A rejected exchange is RETURNED, not thrown.** A Convex mutation is one
-transaction. The first version of `redeemCode` deleted the code and then threw on
-a bad verifier — and the rollback restored the row, leaving a stolen code live
-for the next attempt. `{ok: false}` commits the delete; the gateway converts it
-to `invalid_grant`. This is the same trap as the rolled-back error-log insert in
-[09](./09-policy-and-approvals.md), and it will catch the next person too.
+### Least-privilege scopes
 
-**`scopes_supported` is deliberately absent — but the first stated reason was
-wrong.** It claimed no manifest declares `requiredScopes`. `careerpack` declares
-two, and I missed them with a case-sensitive grep for `scope`. That mistake had
-teeth: while credentials were issued with `scopes: []`, `catalogFor` hid every
-scope-gated action, so **CareerPack was invisible to every credential the system
-could issue** — no error, no log, the connector simply was not in the catalog.
-Fixed by granting the vocabulary at issue time (`grantedScopes()` in `@cg/core`),
-with `apps/gateway/src/mcp/scopes.test.ts` as the guard: it fails if a manifest
-ever requires a scope the issuer cannot grant, and separately proves the scope
-check is not vacuous.
+The supported vocabulary is:
 
-The document still omits `scopes_supported`, for the real reason: there is no
-per-scope consent, so every credential carries the whole set. Advertising a menu
-the client cannot choose from misrepresents what it receives. List them the day
-the consent screen can narrow them.
+- `mcp.read` for actions whose manifest says `readOnly: true`;
+- `mcp.write` for every action that can change an external system or device.
 
-**Discovery is exempt from the edge rate limiter.** A hosted AI client reaches
-this gateway from a handful of shared egress addresses for all of its users, and
-metering the first thing every one of them fetches lets one busy tenant make the
-server undiscoverable for everybody — presenting as "this server does not
-support OAuth". Safe because both documents are static, secret-free and
-`max-age=3600`. `/oauth/register` and `/oauth/token` are metered, harder than
-the edge, by `oauthLimiter`.
+The authorization request is parsed once, normalized, shown on the consent
+screen, revalidated on the mutation, stored on the code, revalidated at token
+exchange, persisted on the API-key row, returned in the token response, and used
+by the dynamic catalog. An older client that omits `scope` receives both scopes
+to preserve compatibility; a client that explicitly asks for `mcp.read` receives
+a read-only token.
 
-**One live token per (user, client).** Reconnecting replaces that client's
-previous token rather than adding one. It matches what "reconnect" means to a
-user, and it stops repeated consents from growing the table. Other clients are
-untouched: revoking Claude must not sign out ChatGPT.
+Regression tests fail when a shipped action omits the scope implied by its safety
+annotation or requires a scope the issuer cannot grant.
 
-## Redirect URI handling
+### Resource and audience binding
 
-The highest-consequence check in the system, because the browser delivers the
-authorization code to whatever URI passes it.
+The MCP resource is the canonical public URL ending in `/mcp`. The authorization
+and token requests carry RFC 8707 `resource`; an explicit different target is
+rejected as `invalid_target`. New OAuth API-key rows store that value as their
+audience.
 
-- Allowed: `https` anywhere, `http` **only** on loopback (a native client on a
-  random port), and reverse-DNS private-use schemes (`com.example.app://`) per
-  RFC 8252.
-- Refused: fragments, non-loopback `http`, `javascript:`, relative paths, and
-  any string that does not equal its own `URL` round-trip.
-- Matching is **exact string membership**. Not prefix, not host, not subdomain —
-  each of those has a published bypass.
-- A malformed request is a **dead end on the consent page**, never a redirect.
-  Bouncing the browser to an unverified URI in order to report an error is the
-  open redirect, and it is reachable before anyone has approved anything.
+`authenticateCaller` accepts an audience-bound token only for the exact MCP
+resource. The same token is rejected on REST endpoints or another MCP audience.
+Manual API keys remain unbound and keep their existing REST/MCP behavior.
 
-## Protocol versions
+For rolling compatibility, a legacy client that omits `resource` is bound to the
+configured `/mcp` endpoint rather than receiving an unbound token.
 
-`initialize` now echoes the client's own revision when we speak it —
-`2024-11-05`, `2025-03-26`, `2025-06-18` — instead of answering everyone with
-one pinned string, which was legal but let older clients disconnect rather than
-downgrade.
+### Authorization-server issuer binding
 
-Not implemented: `2025-11-25` (icons) and `2026-07-28`, the current revision,
-which is a stateless rewrite with no `initialize` handshake and a mandatory
-`server/discover`. That is a transport change, not a version string.
+DCR accepts RFC 7591 `application_type` (`web` or `native`) and stores the
+configured authorization-server issuer with the client ID. Native clients may
+use loopback HTTP redirect URIs; public hosts still require HTTPS.
+
+Both the read-side consent query and the write-side approval mutation reject a
+client ID registered to another issuer. The authorization response includes RFC
+9207 `iss` on success and denial, and token exchange checks the same issuer again.
+Pre-migration client rows are bound to the issuer on their first successful
+consent.
+
+### Redirect URIs
+
+- Allowed: HTTPS, HTTP only on loopback, and reverse-DNS private-use schemes.
+- Refused: fragments, public HTTP, `javascript:`, relative paths, malformed URLs,
+  and non-canonical spellings.
+- Matching is exact string membership, never prefix or subdomain matching.
+- A malformed authorization request ends on the consent page; it is never
+  redirected to an unverified URI merely to report an error.
+
+### Token lifecycle
+
+An OAuth token is an expiring `apiKeys` row, so the gateway authenticates it with
+the same code path and the dashboard revokes it with the existing API-key UI.
+Only one live token exists per `(user, client)`: reconnecting revokes that
+client's previous token without touching another client such as ChatGPT or
+Claude. No refresh token is currently issued; the client repeats authorization
+when the 90-day token expires.
+
+## Protocol compatibility
+
+The OAuth layer serves both initialize-based MCP clients and stateless MCP
+`2026-07-28`. Authentication happens before either protocol body is dispatched.
+The modern transport additionally validates protocol, method, and name headers
+against body metadata; see [07](./07-mcp-gateway.md).
+
+## Deployment order
+
+This release changes both the Convex control-plane mutation contract and the
+public gateway. Deploy in this order:
+
+1. deploy the dashboard/Convex schema and functions;
+2. verify the new OAuth mutation arguments are live;
+3. deploy the gateway;
+4. verify discovery, DCR, authorization, token exchange, and one authenticated
+   `tools/list` round trip;
+5. only then register or refresh the hosted ChatGPT connection.
+
+Do not deploy the gateway first. The new gateway sends `resource`, `issuer`, and
+`applicationType` to Convex; the old control plane correctly rejects unknown
+arguments. The optional schema fields preserve existing rows and in-flight codes,
+but they do not make an old service contract accept a new request shape.
+
+## Operations and tests
+
+- Discovery documents are public, static, CORS-open, cacheable, and exempt from
+  the shared edge limiter.
+- Registration and token endpoints have their own tighter OAuth limiter.
+- Expired codes and never-used clients are pruned by the bounded hourly OAuth
+  sweep; a client with `lastUsedAt` is retained.
+- Root runtime validation, the full Convex/web suite, and the production Next.js
+  build run in CI.
 
 ## Still open
 
-- ~~**Nothing prunes `oauthCodes` or `oauthClients`.**~~ **Closed.** An hourly
-  cron (`convex/crons.ts` → `maintenance/oauth_sweep`) deletes lapsed codes and
-  client rows that registered and never completed an exchange. Two properties
-  are load-bearing and pinned by tests: a client with `lastUsedAt` set is
-  **never** pruned however old — deleting one breaks its owner's next reconnect
-  with "unknown client", undiagnosable from their side — and each pass is capped
-  at `OAUTH_SWEEP_BATCH`, so a deployment that has fallen behind spills into the
-  next tick rather than failing a transaction and retrying forever. The two
-  `probe` rows left in production while verifying the live endpoint age out on
-  their own under the never-used rule.
-- **No refresh tokens.** Tokens last 90 days and a client re-runs the flow. A
-  short TTL without refresh would only train the user to click Approve weekly,
-  which is worse than the long TTL.
-- **No `resource` indicator (RFC 8707).** One gateway, one resource today.
-- **No consent revocation screen of its own** — grants appear under API keys,
-  which is where they are revoked.
-- **Untested against a real client.** The flow is verified by unit and
-  integration tests and by hand against the deployed discovery documents; it has
-  not yet completed a round trip with claude.ai or ChatGPT.
+- Hosted ChatGPT registration must create the real `plugin_asdk_app…` technical
+  ID before `plugin/.app.json` can be committed. A placeholder is forbidden by a
+  package test.
+- Client ID Metadata Documents are the preferred direction in MCP `2026-07-28`;
+  DCR remains the implemented compatibility path. Adding CIMD requires a bounded,
+  SSRF-safe metadata fetch and is intentionally not faked.
+- There is no separate consent-revocation screen; OAuth grants remain visible and
+  revocable under API keys.
+- Unit, integration, package, and production-build verification are complete, but
+  a real hosted ChatGPT OAuth round trip has not yet been completed.

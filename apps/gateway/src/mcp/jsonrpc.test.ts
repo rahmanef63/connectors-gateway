@@ -48,6 +48,18 @@ describe("response shaping", () => {
     expect(jsonRpcResult(3, { ok: true })).toEqual({ jsonrpc: "2.0", id: 3, result: { ok: true } })
   })
 
+  test("error data is included only when supplied", () => {
+    expect(jsonRpcError(7, -32022, "Unsupported.", { supported: ["2026-07-28"] })).toEqual({
+      jsonrpc: "2.0",
+      id: 7,
+      error: {
+        code: -32022,
+        message: "Unsupported.",
+        data: { supported: ["2026-07-28"] },
+      },
+    })
+  })
+
   test("error carries the code and a null id when unknown", () => {
     expect(jsonRpcError(null, -32600, "Unauthorized.")).toEqual({
       jsonrpc: "2.0",

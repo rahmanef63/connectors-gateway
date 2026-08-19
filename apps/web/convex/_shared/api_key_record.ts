@@ -22,6 +22,8 @@ export const apiKeyRecordValidator = v.object({
    * never apply it — every OAuth grant silently immortal.
    */
   expiresAt: v.optional(v.number()),
+  /** RFC 8707 audience on an OAuth token; absent on manual/legacy keys. */
+  audience: v.optional(v.string()),
 })
 
 export type ApiKeyRecord = Infer<typeof apiKeyRecordValidator>
@@ -53,5 +55,6 @@ export function toApiKeyRecord(doc: Doc<"apiKeys">): ApiKeyRecord {
     secretHash: doc.secretHash,
     status: doc.status,
     ...(expiresAt === undefined ? {} : { expiresAt }),
+    ...(doc.audience === undefined ? {} : { audience: doc.audience }),
   }
 }

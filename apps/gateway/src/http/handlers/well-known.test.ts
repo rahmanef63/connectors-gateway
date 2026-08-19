@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { MCP_SCOPES } from "@cg/core"
 import { httpDeps, testConfig } from "../../__tests__/fixtures"
 import { handleHttp } from "../handle"
 import { authorizationServerMetadata, protectedResourceMetadata } from "./well-known"
@@ -72,12 +73,8 @@ describe("protected resource metadata (RFC 9728)", () => {
     expect(document.authorization_servers).toEqual([testConfig.publicUrl])
   })
 
-  test("advertises no scopes, because the client cannot choose among them", () => {
-    // Deliberate, and not because scopes are unused — they are declared and
-    // enforced. There is simply no per-scope consent: every issued credential
-    // carries the whole vocabulary. Add them here when the consent screen can
-    // narrow them, not before.
-    expect(document.scopes_supported).toBeUndefined()
+  test("advertises the exact scopes the consent flow can grant", () => {
+    expect(document.scopes_supported).toEqual([...MCP_SCOPES])
   })
 })
 
@@ -94,11 +91,19 @@ describe("authorization server metadata (RFC 8414)", () => {
     expect(document.registration_endpoint).toBe(`${testConfig.publicUrl}/oauth/register`)
   })
 
+  test("advertises RFC 9207 issuer protection on authorization responses", () => {
+    expect(document.authorization_response_iss_parameter_supported).toBe(true)
+  })
+
   test("offers S256 only — never plain", () => {
     expect(document.code_challenge_methods_supported).toEqual(["S256"])
   })
 
   test("claims no client authentication, since registration mints no secret", () => {
     expect(document.token_endpoint_auth_methods_supported).toEqual(["none"])
+  })
+
+  test("advertises the same scope vocabulary as the protected resource", () => {
+    expect(document.scopes_supported).toEqual([...MCP_SCOPES])
   })
 })

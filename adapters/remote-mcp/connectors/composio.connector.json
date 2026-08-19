@@ -10,10 +10,10 @@
       {
         "name": "apiKey",
         "label": "Composio API key",
-        "hint": "Composio dashboard \u2192 Settings \u2192 API keys. This is the only value most setups need.",
+        "hint": "Composio dashboard → Settings → API keys. This is the only value most setups need.",
         "secret": true,
         "required": true,
-        "placeholder": "ak_\u2026"
+        "placeholder": "ak_…"
       },
       {
         "name": "serverUrl",
@@ -22,7 +22,7 @@
         "secret": false,
         "required": false,
         "role": "endpoint",
-        "placeholder": "https://backend.composio.dev/v3/mcp/\u2026?user_id=\u2026"
+        "placeholder": "https://backend.composio.dev/v3/mcp/…?user_id=…"
       }
     ]
   },
@@ -30,7 +30,7 @@
     {
       "id": "composio.tools.search",
       "title": "Search the Composio catalog",
-      "description": "Find tools across Composio's connected toolkits by describing the task in plain language. Returns matching tool names and what each does. Use this first \u2014 Composio exposes thousands of tools and their exact names are not guessable. Does not run anything.",
+      "description": "Find tools across Composio's connected toolkits by describing the task in plain language. Returns matching tool names and what each does. Use this first — Composio exposes thousands of tools and their exact names are not guessable. Does not run anything.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -62,7 +62,10 @@
         "destructive": false,
         "idempotent": true
       },
-      "x-upstream": "COMPOSIO_SEARCH_TOOLS"
+      "x-upstream": "COMPOSIO_SEARCH_TOOLS",
+      "requiredScopes": [
+        "mcp.read"
+      ]
     },
     {
       "id": "composio.tools.schema",
@@ -94,7 +97,10 @@
         "destructive": false,
         "idempotent": true
       },
-      "x-upstream": "COMPOSIO_GET_TOOL_SCHEMAS"
+      "x-upstream": "COMPOSIO_GET_TOOL_SCHEMAS",
+      "requiredScopes": [
+        "mcp.read"
+      ]
     },
     {
       "id": "composio.connections.list",
@@ -121,12 +127,15 @@
         "destructive": false,
         "idempotent": true
       },
-      "x-upstream": "COMPOSIO_MANAGE_CONNECTIONS"
+      "x-upstream": "COMPOSIO_MANAGE_CONNECTIONS",
+      "requiredScopes": [
+        "mcp.read"
+      ]
     },
     {
       "id": "composio.tools.execute",
       "title": "Execute a Composio tool",
-      "description": "Run one or more tools from Composio's catalog against the user's connected accounts. This is the action that actually does things \u2014 send an email, open an issue, write a row. Get the exact tool name and arguments from composio.tools.search and composio.tools.schema first; a guessed name fails, and a guessed argument can act on the wrong record.",
+      "description": "Run one or more tools from Composio's catalog against the user's connected accounts. This is the action that actually does things — send an email, open an issue, write a row. Get the exact tool name and arguments from composio.tools.search and composio.tools.schema first; a guessed name fails, and a guessed argument can act on the wrong record.",
       "inputSchema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -154,7 +163,10 @@
         "destructive": true,
         "idempotent": false
       },
-      "x-upstream": "COMPOSIO_MULTI_EXECUTE_TOOL"
+      "x-upstream": "COMPOSIO_MULTI_EXECUTE_TOOL",
+      "requiredScopes": [
+        "mcp.write"
+      ]
     }
   ]
 }

@@ -272,12 +272,18 @@ export function fakeOAuth(
         clientId: "cgc_test",
         clientName: input.clientName,
         redirectUris: input.redirectUris,
+        applicationType: input.applicationType,
+        issuer: input.issuer,
         createdAt: 1_700_000_000_000,
       }
     },
     async redeemCode(input) {
       calls.push({ method: "redeemCode", ...input })
-      return { accessToken: "cgk_key_test_" + "a".repeat(32), expiresIn: 3600 }
+      return {
+        accessToken: "cgk_key_test_" + "a".repeat(32),
+        expiresIn: 3600,
+        scopes: ["mcp.read", "mcp.write"],
+      }
     },
     ...overrides,
   }

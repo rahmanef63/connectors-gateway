@@ -130,6 +130,13 @@ describe("toApiKeyRecord", () => {
     expect(toApiKeyRecord(row)).toMatchObject({ id: "keytest1", status: "active" })
   })
 
+  test("carries a valid OAuth audience and rejects a malformed one", () => {
+    expect(
+      toApiKeyRecord({ ...row, audience: "https://connect.example.test/mcp" }),
+    ).toMatchObject({ audience: "https://connect.example.test/mcp" })
+    expect(toApiKeyRecord({ ...row, audience: 7 })).toBeNull()
+  })
+
   test("an unknown status makes the key unusable rather than partially trusted", () => {
     expect(toApiKeyRecord({ ...row, status: "super-active" })).toBeNull()
   })

@@ -13,7 +13,12 @@
  * second token to whoever redeemed it fastest.
  */
 import { v } from "convex/values"
-import { grantedScopes } from "@cg/core"
+import {
+  grantedScopes,
+  normalizeMcpResourceUri,
+  normalizeMcpScopes,
+  normalizeOAuthApplicationType,
+} from "@cg/core"
 import { TOKEN_PREFIXES, formatToken, hashSecret, newCredentialSecret } from "@cg/auth"
 import { mutation } from "../_generated/server"
 import type { MutationCtx } from "../_generated/server"
@@ -48,11 +53,15 @@ export const registerClient = mutation({
     serviceToken: v.string(),
     clientName: v.string(),
     redirectUris: v.array(v.string()),
+    applicationType: v.optional(v.string()),
+    issuer: v.optional(v.string()),
   },
   returns: v.object({
     clientId: v.string(),
     clientName: v.string(),
     redirectUris: v.array(v.string()),
+    applicationType: v.union(v.literal("web"), v.literal("native")),
+    issuer: v.optional(v.string()),
     createdAt: v.number(),
   }),
   handler: async (ctx, args) => {
@@ -71,11 +80,35 @@ export const registerClient = mutation({
 
     const clientName = args.clientName.trim().slice(0, MAX_OAUTH_CLIENT_NAME_LENGTH)
     if (clientName.length === 0) fail("INVALID_INPUT", "A client name is required.")
+    const applicationType = normalizeOAuthApplicationType(args.applicationType ?? "web")
+    if (applicationType === null) fail("INVALID_INPUT", "Unsupported application type.")
+    let issuer: string | undefined
+    if (args.issuer !== undefined) {
+      const normalizedIssuer = normalizeMcpResourceUri(args.issuer)
+      if (normalizedIssuer === null) {
+        fail("INVALID_INPUT", "A valid authorization-server issuer is required.")
+      }
+      issuer = normalizedIssuer
+    }
 
     const clientId = `${CLIENT_ID_PREFIX}_${crypto.randomUUID().replaceAll("-", "")}`
     const createdAt = Date.now()
-    await ctx.db.insert("oauthClients", { clientId, clientName, redirectUris, createdAt })
-    return { clientId, clientName, redirectUris, createdAt }
+    await ctx.db.insert("oauthClients", {
+      clientId,
+      clientName,
+      redirectUris,
+      applicationType,
+      ...(issuer === undefined ? {} : { issuer }),
+      createdAt,
+    })
+    return {
+      clientId,
+      clientName,
+      redirectUris,
+      applicationType,
+      ...(issuer === undefined ? {} : { issuer }),
+      createdAt,
+    }
   },
 })
 
@@ -93,6 +126,8 @@ export const redeemCode = mutation({
     codeVerifier: v.string(),
     clientId: v.string(),
     redirectUri: v.string(),
+    resource: v.optional(v.string()),
+    issuer: v.optional(v.string()),
   },
   /**
    * A rejection is RETURNED, not thrown — and that is load-bearing, not a
@@ -108,13 +143,21 @@ export const redeemCode = mutation({
    * still cannot tell which check failed.
    */
   returns: v.union(
-    v.object({ ok: v.literal(true), accessToken: v.string(), expiresIn: v.number() }),
+    v.object({
+      ok: v.literal(true),
+      accessToken: v.string(),
+      expiresIn: v.number(),
+      scopes: v.array(v.string()),
+    }),
     v.object({ ok: v.literal(false) }),
   ),
   handler: async (
     ctx,
     args,
-  ): Promise<{ ok: true; accessToken: string; expiresIn: number } | { ok: false }> => {
+  ): Promise<
+    | { ok: true; accessToken: string; expiresIn: number; scopes: string[] }
+    | { ok: false }
+  > => {
     // Still a throw: a bad service token means the GATEWAY is unauthenticated,
     // which is not a statement about anybody's authorization grant.
     requireService(ctx, args.serviceToken)
@@ -145,20 +188,36 @@ export const redeemCode = mutation({
     const presented = await deriveCodeChallenge(args.codeVerifier)
     if (!timingSafeEqual(presented, row.codeChallenge)) return invalid
 
+    const resource = normalizeMcpResourceUri(args.resource ?? row.resource)
+    if (resource === null) return invalid
+    const issuer = normalizeMcpResourceUri(args.issuer ?? row.issuer)
+    if (issuer === null) return invalid
+    if (row.issuer !== undefined && normalizeMcpResourceUri(row.issuer) !== issuer) return invalid
+    if (row.resource !== undefined && normalizeMcpResourceUri(row.resource) !== resource) return invalid
+
+    const scopes = normalizeMcpScopes(row.scopes ?? grantedScopes())
+    if (scopes === null) return invalid
+
     const client = await ctx.db
       .query("oauthClients")
       .withIndex("by_clientId", (q) => q.eq("clientId", row.clientId))
       .first()
     if (client === null) return invalid
+    if (client.issuer !== undefined && normalizeMcpResourceUri(client.issuer) !== issuer) return invalid
 
     // Stamped only on success, and this is the field the sweeper reads: a client
     // that has completed a flow is one somebody uses, and is never pruned.
-    await ctx.db.patch(client._id, { lastUsedAt: Date.now() })
+    await ctx.db.patch(client._id, {
+      lastUsedAt: Date.now(),
+      ...(client.issuer === undefined ? { issuer } : {}),
+    })
 
     const issued = await issueAccessToken(ctx, {
       userId: row.userId,
       clientId: row.clientId,
       clientName: client.clientName,
+      audience: resource,
+      scopes,
     })
     return { ok: true, ...issued }
   },
@@ -174,8 +233,14 @@ export const redeemCode = mutation({
  */
 async function issueAccessToken(
   ctx: MutationCtx,
-  grant: { userId: string; clientId: string; clientName: string },
-): Promise<{ accessToken: string; expiresIn: number }> {
+  grant: {
+    userId: string
+    clientId: string
+    clientName: string
+    audience: string
+    scopes: string[]
+  },
+): Promise<{ accessToken: string; expiresIn: number; scopes: string[] }> {
   await revokePriorGrants(ctx, grant.userId, grant.clientId)
 
   const keyId = `${API_KEY_ID_PREFIX}_${crypto.randomUUID().replaceAll("-", "")}`
@@ -194,19 +259,21 @@ async function issueAccessToken(
   await ctx.db.insert("apiKeys", {
     keyId,
     userId: grant.userId,
-    // Same set a hand-minted key gets. An OAuth grant must not be quietly
-    // weaker than the key the user could mint themselves — that difference
-    // would show up as connectors missing from Claude but present in the
-    // dashboard, which reads as a broken connector, not as a scope decision.
-    scopes: grantedScopes(),
+    // The exact set the user approved for this authorization request.
+    scopes: grant.scopes,
     secretHash,
     status: "active",
     label: grant.clientName,
     expiresAt,
     clientId: grant.clientId,
+    audience: grant.audience,
   })
 
-  return { accessToken, expiresIn: Math.floor(OAUTH_TOKEN_TTL_MS / 1000) }
+  return {
+    accessToken,
+    expiresIn: Math.floor(OAUTH_TOKEN_TTL_MS / 1000),
+    scopes: [...grant.scopes],
+  }
 }
 
 /**

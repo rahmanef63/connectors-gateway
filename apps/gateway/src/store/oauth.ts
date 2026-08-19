@@ -6,7 +6,14 @@
  * nothing and two gateway replicas cannot disagree about whether a code was
  * already spent.
  */
-import { GatewayError } from "@cg/core"
+import {
+  GatewayError,
+  grantedScopes,
+  normalizeMcpResourceUri,
+  normalizeMcpScopes,
+  normalizeOAuthApplicationType,
+  type OAuthApplicationType,
+} from "@cg/core"
 import type { ControlPlaneClient } from "./client"
 import { asRecord, asStringArray } from "./guards"
 import { REFS } from "./refs"
@@ -15,30 +22,54 @@ export type RegisteredClient = {
   clientId: string
   clientName: string
   redirectUris: string[]
+  applicationType: OAuthApplicationType
+  issuer: string
   createdAt: number
 }
 
-export type IssuedToken = { accessToken: string; expiresIn: number }
+export type IssuedToken = { accessToken: string; expiresIn: number; scopes: string[] }
 
 export interface OAuthStore {
-  registerClient(input: { clientName: string; redirectUris: string[] }): Promise<RegisteredClient>
+  registerClient(input: {
+    clientName: string
+    redirectUris: string[]
+    applicationType: OAuthApplicationType
+    issuer: string
+  }): Promise<RegisteredClient>
   redeemCode(input: {
     code: string
     codeVerifier: string
     clientId: string
     redirectUri: string
+    resource: string
+    issuer: string
   }): Promise<IssuedToken>
 }
 
 /** A control-plane response is external input (P0), including this one. */
-function toRegisteredClient(value: unknown): RegisteredClient | null {
+function toRegisteredClient(
+  value: unknown,
+  defaults: { applicationType: OAuthApplicationType; issuer: string },
+): RegisteredClient | null {
   const row = asRecord(value)
   if (!row) return null
   const { clientId, clientName, createdAt } = row
   if (typeof clientId !== "string" || clientId.length === 0) return null
   if (typeof clientName !== "string") return null
   if (typeof createdAt !== "number") return null
-  return { clientId, clientName, redirectUris: asStringArray(row.redirectUris), createdAt }
+  const applicationType = normalizeOAuthApplicationType(
+    row.applicationType ?? defaults.applicationType,
+  )
+  const issuer = normalizeMcpResourceUri(row.issuer ?? defaults.issuer)
+  if (applicationType === null || issuer === null) return null
+  return {
+    clientId,
+    clientName,
+    redirectUris: asStringArray(row.redirectUris),
+    applicationType,
+    issuer,
+    createdAt,
+  }
 }
 
 /**
@@ -55,13 +86,20 @@ function toIssuedToken(value: unknown): IssuedToken | "refused" | null {
   const { accessToken, expiresIn } = row
   if (typeof accessToken !== "string" || accessToken.length === 0) return null
   if (typeof expiresIn !== "number" || !Number.isFinite(expiresIn) || expiresIn <= 0) return null
-  return { accessToken, expiresIn }
+  // During a rolling deploy, an older control plane may omit `scopes`; preserve
+  // its historical full-access behavior rather than failing an honest exchange.
+  const scopes = normalizeMcpScopes(row.scopes === undefined ? grantedScopes() : asStringArray(row.scopes))
+  if (scopes === null) return null
+  return { accessToken, expiresIn, scopes }
 }
 
 export function createOAuthStore(client: ControlPlaneClient): OAuthStore {
   return {
     async registerClient(input): Promise<RegisteredClient> {
-      const registered = toRegisteredClient(await client.mutation(REFS.oauthRegisterClient, input))
+      const registered = toRegisteredClient(
+        await client.mutation(REFS.oauthRegisterClient, input),
+        input,
+      )
       if (registered === null) {
         // A malformed response must not become a client id the caller then
         // fails to use ten minutes later, with no trace of why.

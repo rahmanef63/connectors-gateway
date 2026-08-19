@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useMutation } from "convex/react"
+import { SCOPE_READ, SCOPE_WRITE } from "@cg/core"
 
 import { api } from "@convex/_generated/api"
 import { Icon } from "@/components/shell/icons"
@@ -23,6 +24,9 @@ export function AuthorizeConsent({
   clientId,
   codeChallenge,
   codeChallengeMethod,
+  resource,
+  issuer,
+  scopes,
   state,
 }: {
   clientName: string
@@ -30,12 +34,17 @@ export function AuthorizeConsent({
   clientId: string
   codeChallenge: string
   codeChallengeMethod: string
+  resource: string
+  issuer: string
+  scopes: string[]
   state: string | null
 }) {
   const approve = useMutation(api.features.oauth.mutations.approve)
   const [pending, setPending] = useState(false)
   const [failed, setFailed] = useState(false)
   const tone = TONE_CLASSES.warning
+  const canRead = scopes.includes(SCOPE_READ)
+  const canWrite = scopes.includes(SCOPE_WRITE)
 
   /**
    * `location.assign`, not `router.push`: the destination is frequently a
@@ -56,8 +65,11 @@ export function AuthorizeConsent({
         redirectUri,
         codeChallenge,
         codeChallengeMethod,
+        resource,
+        issuer,
+        scopes,
       })
-      leave(buildRedirect(redirectUri, { code }, state))
+      leave(buildRedirect(redirectUri, { code }, state, issuer))
     } catch {
       // Stay put and say so. Redirecting with `error=server_error` would end
       // the flow on the client's side for what may be a transient failure the
@@ -70,7 +82,7 @@ export function AuthorizeConsent({
   function onDeny(): void {
     // A denial IS reported back, and to the same verified URI: a client left
     // waiting on a window that silently closed cannot tell refusal from a crash.
-    leave(buildRedirect(redirectUri, { error: "access_denied" }, state))
+    leave(buildRedirect(redirectUri, { error: "access_denied" }, state, issuer))
   }
 
   return (
@@ -94,6 +106,10 @@ export function AuthorizeConsent({
       <div className="mt-6 rounded-xl border border-border bg-card-hover px-5 py-4">
         <p className="truncate text-lg font-semibold tracking-tight">{clientName}</p>
         <dl className="mt-4 grid grid-cols-[5.5rem_1fr] gap-y-2 border-t border-border pt-4 text-sm">
+          <dt className="text-muted-foreground">Access target</dt>
+          <dd className="truncate font-mono text-xs" title={resource}>
+            {resource}
+          </dd>
           <dt className="text-muted-foreground">Returns to</dt>
           {/* The destination is shown because it is the part of an OAuth flow a
               phishing attempt has to get wrong, and the only part a human can
@@ -107,20 +123,21 @@ export function AuthorizeConsent({
       <div className="mt-6 border-t border-border pt-5">
         <h2 className="text-sm font-medium text-foreground">Approving means {clientName} can:</h2>
         <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-muted-foreground">
+          {canRead ? (
+            <li>see your available connectors and use their read-only actions;</li>
+          ) : null}
+          {canWrite ? (
+            <li>
+              request actions that change connected accounts or devices; risky calls still stop
+              for a separate per-call approval;
+            </li>
+          ) : null}
           <li>
-            see the connectors you have set up, and run the actions your permissions already allow;
+            ask this gateway to use your stored credentials without receiving the credentials
+            themselves;
           </li>
           <li>
-            act as you against the accounts you connected — it never receives those credentials
-            themselves, only the right to ask this gateway to use them;
-          </li>
-          <li>
-            do none of it unattended where it matters: risky actions still stop and wait for your
-            approval, on every single call;
-          </li>
-          <li>
-            be cut off whenever you want — it appears under API keys, and revoking it ends its
-            access immediately.
+            be cut off whenever you want — revoking its API-key entry ends access immediately.
           </li>
         </ul>
       </div>

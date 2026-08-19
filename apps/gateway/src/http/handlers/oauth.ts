@@ -11,9 +11,16 @@
  * `{"error":{"code":"INVALID_INPUT"}}` here reads to a client as a malformed
  * response, not as a rejected grant.
  */
-import { REDIRECT_URI_MESSAGE, isValidRedirectUri, toGatewayError } from "@cg/core"
+import {
+  REDIRECT_URI_MESSAGE,
+  isValidRedirectUri,
+  normalizeMcpResourceUri,
+  normalizeOAuthApplicationType,
+  toGatewayError,
+} from "@cg/core"
 import { readFormBody, readJsonBody } from "../body"
 import type { RouteContext } from "../routes"
+import { mcpResourceUrl } from "./well-known"
 
 const MAX_FIELD_LENGTH = 2048
 const MAX_CLIENT_NAME_LENGTH = 100
@@ -36,6 +43,8 @@ type OAuthErrorCode =
   | "invalid_request"
   | "invalid_client"
   | "invalid_grant"
+  /** RFC 8707 resource indicator is absent or names another audience. */
+  | "invalid_target"
   | "unauthorized_client"
   | "unsupported_grant_type"
   /** RFC 7591 §3.2.2, registration only. */
@@ -96,14 +105,26 @@ export async function handleOAuthRegister(context: RouteContext): Promise<Respon
 
   const clientName =
     field(body, "client_name")?.slice(0, MAX_CLIENT_NAME_LENGTH) ?? "Unnamed client"
+  const applicationType = normalizeOAuthApplicationType(
+    body.application_type === undefined ? "web" : body.application_type,
+  )
+  if (applicationType === null) {
+    return oauthError("invalid_request", "application_type must be web or native.")
+  }
 
   try {
-    const client = await context.deps.oauth.registerClient({ clientName, redirectUris })
+    const client = await context.deps.oauth.registerClient({
+      clientName,
+      redirectUris,
+      applicationType,
+      issuer: context.deps.config.publicUrl,
+    })
     return oauthJson(
       {
         client_id: client.clientId,
         client_name: client.clientName,
         redirect_uris: client.redirectUris,
+        application_type: client.applicationType,
         client_id_issued_at: Math.floor(client.createdAt / 1000),
         // No `client_secret`, and its absence is the contract: these are public
         // clients and PKCE is what binds a code to its requester. The two
@@ -156,6 +177,17 @@ export async function handleOAuthToken(context: RouteContext): Promise<Response>
   const codeVerifier = field(fields, "code_verifier")
   const clientId = field(fields, "client_id")
   const redirectUri = field(fields, "redirect_uri")
+  const rawResource = field(fields, "resource")
+  if (rawResource === null && fields.resource !== undefined) {
+    return oauthError("invalid_target", "The resource indicator is malformed.")
+  }
+  const expectedResource = mcpResourceUrl(context.deps.config)
+  // Legacy clients omitted `resource`; bind them to this endpoint rather than
+  // minting an unbound token. Any explicit value must match exactly.
+  const resource = normalizeMcpResourceUri(rawResource ?? expectedResource)
+  if (resource !== expectedResource) {
+    return oauthError("invalid_target", "This authorization server cannot issue for that resource.")
+  }
 
   if (code === null || clientId === null || redirectUri === null) {
     return oauthError("invalid_request", "code, client_id and redirect_uri are required.")
@@ -172,12 +204,15 @@ export async function handleOAuthToken(context: RouteContext): Promise<Response>
       codeVerifier,
       clientId,
       redirectUri,
+      resource,
+      issuer: context.deps.config.publicUrl,
     })
     return oauthJson(
       {
         access_token: issued.accessToken,
         token_type: "Bearer",
         expires_in: issued.expiresIn,
+        scope: issued.scopes.join(" "),
         // No refresh_token, deliberately: this server issues none, and an
         // absent field is how a client learns to re-run the flow instead of
         // waiting for a refresh that never comes.

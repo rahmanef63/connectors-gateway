@@ -6,7 +6,7 @@
  * ways a code must not be redeemable.
  */
 import { describe, expect, test } from "vitest"
-import { grantedScopes } from "@cg/core"
+import { SCOPE_READ, grantedScopes } from "@cg/core"
 import { api } from "../_generated/api"
 import { deriveCodeChallenge } from "../_shared/code_hash"
 import {
@@ -20,6 +20,8 @@ import {
 } from "../test.helpers"
 
 const REDIRECT = "https://claude.ai/api/mcp/auth_callback"
+const RESOURCE = "https://connect.rahmanef.com/mcp"
+const ISSUER = "https://connect.rahmanef.com"
 /** 43+ chars from the unreserved set, per RFC 7636 §4.1. */
 const VERIFIER = "a".repeat(64)
 
@@ -28,11 +30,16 @@ async function register(t: TestClient, redirectUris = [REDIRECT]) {
     serviceToken: SERVICE_TOKEN,
     clientName: "Claude",
     redirectUris,
+    applicationType: "web",
+    issuer: ISSUER,
   })
 }
 
 /** Registers a client and walks a signed-in user through consent. */
-async function grantCode(t: TestClient, overrides: { redirectUri?: string } = {}) {
+async function grantCode(
+  t: TestClient,
+  overrides: { redirectUri?: string; scopes?: string[] } = {},
+) {
   const userId = await createUser(t, "owner@example.com")
   const client = await register(t)
   const challenge = await deriveCodeChallenge(VERIFIER)
@@ -41,6 +48,9 @@ async function grantCode(t: TestClient, overrides: { redirectUri?: string } = {}
     redirectUri: overrides.redirectUri ?? REDIRECT,
     codeChallenge: challenge,
     codeChallengeMethod: "S256",
+    resource: RESOURCE,
+    issuer: ISSUER,
+    scopes: overrides.scopes ?? grantedScopes(),
   })
   return { userId, client, code, challenge }
 }
@@ -63,6 +73,8 @@ function buildRedeem(args: {
   codeVerifier?: string
   clientId?: string
   redirectUri?: string
+  resource?: string
+  issuer?: string
 }) {
   return {
     serviceToken: SERVICE_TOKEN,
@@ -70,6 +82,8 @@ function buildRedeem(args: {
     codeVerifier: args.codeVerifier ?? VERIFIER,
     clientId: args.clientId ?? "",
     redirectUri: args.redirectUri ?? REDIRECT,
+    resource: args.resource ?? RESOURCE,
+    issuer: args.issuer ?? ISSUER,
   }
 }
 
@@ -79,6 +93,77 @@ describe("registerClient", () => {
     const client = await register(t)
     expect(client.clientId).toMatch(/^cgc_[0-9a-f]{32}$/)
     expect(client.redirectUris).toEqual([REDIRECT])
+    expect(client.applicationType).toBe("web")
+    expect(client.issuer).toBe(ISSUER)
+  })
+
+  test("stores and returns native application metadata", async () => {
+    const t = setupConvex()
+    const client = await t.mutation(api.service.oauth.registerClient, {
+      serviceToken: SERVICE_TOKEN,
+      clientName: "ChatGPT desktop",
+      redirectUris: ["http://127.0.0.1:41234/callback"],
+      applicationType: "native",
+      issuer: ISSUER,
+    })
+    expect(client.applicationType).toBe("native")
+    expect(client.issuer).toBe(ISSUER)
+    const row = await t.run(async (ctx) => ctx.db.query("oauthClients").first())
+    expect(row?.applicationType).toBe("native")
+    expect(row?.issuer).toBe(ISSUER)
+  })
+
+  test("accepts a legacy registration and binds its issuer on first consent", async () => {
+    const t = setupConvex()
+    const client = await t.mutation(api.service.oauth.registerClient, {
+      serviceToken: SERVICE_TOKEN,
+      clientName: "Legacy host",
+      redirectUris: [REDIRECT],
+    })
+    expect(client.applicationType).toBe("web")
+    expect(client.issuer).toBeUndefined()
+
+    const userId = await createUser(t)
+    await asUser(t, userId).mutation(api.features.oauth.mutations.approve, {
+      clientId: client.clientId,
+      redirectUri: REDIRECT,
+      codeChallenge: await deriveCodeChallenge(VERIFIER),
+      codeChallengeMethod: "S256",
+      resource: RESOURCE,
+      issuer: ISSUER,
+      scopes: grantedScopes(),
+    })
+    const row = await t.run(async (ctx) =>
+      ctx.db
+        .query("oauthClients")
+        .withIndex("by_clientId", (q) => q.eq("clientId", client.clientId))
+        .first(),
+    )
+    expect(row?.issuer).toBe(ISSUER)
+  })
+
+  test("refuses an unsupported application type or malformed issuer", async () => {
+    const t = setupConvex()
+    await expectRejected(
+      t.mutation(api.service.oauth.registerClient, {
+        serviceToken: SERVICE_TOKEN,
+        clientName: "Bad",
+        redirectUris: [REDIRECT],
+        applicationType: "desktop",
+        issuer: ISSUER,
+      }),
+      "INVALID_INPUT",
+    )
+    await expectRejected(
+      t.mutation(api.service.oauth.registerClient, {
+        serviceToken: SERVICE_TOKEN,
+        clientName: "Bad",
+        redirectUris: [REDIRECT],
+        applicationType: "web",
+        issuer: "javascript:alert(1)",
+      }),
+      "INVALID_INPUT",
+    )
   })
 
   test("refuses a wrong service token", async () => {
@@ -88,6 +173,8 @@ describe("registerClient", () => {
         serviceToken: WRONG_SERVICE_TOKEN,
         clientName: "Claude",
         redirectUris: [REDIRECT],
+        applicationType: "web",
+        issuer: ISSUER,
       }),
       "NOT_AUTHORIZED",
     )
@@ -133,6 +220,8 @@ describe("approve — the consent step", () => {
     const row = await t.run(async (ctx) => ctx.db.query("oauthCodes").first())
     expect(row?.userId).toBe(userId)
     expect(row?.codeHash).not.toBe(code)
+    expect(row?.resource).toBe(RESOURCE)
+    expect(row?.issuer).toBe(ISSUER)
   })
 
   test("an anonymous caller cannot mint a code", async () => {
@@ -144,6 +233,8 @@ describe("approve — the consent step", () => {
         redirectUri: REDIRECT,
         codeChallenge: await deriveCodeChallenge(VERIFIER),
         codeChallengeMethod: "S256",
+        resource: RESOURCE,
+        issuer: ISSUER,
       }),
       "NOT_AUTHORIZED",
     )
@@ -161,6 +252,8 @@ describe("approve — the consent step", () => {
         redirectUri: "https://evil.test/cb",
         codeChallenge: await deriveCodeChallenge(VERIFIER),
         codeChallengeMethod: "S256",
+        resource: RESOURCE,
+        issuer: ISSUER,
       }),
       "INVALID_INPUT",
     )
@@ -176,6 +269,26 @@ describe("approve — the consent step", () => {
         redirectUri: REDIRECT,
         codeChallenge: await deriveCodeChallenge(VERIFIER),
         codeChallengeMethod: "plain",
+        resource: RESOURCE,
+        issuer: ISSUER,
+      }),
+      "INVALID_INPUT",
+    )
+  })
+
+  test("refuses consent when a client_id belongs to another issuer", async () => {
+    const t = setupConvex()
+    const userId = await createUser(t)
+    const client = await register(t)
+    await expectRejected(
+      asUser(t, userId).mutation(api.features.oauth.mutations.approve, {
+        clientId: client.clientId,
+        redirectUri: REDIRECT,
+        codeChallenge: await deriveCodeChallenge(VERIFIER),
+        codeChallengeMethod: "S256",
+        resource: RESOURCE,
+        issuer: "https://other.example",
+        scopes: grantedScopes(),
       }),
       "INVALID_INPUT",
     )
@@ -211,10 +324,19 @@ describe("redeemCode", () => {
     expect(key?.clientId).toBe(client.clientId)
     expect(key?.status).toBe("active")
     expect(key?.expiresAt).toBeGreaterThan(Date.now())
-    // The same set a hand-minted key gets. An OAuth grant that were quietly
-    // narrower would surface as connectors missing in Claude but present in
-    // the dashboard — which reads as a broken connector, not a scope decision.
+    expect(key?.audience).toBe(RESOURCE)
+    // An older client that omits `scope` receives the canonical full set;
+    // explicit read-only consent is covered by the next test.
     expect(key?.scopes).toEqual(grantedScopes())
+  })
+
+  test("binds a read-only consent to a read-only token and API-key row", async () => {
+    const t = setupConvex()
+    const { client, code } = await grantCode(t, { scopes: [SCOPE_READ] })
+    const issued = await redeem(t, { code, clientId: client.clientId })
+    expect(issued).toMatchObject({ ok: true, scopes: [SCOPE_READ] })
+    const key = await t.run(async (ctx) => ctx.db.query("apiKeys").first())
+    expect(key?.scopes).toEqual([SCOPE_READ])
   })
 
   test("the issued token expires, so a grant is never immortal", async () => {
@@ -228,6 +350,7 @@ describe("redeemCode", () => {
     // Load-bearing: authenticateCaller can only enforce an expiry it can SEE,
     // so the record crossing to the gateway must carry it.
     expect(record?.expiresAt).toBeGreaterThan(Date.now())
+    expect(record?.audience).toBe(RESOURCE)
   })
 
   test("a code is single-use", async () => {
@@ -273,6 +396,30 @@ describe("redeemCode", () => {
     const { code } = await grantCode(t)
     const other = await register(t)
     await expectRefused(redeem(t, { code, clientId: other.clientId }))
+  })
+
+  test("the RFC 9207 issuer is re-checked at exchange", async () => {
+    const t = setupConvex()
+    const { client, code } = await grantCode(t)
+    await expectRefused(
+      redeem(t, {
+        code,
+        clientId: client.clientId,
+        issuer: "https://other.example",
+      }),
+    )
+  })
+
+  test("the RFC 8707 resource is re-checked at exchange", async () => {
+    const t = setupConvex()
+    const { client, code } = await grantCode(t)
+    await expectRefused(
+      redeem(t, {
+        code,
+        clientId: client.clientId,
+        resource: "https://other.example/mcp",
+      }),
+    )
   })
 
   test("the redirect URI is re-checked at exchange", async () => {
@@ -327,6 +474,9 @@ describe("redeemCode", () => {
         redirectUri,
         codeChallenge: challenge,
         codeChallengeMethod: "S256",
+        resource: RESOURCE,
+        issuer: ISSUER,
+        scopes: grantedScopes(),
       })
       await redeem(t, { code, clientId, redirectUri })
     }

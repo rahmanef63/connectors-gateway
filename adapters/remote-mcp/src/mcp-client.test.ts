@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { GatewayError } from "@cg/core"
-import { MAX_RESPONSE_BYTES, MCP_PROTOCOL_VERSION, callTool } from "./mcp-client"
+import {
+  MAX_LARGE_RESPONSE_BYTES,
+  MAX_RESPONSE_BYTES,
+  MCP_PROTOCOL_VERSION,
+  callTool,
+} from "./mcp-client"
 
 const TOKEN = "cp_live_9c2f4a1b7e6d8f3a5b0c1d2e3f4a5b6c"
 const BASE_URL = "https://upstream.example.com/mcp"
@@ -200,6 +205,40 @@ describe("callTool caps the response body", () => {
     expect((error as GatewayError).message).toContain("oversized")
     // Stopped at the cap rather than reading a stream that never ends.
     expect(chunksServed).toBeLessThanOrEqual(MAX_RESPONSE_BYTES / (64 * 1024) + 2)
+  })
+
+  test("an explicitly reviewed larger envelope is still bounded", async () => {
+    const text = "y".repeat(MAX_RESPONSE_BYTES + 128)
+    stubFetch(rpc({ content: [{ type: "text", text }] }))
+
+    await expect(
+      callTool(
+        BASE_URL,
+        TOKEN,
+        "screen_capture",
+        {},
+        new AbortController().signal,
+        undefined,
+        MAX_LARGE_RESPONSE_BYTES,
+      ),
+    ).resolves.toBe(text)
+  })
+
+  test("a caller cannot raise the hard ceiling beyond 8 MiB", async () => {
+    stubFetch(rpc({ content: [{ type: "text", text: "small" }] }), {
+      headers: { "content-length": String(MAX_LARGE_RESPONSE_BYTES + 1) },
+    })
+
+    const error = await callTool(
+      BASE_URL,
+      TOKEN,
+      "screen_capture",
+      {},
+      new AbortController().signal,
+      undefined,
+      Number.MAX_SAFE_INTEGER,
+    ).catch((cause: unknown) => cause)
+    expect((error as GatewayError).message).toContain("oversized")
   })
 
   test("a normal body is still read whole", async () => {

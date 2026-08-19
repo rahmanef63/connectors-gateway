@@ -38,7 +38,7 @@
     },
     "apps/gateway": {
       "name": "@cg/gateway",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@cg/adapter-blender": "workspace:*",
         "@cg/adapter-remote-mcp": "workspace:*",

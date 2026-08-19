@@ -111,6 +111,22 @@ describe("authenticateCaller", () => {
     expect(expiredAt).toEqual(revoked)
   })
 
+  test("allows an audience-bound token only at its exact MCP resource", async () => {
+    const audience = "https://connect.example/mcp"
+    const bound = { ...record, audience }
+    expect((await authenticateCaller(token(), lookupOf(bound), 1_000, audience)).callerId).toBe(KEY_ID)
+    expect(
+      await codeAndMessage(
+        authenticateCaller(token(), lookupOf(bound), 1_000, "https://other.example/mcp"),
+      ),
+    ).toEqual(["NOT_AUTHENTICATED", "Invalid credentials."])
+    // No audience context means a REST endpoint, which must reject an MCP token.
+    expect(await codeAndMessage(authenticateCaller(token(), lookupOf(bound), 1_000))).toEqual([
+      "NOT_AUTHENTICATED",
+      "Invalid credentials.",
+    ])
+  })
+
   test("allows a key whose expiry is still in the future", async () => {
     const principal = await authenticateCaller(
       token(),

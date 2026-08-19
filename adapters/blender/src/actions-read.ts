@@ -2,7 +2,7 @@
  * R0 read-only Blender actions. These never mutate the .blend file, so they are
  * auto-allowed by DEFAULT_RISK_DECISION (docs/03 risk table).
  */
-import type { ActionDefinition } from "@cg/core"
+import { SCOPE_READ, type ActionDefinition } from "@cg/core"
 import { defineAction } from "@cg/sdk"
 import { ACTION_MATERIAL_LIST, ACTION_OBJECT_LIST, ACTION_SCENE_INSPECT } from "./action-ids"
 import { limitSchema, objectSchema, OBJECT_TYPES } from "./schema-parts"
@@ -34,6 +34,7 @@ export const sceneInspect: ActionDefinition = defineAction({
   ),
   risk: "R0",
   annotations: READ_ONLY,
+  requiredScopes: [SCOPE_READ],
   requiredCapabilities: ["scene.inspect"],
 })
 
@@ -69,6 +70,7 @@ export const objectList: ActionDefinition = defineAction({
   ),
   risk: "R0",
   annotations: READ_ONLY,
+  requiredScopes: [SCOPE_READ],
   requiredCapabilities: ["object.list"],
 })
 
@@ -94,6 +96,7 @@ export const materialList: ActionDefinition = defineAction({
   ),
   risk: "R0",
   annotations: READ_ONLY,
+  requiredScopes: [SCOPE_READ],
   requiredCapabilities: ["material.list"],
 })
 

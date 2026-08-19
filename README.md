@@ -37,7 +37,7 @@ Never expose Blender's local socket directly to the internet.
 apps/       web (dashboard) · gateway (public MCP/API) · agent (local daemon)
 packages/   core · registry · protocol · auth · policy · executor · schemas · sdk · observability
 adapters/   blender (local) · remote-mcp (cloud)
-plugin/     the Claude Code plugin (.mcp.json + skill); catalogued by .claude-plugin/
+plugin/     universal ChatGPT/Codex package plus Claude compatibility package
 docs/       architecture, security model, connector contract, roadmap
 ```
 
@@ -126,12 +126,13 @@ Authorization is **OAuth 2.1 + PKCE with open dynamic registration** — there i
 to paste. A client with no token gets a 401 carrying a `resource_metadata` pointer,
 walks the two `/.well-known` documents, registers itself, sends the user through the
 consent screen, and exchanges the code for a token. See
-[`docs/18-oauth.md`](./docs/18-oauth.md); `plugin/` is the packaged Claude Code plugin
-over the same endpoint.
+[`docs/18-oauth.md`](./docs/18-oauth.md). `plugin/` packages the same endpoint for
+ChatGPT, Codex, and Claude; see
+[`docs/19-chatgpt-codex-plugin.md`](./docs/19-chatgpt-codex-plugin.md).
 
-**Not yet completed against a real client.** The flow is covered by tests and verified by
-hand against the deployed discovery documents, but no round trip with claude.ai or
-ChatGPT has happened yet.
+**Hosted ChatGPT registration is still pending.** The runtime and package are tested, but
+ChatGPT must create a real `plugin_asdk_app...` technical ID before `.app.json` can be
+added and an end-to-end web round trip can be claimed.
 
 Phases 0–3 are implemented and unit-tested; Phase 4 is complete except the approvals
 screen. The cloud path is proven against the live stack — the gateway reaches Convex and

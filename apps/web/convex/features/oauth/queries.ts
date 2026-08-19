@@ -9,6 +9,7 @@
  * how a user is talked into approving a flow whose code goes elsewhere.
  */
 import { v } from "convex/values"
+import { grantedScopes, normalizeMcpResourceUri, normalizeMcpScopes } from "@cg/core"
 import { query } from "../../_generated/server"
 import { requireUser } from "../../_shared/auth"
 import { isValidCodeChallenge } from "../../_shared/code_hash"
@@ -19,6 +20,9 @@ export const authorizationRequestValidator = v.object({
   clientName: v.string(),
   /** Echoed back so the page redirects to the checked value, not the raw one. */
   redirectUri: v.string(),
+  resource: v.string(),
+  issuer: v.string(),
+  scopes: v.array(v.string()),
 })
 
 /**
@@ -34,6 +38,9 @@ export const describeRequest = query({
     redirectUri: v.string(),
     codeChallenge: v.string(),
     codeChallengeMethod: v.string(),
+    resource: v.string(),
+    issuer: v.string(),
+    scopes: v.optional(v.array(v.string())),
   },
   returns: authorizationRequestValidator,
   handler: async (ctx, args) => {
@@ -48,12 +55,21 @@ export const describeRequest = query({
     if (!isValidCodeChallenge(args.codeChallenge)) {
       fail("INVALID_INPUT", "The PKCE code challenge is malformed.")
     }
+    const resource = normalizeMcpResourceUri(args.resource)
+    if (resource === null) fail("INVALID_INPUT", "The OAuth resource is invalid.")
+    const issuer = normalizeMcpResourceUri(args.issuer)
+    if (issuer === null) fail("INVALID_INPUT", "The OAuth issuer is invalid.")
+    const scopes = normalizeMcpScopes(args.scopes ?? grantedScopes())
+    if (scopes === null) fail("INVALID_INPUT", "The requested OAuth scopes are invalid.")
 
     const client = await ctx.db
       .query("oauthClients")
       .withIndex("by_clientId", (q) => q.eq("clientId", args.clientId))
       .first()
     if (client === null) fail("INVALID_INPUT", "Unknown client.")
+    if (client.issuer !== undefined && normalizeMcpResourceUri(client.issuer) !== issuer) {
+      fail("INVALID_INPUT", "This client is registered with another authorization server.")
+    }
 
     if (!isRegisteredRedirectUri(args.redirectUri, client.redirectUris)) {
       // Deliberately NOT redirected back with an error: an unregistered URI is
@@ -61,6 +77,12 @@ export const describeRequest = query({
       fail("INVALID_INPUT", "This redirect URI is not registered for that client.")
     }
 
-    return { clientName: client.clientName, redirectUri: args.redirectUri }
+    return {
+      clientName: client.clientName,
+      redirectUri: args.redirectUri,
+      resource,
+      issuer,
+      scopes,
+    }
   },
 })

@@ -291,7 +291,7 @@ describe("POST /mcp", () => {
     // The pointer is the load-bearing part: without it a client learns only
     // that it needs a token, with no way to discover where to get one.
     expect(response.headers.get("www-authenticate")).toBe(
-      'Bearer resource_metadata="http://localhost:8787/.well-known/oauth-protected-resource"',
+      'Bearer resource_metadata="http://localhost:8787/.well-known/oauth-protected-resource", scope="mcp.read mcp.write"',
     )
   })
 

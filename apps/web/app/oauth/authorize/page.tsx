@@ -6,6 +6,7 @@ import { AuthorizeRefusal } from "./refusal"
 import { api } from "@convex/_generated/api"
 import { convexOptions } from "@/lib/convex-server"
 import { parseAuthorizationRequest } from "@/lib/oauth-authorize"
+import { mcpEndpoint, normalizeGatewayUrl } from "@/lib/gateway-config"
 
 export const metadata: Metadata = { title: "Authorize access" }
 
@@ -25,7 +26,9 @@ export default async function AuthorizePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const request = parseAuthorizationRequest(await searchParams)
+  const gatewayUrl = normalizeGatewayUrl(process.env.NEXT_PUBLIC_GATEWAY_URL)
+  if (gatewayUrl === null) return <AuthorizeRefusal reason="rejected" />
+  const request = parseAuthorizationRequest(await searchParams, mcpEndpoint(gatewayUrl))
   if (request === null) return <AuthorizeRefusal reason="malformed" />
 
   // Resolves the client and re-checks the redirect URI against its registered
@@ -37,6 +40,9 @@ export default async function AuthorizePage({
       redirectUri: request.redirectUri,
       codeChallenge: request.codeChallenge,
       codeChallengeMethod: request.codeChallengeMethod,
+      resource: request.resource,
+      issuer: gatewayUrl,
+      scopes: request.scopes,
     },
     await convexOptions(),
   ).catch(() => null)
@@ -51,6 +57,9 @@ export default async function AuthorizePage({
       clientId={request.clientId}
       codeChallenge={request.codeChallenge}
       codeChallengeMethod={request.codeChallengeMethod}
+      resource={resolved.resource}
+      issuer={resolved.issuer}
+      scopes={resolved.scopes}
       state={request.state}
     />
   )

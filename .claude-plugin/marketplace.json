@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "connectors-gateway",
-  "description": "The Connectors Gateway plugin — reach every connector you have set up from Claude, over one MCP endpoint.",
+  "description": "Connectors Gateway for Claude, ChatGPT, and Codex \u2014 one secure MCP endpoint for every connected cloud account and local device.",
   "owner": {
     "name": "Rahman",
     "url": "https://connectors.rahmanef.com"
@@ -11,7 +11,12 @@
       "name": "connectors-gateway",
       "source": "./plugin",
       "category": "productivity",
-      "tags": ["mcp", "gateway", "connectors", "automation"]
+      "tags": [
+        "mcp",
+        "gateway",
+        "connectors",
+        "automation"
+      ]
     }
   ]
 }

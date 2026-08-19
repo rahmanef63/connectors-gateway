@@ -84,6 +84,8 @@ export default defineSchema({
     expiresAt: v.optional(v.number()),
     /** The OAuth client this token was issued to. Absent = minted by hand. */
     clientId: v.optional(v.string()),
+    /** RFC 8707 audience. Present on newly issued OAuth tokens only. */
+    audience: v.optional(v.string()),
   })
     .index("by_keyId", ["keyId"])
     .index("by_user", ["userId"]),
@@ -102,6 +104,10 @@ export default defineSchema({
     clientName: v.string(),
     /** Exact-match allowlist. A code is only ever redirected to one of these. */
     redirectUris: v.array(v.string()),
+    /** RFC 7591 application_type; optional only for pre-migration rows. */
+    applicationType: v.optional(v.union(v.literal("web"), v.literal("native"))),
+    /** Authorization-server issuer that owns this client_id. */
+    issuer: v.optional(v.string()),
     createdAt: v.number(),
     /**
      * Set the first time this client successfully exchanges a code, and never
@@ -133,6 +139,12 @@ export default defineSchema({
     redirectUri: v.string(),
     /** PKCE S256 challenge. `plain` is refused at both ends. */
     codeChallenge: v.string(),
+    /** Optional only for rolling compatibility with codes issued before audience binding. */
+    resource: v.optional(v.string()),
+    /** RFC 9207 issuer; optional only for pre-migration codes. */
+    issuer: v.optional(v.string()),
+    /** Optional only for rolling compatibility with codes issued before scoped consent. */
+    scopes: v.optional(v.array(v.string())),
     expiresAt: v.number(),
   })
     .index("by_codeHash", ["codeHash"])

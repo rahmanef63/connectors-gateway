@@ -11,7 +11,7 @@
  * catch a typo in a shipped connector file.
  */
 import { describe, expect, test } from "bun:test"
-import { MCP_SCOPES, grantedScopes } from "@cg/core"
+import { MCP_SCOPES, SCOPE_READ, SCOPE_WRITE, grantedScopes } from "@cg/core"
 import { manifest as blenderManifest } from "@cg/adapter-blender"
 import { REMOTE_MCP_MANIFESTS } from "@cg/adapter-remote-mcp"
 import { catalogFor, createRegistry } from "@cg/registry"
@@ -32,6 +32,21 @@ describe("scope vocabulary", () => {
     // A scope nothing grants is not a restriction — it is an action that can
     // never be reached by anyone, hidden behind a check that looks deliberate.
     expect(ungrantable).toEqual([])
+  })
+
+  test("every shipped action declares the least-privilege scope its annotation implies", () => {
+    const violations: string[] = []
+    for (const manifest of MANIFESTS) {
+      for (const action of manifest.actions) {
+        const required = action.requiredScopes ?? []
+        const expected = action.annotations.readOnly ? SCOPE_READ : SCOPE_WRITE
+        if (!required.includes(expected)) violations.push(`${action.id} is missing ${expected}`)
+        if (action.annotations.readOnly && required.includes(SCOPE_WRITE)) {
+          violations.push(`${action.id} is read-only but requires ${SCOPE_WRITE}`)
+        }
+      }
+    }
+    expect(violations).toEqual([])
   })
 
   test("the granted set is exactly the declared vocabulary", () => {

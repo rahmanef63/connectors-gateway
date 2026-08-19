@@ -31,7 +31,7 @@ function invalidRequest(message: string): GatewayError {
 
 export function parseJsonRpcRequest(value: unknown): JsonRpcRequest {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    // Batches are out of scope for the MVP; MCP clients do not require them.
+    // Batches are out of scope: each 2026-07-28 POST carries one message too.
     throw invalidRequest("A JSON-RPC request must be a single object.")
   }
   const body = value as Record<string, unknown>
@@ -59,6 +59,13 @@ export function jsonRpcResult(id: JsonRpcId, result: unknown): JsonRpcResponse {
   return { jsonrpc: "2.0", id, result }
 }
 
-export function jsonRpcError(id: JsonRpcId | null, code: number, message: string): JsonRpcResponse {
-  return { jsonrpc: "2.0", id, error: { code, message } }
+export function jsonRpcError(
+  id: JsonRpcId | null,
+  code: number,
+  message: string,
+  data?: unknown,
+): JsonRpcResponse {
+  const error: Record<string, unknown> = { code, message }
+  if (data !== undefined) error.data = data
+  return { jsonrpc: "2.0", id, error }
 }
