@@ -42,7 +42,7 @@ export async function pairCommand(deps: CommandDeps = {}): Promise<void> {
     print,
   })
   // The credential is in the store and nowhere else — not in this output.
-  print("  Stored the device credential in the agent config directory, owner-only.")
+  print("  Stored the device credential using the safest available local credential store.")
   print("  Start the agent with: agent run")
   print(`  Device: ${config.deviceId}`)
 }

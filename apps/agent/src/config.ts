@@ -10,6 +10,8 @@ import { chmodSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } f
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { GatewayError } from "@cg/core"
+import { CREDENTIAL_REF, createNativeCredentialStore } from "./credential-store"
+import type { NativeCredentialStore } from "./credential-store"
 import { DIR_MODE, FILE_MODE, assertPrivatePath, supportsPosixModes } from "./file-mode"
 
 export const CONFIG_FILE_NAME = "config.json"
@@ -45,14 +47,21 @@ export function configPathIn(dir: string): string {
   return join(dir, CONFIG_FILE_NAME)
 }
 
-export function saveConfig(dir: string, config: AgentConfig): AgentConfig {
+export function saveConfig(dir: string, config: AgentConfig, native: NativeCredentialStore | null = createNativeCredentialStore()): AgentConfig {
   const parsed = parseConfig(config)
+  let stored = parsed
+  if (native !== null) {
+    // Commit native storage first. Only after it succeeds may the plaintext leave
+    // the file; a failed migration therefore keeps the previous safe fallback.
+    native.write(parsed.deviceId, parsed.credential)
+    stored = { ...parsed, credential: CREDENTIAL_REF }
+  }
   const file = configPathIn(dir)
   try {
     mkdirSync(dir, { recursive: true, mode: DIR_MODE })
     // mkdir's mode is masked by umask and a pre-existing dir keeps its own mode.
     if (supportsPosixModes()) chmodSync(dir, DIR_MODE)
-    writeFileSync(file, `${JSON.stringify(parsed, null, 2)}\n`, { mode: FILE_MODE })
+    writeFileSync(file, `${JSON.stringify(stored, null, 2)}\n`, { mode: FILE_MODE })
     // writeFile's mode only applies at creation; an existing file keeps its mode.
     if (supportsPosixModes()) chmodSync(file, FILE_MODE)
   } catch (cause) {
@@ -65,8 +74,8 @@ export function saveConfig(dir: string, config: AgentConfig): AgentConfig {
 }
 
 /** Throws NOT_AUTHENTICATED when the device is not paired yet. */
-export function loadConfig(dir: string): AgentConfig {
-  const config = tryLoadConfig(dir)
+export function loadConfig(dir: string, native: NativeCredentialStore | null = createNativeCredentialStore()): AgentConfig {
+  const config = tryLoadConfig(dir, native)
   if (config === null) {
     throw new GatewayError("NOT_AUTHENTICATED", "This device is not paired. Run `agent pair` first.")
   }
@@ -74,11 +83,40 @@ export function loadConfig(dir: string): AgentConfig {
 }
 
 /** null only when the file is absent. A permissive or corrupt file still throws. */
-export function tryLoadConfig(dir: string): AgentConfig | null {
+export function tryLoadConfig(dir: string, native: NativeCredentialStore | null = createNativeCredentialStore()): AgentConfig | null {
   const file = configPathIn(dir)
   if (!existsAsFile(file)) return null
   assertPrivatePath(file, CREDENTIAL_STORE)
 
+  const config = readStoredConfig(file)
+  if (config.credential !== CREDENTIAL_REF) return config
+  if (native === null) throw new GatewayError("NOT_AUTHENTICATED", "The OS credential store required by this device is unavailable.")
+  const credential = native.read(config.deviceId)
+  if (credential === null) throw new GatewayError("NOT_AUTHENTICATED", "The device credential is missing from the OS credential store.")
+  return { ...config, credential }
+}
+
+/** `revoke-local`: forget the credential on this machine. Returns false if absent. */
+export function deleteConfig(dir: string, native: NativeCredentialStore | null = createNativeCredentialStore()): boolean {
+  const file = configPathIn(dir)
+  if (!existsAsFile(file)) return false
+  // Parse the private metadata file without resolving its credential reference:
+  // revoke-local must still be able to delete a missing/corrupt vault entry.
+  const metadata = readStoredConfig(file)
+  try {
+    if (metadata.credential === CREDENTIAL_REF && native === null) {
+      throw new GatewayError("NOT_AUTHENTICATED", "The OS credential store required by this device is unavailable.")
+    }
+    native?.delete(metadata.deviceId)
+    rmSync(file, { force: true })
+  } catch {
+    throw new GatewayError("INTERNAL", `The agent ${CREDENTIAL_STORE} could not be removed.`)
+  }
+  return true
+}
+
+
+function readStoredConfig(file: string): AgentConfig {
   let raw: string
   try {
     raw = readFileSync(file, "utf8")
@@ -89,22 +127,9 @@ export function tryLoadConfig(dir: string): AgentConfig | null {
   try {
     parsed = JSON.parse(raw)
   } catch {
-    // The body may contain the credential, so it is never echoed.
     throw new GatewayError("INVALID_INPUT", `The agent ${CREDENTIAL_STORE} is not valid JSON.`)
   }
   return parseConfig(parsed)
-}
-
-/** `revoke-local`: forget the credential on this machine. Returns false if absent. */
-export function deleteConfig(dir: string): boolean {
-  const file = configPathIn(dir)
-  if (!existsAsFile(file)) return false
-  try {
-    rmSync(file, { force: true })
-  } catch {
-    throw new GatewayError("INTERNAL", `The agent ${CREDENTIAL_STORE} could not be removed.`)
-  }
-  return true
 }
 
 /** The file is a trust boundary too — it can be hand-edited (AGENTS.md P0). */

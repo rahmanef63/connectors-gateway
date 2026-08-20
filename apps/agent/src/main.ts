@@ -17,7 +17,7 @@ const USAGE = `connectors agent ${AGENT_VERSION}
 
 Environment:
   CG_GATEWAY_URL       relay endpoint, ws:// or wss:// (outbound only)
-  CG_CONFIG_DIR        credential store directory (default ~/.connectors-agent)
+  CG_CONFIG_DIR        agent state directory (default ~/.connectors-agent)
   BLENDER_BRIDGE_URL   loopback Blender bridge, e.g. http://127.0.0.1:9876`
 
 export async function main(argv: readonly string[]): Promise<number> {

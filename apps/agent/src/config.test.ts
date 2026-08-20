@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { chmodSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { GatewayError } from "@cg/core"
@@ -171,5 +171,52 @@ describe("deleteConfig", () => {
     expect(deleteConfig(dir)).toBe(true)
     expect(deleteConfig(dir)).toBe(false)
     expect(tryLoadConfig(dir)).toBeNull()
+  })
+})
+
+describe("native credential migration", () => {
+  const native = () => {
+    const values = new Map<string, string>()
+    return {
+      kind: "linux-secret-service" as const,
+      values,
+      read: (deviceId: string) => values.get(deviceId) ?? null,
+      write: (deviceId: string, credential: string) => { values.set(deviceId, credential) },
+      delete: (deviceId: string) => values.delete(deviceId),
+    }
+  }
+
+  test("moves plaintext out of config only after native persistence succeeds", () => {
+    const dir = tempDir()
+    const store = native()
+    saveConfig(dir, config(), store)
+    const raw = readFileSync(configPathIn(dir), "utf8")
+    expect(raw).not.toContain(CREDENTIAL)
+    expect(raw).toContain("os:connectors-agent:v1")
+    expect(loadConfig(dir, store)).toEqual(config())
+  })
+
+  test("an OS reference fails closed when its native store is unavailable", () => {
+    const dir = tempDir()
+    const store = native()
+    saveConfig(dir, config(), store)
+    expect(() => loadConfig(dir, null)).toThrow(GatewayError)
+  })
+
+  test("failed native persistence never writes a reference that would lose the credential", () => {
+    const dir = tempDir()
+    const broken = { ...native(), write: () => { throw new GatewayError("INTERNAL", "native unavailable") } }
+    expect(() => saveConfig(dir, config(), broken)).toThrow(GatewayError)
+    expect(tryLoadConfig(dir, null)).toBeNull()
+  })
+
+  test("revoke-local removes the native entry before the metadata file", () => {
+    const dir = tempDir()
+    const store = native()
+    saveConfig(dir, config(), store)
+    expect(store.values.has(config().deviceId)).toBe(true)
+    expect(deleteConfig(dir, store)).toBe(true)
+    expect(store.values.has(config().deviceId)).toBe(false)
+    expect(tryLoadConfig(dir, null)).toBeNull()
   })
 })

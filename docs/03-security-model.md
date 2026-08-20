@@ -71,3 +71,12 @@ Safe actions should be explicit, narrow tool calls.
 ## Defense in depth
 
 A compromised gateway policy should not automatically imply unlimited local execution. The local agent maintains its own capability allowlist.
+
+### Agent credential storage by platform
+
+The agent separates secret device credentials from non-secret device metadata when a safe native store is available:
+
+- Linux desktop sessions use Secret Service through `secret-tool`; the credential is supplied on stdin and the config file stores only an opaque `os:connectors-agent:v1` reference.
+- Headless Linux keeps the existing owner-only `0700` directory / `0600` file fallback because a Secret Service session is normally absent.
+- macOS and Windows currently keep that owner-only fallback. The common `security`/PowerShell CLI approaches would expose a credential in process arguments or require an interactive prompt, so the agent does not claim native protection until a direct Keychain/DPAPI binding is available.
+- Migration is write-native-first: plaintext is removed from the file only after native persistence succeeds. A config containing an OS-store reference fails closed if that store later becomes unavailable.
