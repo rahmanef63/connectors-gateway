@@ -73,7 +73,7 @@ const BLOCKED: Array<[string, string]> = [
   ["a bare root label", "https://./mcp"],
   ["relative, not absolute", "/mcp"],
   ["empty", ""],
-  ["over-long", `https://example.convex.site/${"a".repeat(2100)}`],
+  ["over-long", `https://public-mcp.example.net/${"a".repeat(2100)}`],
 ]
 
 describe("assertUpstreamUrl — blocked", () => {
@@ -107,8 +107,8 @@ describe("assertUpstreamUrl — blocked", () => {
 
 describe("assertUpstreamUrl — accepted", () => {
   test("accepts a legitimate Convex MCP endpoint unchanged", () => {
-    expect(assertUpstreamUrl("https://example.convex.site/mcp")).toBe(
-      "https://example.convex.site/mcp",
+    expect(assertUpstreamUrl("https://public-mcp.example.net/mcp")).toBe(
+      "https://public-mcp.example.net/mcp",
     )
   })
 
@@ -119,33 +119,33 @@ describe("assertUpstreamUrl — accepted", () => {
       "https://11.0.0.1/mcp",
       "https://192.167.0.1/mcp",
       "https://[2001:db8::1]/mcp",
-      "https://example.convex.site:8443/mcp",
+      "https://public-mcp.example.net:8443/mcp",
     ]) {
       expect(codeOf(value)).toBeNull()
     }
   })
 
   test("normalises to origin + path so one endpoint cannot be spelled twice", () => {
-    const canonical = "https://example.convex.site/mcp"
+    const canonical = "https://public-mcp.example.net/mcp"
     for (const spelling of [
-      "https://example.convex.site/mcp/",
-      "https://EXAMPLE.convex.site/mcp",
-      "https://example.convex.site:443/mcp",
-      "https://example.convex.site/mcp?token=abc#frag",
-      "  https://example.convex.site//mcp//  ",
+      "https://public-mcp.example.net/mcp/",
+      "https://PUBLIC-MCP.example.net/mcp",
+      "https://public-mcp.example.net:443/mcp",
+      "https://public-mcp.example.net/mcp?token=abc#frag",
+      "  https://public-mcp.example.net//mcp//  ",
       // The root label is dropped rather than merely tolerated, so the same
       // endpoint spelled with and without it cannot become two connection rows.
-      "https://example.convex.site./mcp",
-      "HTTPS://Example.Convex.Site.:443/mcp/",
+      "https://public-mcp.example.net./mcp",
+      "HTTPS://Public-Mcp.Example.Net.:443/mcp/",
     ]) {
       expect(assertUpstreamUrl(spelling)).toBe(canonical)
     }
-    expect(assertUpstreamUrl("https://example.convex.site/")).toBe("https://example.convex.site")
+    expect(assertUpstreamUrl("https://public-mcp.example.net/")).toBe("https://public-mcp.example.net")
   })
 
   test("an uppercase scheme is the same scheme", () => {
-    expect(assertUpstreamUrl("HTTPS://example.convex.site/mcp")).toBe(
-      "https://example.convex.site/mcp",
+    expect(assertUpstreamUrl("HTTPS://public-mcp.example.net/mcp")).toBe(
+      "https://public-mcp.example.net/mcp",
     )
     // …and uppercasing it is not a way to smuggle a forbidden one past the check.
     for (const value of ["HTTP://example.convex.site/mcp", "FILE:///etc/passwd"]) {

@@ -17,7 +17,7 @@ function toBase64(bytes: Uint8Array): string {
 /** Shape-valid `v1.<iv>.<cipher>`: 12-byte IV, 16-byte tag, both base64url. */
 const SEALED = `v1.${"A".repeat(16)}.${"B".repeat(24)}`
 const SEALED_TWO = `v1.${"C".repeat(16)}.${"D".repeat(32)}`
-const BASE_URL = "https://example.convex.site/mcp"
+const BASE_URL = "https://public-mcp.example.net/mcp"
 
 async function connectionRows(t: TestClient): Promise<
   Array<{ ownerId: string; connectorId: string; baseUrl: string; tokenCipher: string }>
@@ -74,7 +74,7 @@ describe("features/connections/mutations:upsert", () => {
     const userId = await createUser(t)
     await asUser(t, userId).mutation(api.features.connections.mutations.upsert, {
       connectorId: "careerpack",
-      baseUrl: "https://EXAMPLE.convex.site/mcp/?token=abc#frag",
+      baseUrl: "https://PUBLIC-MCP.example.net/mcp/?token=abc#frag",
       tokenCipher: SEALED,
       authType: "bearer",
     })
