@@ -11,3 +11,9 @@ The generic remote-MCP adapter now prefers the standard Streamable HTTP lifecycl
 SSE responses are bounded and parsed as event streams: notification/progress events are ignored until the JSON-RPC response matching the request id arrives. Plain JSON remains supported. A reviewed legacy server that explicitly does not implement `initialize` (HTTP 404/405 or JSON-RPC `-32601`) falls back to the historical direct `tools/call` path.
 
 Transient transport failures are retried at most once only when the manifest marks the action read-only or idempotent. Non-idempotent writes are never replayed automatically because a network failure can happen after the upstream already performed the operation.
+
+## Reliability budget and circuit breaker
+
+Remote calls use the executor's single AbortSignal as the complete action budget. A safe retry therefore consumes the original deadline rather than creating a second timeout window. Only manifest-declared read-only or idempotent actions may retry, once, and without a sleep that could consume the remaining budget.
+
+Each connector/upstream origin has an in-process circuit breaker. Three consecutive transient transport/502/503/504 failures open it for 30 seconds; after that exactly one half-open probe is admitted. A successful response or a non-transient application/auth response closes the breaker because it proves transport reachability. Diagnostics expose the connector id, breaker state, failure count, and an irreversible short upstream reference only — never URL, host, token, response body, or tenant identity.

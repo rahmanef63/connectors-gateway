@@ -19,6 +19,13 @@ import {
   MAX_RESPONSE_BYTES,
 } from "./mcp-client"
 import { resolveUpstreamTool } from "./upstream"
+import {
+  assertCircuitAllows,
+  recordCircuitNonTransientOutcome,
+  recordCircuitSuccess,
+  recordCircuitTransientFailure,
+  upstreamCircuitKey,
+} from "./reliability"
 
 /** Build the adapter that executes `manifest`. Data in, behaviour out. */
 export function createRemoteMcpAdapter(manifest: ConnectorManifest): CloudAdapter {
@@ -56,13 +63,32 @@ export function createRemoteMcpAdapter(manifest: ConnectorManifest): CloudAdapte
           : MAX_RESPONSE_BYTES
       const action = manifest.actions.find((entry) => entry.id === actionId)
       const retrySafe = action?.annotations.readOnly === true || action?.annotations.idempotent === true
+      const circuitKey = upstreamCircuitKey(manifest.id, baseUrl)
+      assertCircuitAllows(manifest.id, circuitKey)
       let output: unknown
       try {
         output = await callTool(baseUrl, token, tool, args, context.signal, cred, maxResponseBytes)
-      } catch (cause) {
-        if (!retrySafe || !isRetryableRemoteMcpError(cause) || context.signal.aborted) throw cause
-        output = await callTool(baseUrl, token, tool, args, context.signal, cred, maxResponseBytes)
+      } catch (first) {
+        const transient = isRetryableRemoteMcpError(first)
+        if (!transient) {
+          recordCircuitNonTransientOutcome(manifest.id, circuitKey)
+          throw first
+        }
+        if (!retrySafe || context.signal.aborted) {
+          recordCircuitTransientFailure(manifest.id, circuitKey)
+          throw first
+        }
+        try {
+          // No sleep: both attempts consume the SAME caller deadline. The retry
+          // can never extend the execution budget configured by the executor.
+          output = await callTool(baseUrl, token, tool, args, context.signal, cred, maxResponseBytes)
+        } catch (second) {
+          if (isRetryableRemoteMcpError(second)) recordCircuitTransientFailure(manifest.id, circuitKey)
+          else recordCircuitNonTransientOutcome(manifest.id, circuitKey)
+          throw second
+        }
       }
+      recordCircuitSuccess(manifest.id, circuitKey)
       // Invariant 5 (AGENTS.md): a connector credential must never reach tool output,
       // not even when the upstream server echoes the Authorization header back at us.
       if (JSON.stringify(output ?? null).includes(token)) {
