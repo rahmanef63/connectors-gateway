@@ -28,7 +28,12 @@ export type GatewayConfig = {
   convexUrl: string
   /** Proves "this caller is the gateway process" to Convex. Never logged. */
   serviceToken: string
-  signing: { privateKey: string; publicKey: string; keyId: string }
+  signing: {
+    privateKey: string
+    publicKey: string
+    keyId: string
+    previous?: { privateKey: string; publicKey: string; keyId: string }
+  }
   /** AES-256-GCM key for connection credentials at rest. */
   credentialEncryptionKey: string
 }
@@ -123,6 +128,17 @@ export function loadConfig(source: EnvSource = process.env): GatewayConfig {
 
   const privateKey = requireSecret(source, "JOB_SIGNING_PRIVATE_KEY", KEYGEN)
   const publicKey = requireSecret(source, "JOB_SIGNING_PUBLIC_KEY", KEYGEN)
+  const previousPrivateKey = read(source, "JOB_SIGNING_PREVIOUS_PRIVATE_KEY")
+  const previousPublicKey = read(source, "JOB_SIGNING_PREVIOUS_PUBLIC_KEY")
+  const previousKeyId = read(source, "JOB_SIGNING_PREVIOUS_KEY_ID")
+  const previousParts = [previousPrivateKey, previousPublicKey, previousKeyId].filter(Boolean).length
+  if (previousParts !== 0 && previousParts !== 3) {
+    fail("JOB_SIGNING_PREVIOUS_PRIVATE_KEY, JOB_SIGNING_PREVIOUS_PUBLIC_KEY, and JOB_SIGNING_PREVIOUS_KEY_ID must be configured together.")
+  }
+  const keyId = read(source, "JOB_SIGNING_KEY_ID") || DEFAULT_KEY_ID
+  if (previousParts === 3 && previousKeyId === keyId) {
+    fail("JOB_SIGNING_PREVIOUS_KEY_ID must differ from JOB_SIGNING_KEY_ID.")
+  }
 
   return {
     env,
@@ -142,7 +158,14 @@ export function loadConfig(source: EnvSource = process.env): GatewayConfig {
     ),
     convexUrl: parseConvexUrl(require_(source, "CONVEX_URL"), env),
     serviceToken,
-    signing: { privateKey, publicKey, keyId: read(source, "JOB_SIGNING_KEY_ID") || DEFAULT_KEY_ID },
+    signing: {
+      privateKey,
+      publicKey,
+      keyId,
+      ...(previousParts === 3
+        ? { previous: { privateKey: previousPrivateKey, publicKey: previousPublicKey, keyId: previousKeyId } }
+        : {}),
+    },
     credentialEncryptionKey: requireSecret(source, "CREDENTIAL_ENCRYPTION_KEY", KEYGEN),
   }
 }

@@ -9,7 +9,7 @@
 import { GatewayError, PRESENCE_REFRESH_MS, newId } from "@cg/core"
 import type { Logger } from "@cg/observability"
 import { CLOSE_CODES, HEARTBEAT_INTERVAL_MS, HEARTBEAT_TIMEOUT_MS, PROTOCOL_VERSION, parseAgentMessage } from "@cg/protocol"
-import type { AgentMessage } from "@cg/protocol"
+import type { AgentMessage, SignedKeyRotation } from "@cg/protocol"
 import type { WebSocketHandler } from "bun"
 import type { GatewayDeviceStore } from "../store/devices"
 import { createDispatcher } from "./dispatch"
@@ -26,6 +26,7 @@ export type RelayDeps = {
   /** base64 SPKI, handed to the agent so it can verify job signatures. */
   signingPublicKey: string
   keyId: string
+  keyRotation?: SignedKeyRotation
   now?: () => number
 }
 
@@ -84,6 +85,7 @@ export function createRelay(deps: RelayDeps): Relay {
       protocolVersion: PROTOCOL_VERSION,
       signingPublicKey: deps.signingPublicKey,
       keyId: deps.keyId,
+      ...(deps.keyRotation === undefined ? {} : { keyRotation: deps.keyRotation }),
     })
     deps.logger.info("device online", { deviceId, capabilities: outcome.capabilities.length })
   }

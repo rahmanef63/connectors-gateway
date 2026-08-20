@@ -12,8 +12,8 @@
  * watching), then a signed key-rotation announcement.
  */
 import { GatewayError } from "@cg/core"
-import { importPublicKey, verifyJob } from "@cg/protocol"
-import type { JobEnvelope, SignedJob } from "@cg/protocol"
+import { importPublicKey, verifyJob, verifyKeyRotation } from "@cg/protocol"
+import type { JobEnvelope, SignedJob, SignedKeyRotation } from "@cg/protocol"
 import type { Logger } from "./log"
 
 export type JobVerifier = (signed: SignedJob) => Promise<JobEnvelope>
@@ -30,12 +30,12 @@ export async function createJobVerifier(key: PinnedKey): Promise<JobVerifier> {
   return (signed: SignedJob) => verifyJob(signed, { publicKey, keyId })
 }
 
-export type TrustOutcome = "adopted" | "unchanged" | "conflict"
+export type TrustOutcome = "adopted" | "unchanged" | "rotated" | "conflict"
 
 export type KeyStore = {
   /** Rejects every job until a key is pinned. */
   verify: JobVerifier
-  trust(key: PinnedKey): Promise<TrustOutcome>
+  trust(key: PinnedKey, rotation?: SignedKeyRotation): Promise<TrustOutcome>
   pinned(): PinnedKey | undefined
 }
 
@@ -63,10 +63,22 @@ export function createKeyStore(options: KeyStoreOptions = {}): KeyStore {
       return (await verifierFor(pinned))(signed)
     },
 
-    async trust(key: PinnedKey): Promise<TrustOutcome> {
+    async trust(key: PinnedKey, rotation?: SignedKeyRotation): Promise<TrustOutcome> {
       if (pinned !== undefined) {
-        const rotated = key.keyId !== pinned.keyId || key.signingPublicKey !== pinned.signingPublicKey
-        return rotated ? "conflict" : "unchanged"
+        const changed = key.keyId !== pinned.keyId || key.signingPublicKey !== pinned.signingPublicKey
+        if (!changed) return "unchanged"
+        if (rotation === undefined) return "conflict"
+        const previousPublicKey = await importPublicKey(pinned.signingPublicKey)
+        const statement = await verifyKeyRotation(rotation, previousPublicKey)
+        if (
+          statement.previousKeyId !== pinned.keyId ||
+          statement.nextKeyId !== key.keyId ||
+          statement.nextPublicKey !== key.signingPublicKey
+        ) return "conflict"
+        verifier = await createJobVerifier(key)
+        pinned = { signingPublicKey: key.signingPublicKey, keyId: key.keyId }
+        options.persist?.(pinned)
+        return "rotated"
       }
       // Importing first means a malformed key is rejected before it is stored.
       verifier = await createJobVerifier(key)
@@ -86,12 +98,13 @@ export function createKeyStore(options: KeyStoreOptions = {}): KeyStore {
 export function createKeyTruster(
   keys: KeyStore | undefined,
   logger: Logger,
-): (key: PinnedKey) => Promise<void> {
-  return async (key: PinnedKey): Promise<void> => {
+): (key: PinnedKey, rotation?: SignedKeyRotation) => Promise<void> {
+  return async (key: PinnedKey, rotation?: SignedKeyRotation): Promise<void> => {
     if (keys === undefined) return
     try {
-      const outcome = await keys.trust(key)
+      const outcome = await keys.trust(key, rotation)
       if (outcome === "adopted") logger.info("pinned the gateway job-signing key")
+      if (outcome === "rotated") logger.info("accepted a signed gateway job-signing key rotation")
       // A conflict is never adopted: jobs signed with the new key fail
       // NOT_AUTHORIZED until the user re-pairs deliberately.
       if (outcome === "conflict") logger.warn("the gateway announced a different job-signing key. Run: agent pair")

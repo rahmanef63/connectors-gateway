@@ -160,6 +160,35 @@ describe("parseGatewayMessage", () => {
     expect(codeOf(() => parseGatewayMessage("x".repeat(MAX_FRAME_BYTES + 1)))).toBe("INVALID_INPUT")
   })
 
+  test("accepts a well-shaped optional signed key-rotation proof on welcome", () => {
+    const message = parseGatewayMessage(JSON.stringify({
+      type: "welcome",
+      deviceId: "dev_1",
+      protocolVersion: "1",
+      signingPublicKey: "cHVi",
+      keyId: "key_2",
+      keyRotation: {
+        previousKeyId: "key_1",
+        nextKeyId: "key_2",
+        nextPublicKey: "cHVi",
+        signature: "signed_rotation_proof",
+      },
+    }))
+    expect(message.type).toBe("welcome")
+    if (message.type === "welcome") expect(message.keyRotation?.previousKeyId).toBe("key_1")
+  })
+
+  test("rejects a partial optional key-rotation proof at the wire boundary", () => {
+    expect(() => parseGatewayMessage(JSON.stringify({
+      type: "welcome",
+      deviceId: "dev_1",
+      protocolVersion: "1",
+      signingPublicKey: "cHVi",
+      keyId: "key_2",
+      keyRotation: { previousKeyId: "key_1", nextKeyId: "key_2" },
+    }))).toThrow()
+  })
+
   test("rejects malformed welcome, cancel, revoked and error frames", () => {
     rejects(parseGatewayMessage, [
       { type: "welcome", deviceId: "dev_1", protocolVersion: "1", signingPublicKey: "cHVi" },

@@ -64,12 +64,14 @@ function build(
   result: DeviceAuthResult,
   presence: Presence[] = [],
   store: Partial<GatewayDeviceStore> = {},
+  keyRotation?: { previousKeyId: string; nextKeyId: string; nextPublicKey: string; signature: string },
 ): Relay {
   relay = createRelay({
     devices: deviceStore(result, presence, store),
     logger: silentLogger,
     signingPublicKey: "cHVibGlj",
     keyId: "k1",
+    ...(keyRotation === undefined ? {} : { keyRotation }),
   })
   return relay
 }
@@ -124,6 +126,22 @@ describe("relay websocket handlers", () => {
     expect(welcome.signingPublicKey).toBe("cHVibGlj")
     // The device credential is never echoed back.
     expect(sent.join("")).not.toContain("abcdefabcdef")
+  })
+
+  test("welcome can carry a signed rotation proof without changing legacy fields", async () => {
+    const proof = {
+      previousKeyId: "k0",
+      nextKeyId: "k1",
+      nextPublicKey: "cHVibGlj",
+      signature: "rotation_signature",
+    }
+    const instance = build({ ok: true, device: makeDevice() }, [], {}, proof)
+    const { socket, sent } = fakeSocket(instance.newState())
+    await instance.websocket.message?.(socket, HELLO)
+    const welcome = JSON.parse(sent[0] ?? "{}") as Record<string, unknown>
+    expect(welcome["keyId"]).toBe("k1")
+    expect(welcome["signingPublicKey"]).toBe("cHVibGlj")
+    expect(welcome["keyRotation"]).toEqual(proof)
   })
 
   test("a revoked device is closed with 4003 and never registered", async () => {
@@ -266,4 +284,6 @@ describe("relay websocket handlers", () => {
     expect(closed).toHaveLength(0)
     expect(JSON.parse(sent[1] ?? "{}")).toMatchObject({ type: "error", code: "INVALID_INPUT" })
   })
+
+
 })

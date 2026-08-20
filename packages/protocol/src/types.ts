@@ -3,6 +3,7 @@
  * Deliberately connector-agnostic: nothing Blender-specific belongs here.
  */
 import type { CapabilityReport, DevicePlatform, ErrorCode, ResultFile } from "@cg/core"
+import type { SignedKeyRotation } from "./key-rotation"
 
 export const PROTOCOL_VERSION = "1"
 
@@ -58,7 +59,7 @@ export type AgentMessage =
 
 /** gateway → agent */
 export type GatewayMessage =
-  | { type: "welcome"; deviceId: string; protocolVersion: string; signingPublicKey: string; keyId: string }
+  | { type: "welcome"; deviceId: string; protocolVersion: string; signingPublicKey: string; keyId: string; keyRotation?: SignedKeyRotation }
   | { type: "job"; job: SignedJob }
   | { type: "cancel"; jobId: string }
   | { type: "revoked"; reason: string }

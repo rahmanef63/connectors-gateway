@@ -7,7 +7,7 @@
  * the session down (AGENTS.md P0).
  */
 import { parseGatewayMessage, PROTOCOL_VERSION } from "@cg/protocol"
-import type { AgentMessage, GatewayMessage } from "@cg/protocol"
+import type { AgentMessage, GatewayMessage, SignedKeyRotation } from "@cg/protocol"
 import { resultFrame } from "./frames"
 import type { JobRunner } from "./jobs"
 import type { Logger } from "./log"
@@ -24,7 +24,7 @@ export type InboundDeps = {
   /** Called for a condition that re-pairing, not retrying, fixes. */
   stop(): void
   /** Pins the announced signing key, or refuses it. Never throws. */
-  trustKey(key: PinnedKey): Promise<void>
+  trustKey(key: PinnedKey, rotation?: SignedKeyRotation): Promise<void>
   /** Called when the gateway accepts us: the session is fully established. */
   onOnline(): void
 }
@@ -89,7 +89,7 @@ async function handleWelcome(
     deps.stop()
     return
   }
-  await deps.trustKey({ signingPublicKey: message.signingPublicKey, keyId: message.keyId })
+  await deps.trustKey({ signingPublicKey: message.signingPublicKey, keyId: message.keyId }, message.keyRotation)
   // Online either way: a refused key does not break presence, it breaks jobs,
   // and each one then fails with its own NOT_AUTHORIZED result.
   deps.onOnline()

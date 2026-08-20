@@ -108,4 +108,25 @@ describe("loadConfig — production", () => {
       expect(String((error as Error).message)).not.toContain("sk-live")
     }
   })
+
+  test("signing-key rotation overlap is optional and complete triples are preserved", () => {
+    expect(loadConfig(BASE).signing.previous).toBeUndefined()
+    expect(loadConfig({
+      ...BASE,
+      JOB_SIGNING_PREVIOUS_PRIVATE_KEY: "old-private",
+      JOB_SIGNING_PREVIOUS_PUBLIC_KEY: "old-public",
+      JOB_SIGNING_PREVIOUS_KEY_ID: "k0",
+    }).signing.previous).toEqual({ privateKey: "old-private", publicKey: "old-public", keyId: "k0" })
+  })
+
+  test("signing-key rotation overlap fails closed on partial or same-id configuration", () => {
+    expect(() => loadConfig({ ...BASE, JOB_SIGNING_PREVIOUS_PRIVATE_KEY: "old-private" })).toThrow("configured together")
+    expect(() => loadConfig({
+      ...BASE,
+      JOB_SIGNING_PREVIOUS_PRIVATE_KEY: "old-private",
+      JOB_SIGNING_PREVIOUS_PUBLIC_KEY: "old-public",
+      JOB_SIGNING_PREVIOUS_KEY_ID: "k1",
+    })).toThrow("must differ")
+  })
+
 })

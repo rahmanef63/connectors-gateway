@@ -10,7 +10,7 @@ import { createCloudExecutor, createLocalExecutor, createRouter } from "@cg/exec
 import type { CloudAdapter } from "@cg/executor"
 import { createLogger } from "@cg/observability"
 import type { Logger } from "@cg/observability"
-import { importPrivateKey, signJob } from "@cg/protocol"
+import { importPrivateKey, importPublicKey, signJob, signKeyRotation, verifyKeyRotation } from "@cg/protocol"
 import type { JobEnvelope } from "@cg/protocol"
 import { createRegistry } from "@cg/registry"
 import type { GatewayConfig } from "./config"
@@ -66,6 +66,21 @@ export type GatewayApp = {
   stop(): Promise<void>
 }
 
+async function createRotationProof(
+  previous: { privateKey: string; publicKey: string; keyId: string },
+  next: { publicKey: string; keyId: string },
+) {
+  const previousPrivateKey = await importPrivateKey(previous.privateKey)
+  const previousPublicKey = await importPublicKey(previous.publicKey)
+  const proof = await signKeyRotation(
+    { previousKeyId: previous.keyId, nextKeyId: next.keyId, nextPublicKey: next.publicKey },
+    previousPrivateKey,
+  )
+  // Fail at boot if the configured previous halves do not form one keypair.
+  await verifyKeyRotation(proof, previousPublicKey)
+  return proof
+}
+
 export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
   const logger = createLogger("gateway")
   const controlPlane = createConvexControlPlane({
@@ -78,7 +93,13 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
   // Boot-time gate: a manifest that fails its own contract stops the process.
   const registry = createRegistry([...REMOTE_MCP_MANIFESTS, blenderManifest])
   const signingPrivateKey = await importPrivateKey(config.signing.privateKey)
+  // Validate the public half too. A typo here would otherwise boot successfully,
+  // announce an unusable trust anchor, and make every newly paired agent reject jobs.
+  await importPublicKey(config.signing.publicKey)
   const keyId = config.signing.keyId
+  const keyRotation = config.signing.previous === undefined
+    ? undefined
+    : await createRotationProof(config.signing.previous, { keyId, publicKey: config.signing.publicKey })
 
   // This is the deployment topology gate, not a best-effort heartbeat. A second
   // process must fail before it creates a relay or starts listening.
@@ -90,6 +111,7 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
     logger: logger.child({ scope: "relay" }),
     signingPublicKey: config.signing.publicKey,
       keyId,
+      ...(keyRotation === undefined ? {} : { keyRotation }),
     })
     relayToStop = relay
 

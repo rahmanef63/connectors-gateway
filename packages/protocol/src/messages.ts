@@ -6,6 +6,7 @@ import { DEVICE_PLATFORMS, ERROR_CODES } from "@cg/core"
 import { parseAgentResult, parseCapabilityReports } from "./agent-frames"
 import { asId, asOneOf, asRecord, asString, invalid } from "./guards"
 import { parseSignedJob } from "./job-guards"
+import { verifyKeyRotationShape } from "./rotation-guard"
 import type { AgentMessage, GatewayMessage } from "./types"
 
 /**
@@ -51,6 +52,7 @@ export function parseGatewayMessage(raw: string): GatewayMessage {
       asId(frame.protocolVersion, "The protocol version")
       asId(frame.signingPublicKey, "The signing public key")
       asId(frame.keyId, "The signing key id")
+      if (frame.keyRotation !== undefined) verifyKeyRotationShape(frame.keyRotation)
       return frame as unknown as GatewayMessage
     case "job":
       parseSignedJob(frame.job)

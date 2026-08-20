@@ -152,3 +152,25 @@ its lease and credential generation. Relay socket routing, rate limits, presence
 the local agent replay cache are still single-process boundaries; do not raise the gateway
 replica count until those four state stores are made shared or a singleton deployment lease is
 enforced.
+
+### Rotating the gateway job-signing key without re-pairing agents
+
+Job-signing key rotation uses an overlap window. The new gateway key remains the
+normal `JOB_SIGNING_*` triple. During the migration window, configure the OLD
+key as the complete `JOB_SIGNING_PREVIOUS_*` triple:
+
+- `JOB_SIGNING_PREVIOUS_PRIVATE_KEY`
+- `JOB_SIGNING_PREVIOUS_PUBLIC_KEY`
+- `JOB_SIGNING_PREVIOUS_KEY_ID`
+
+At boot, the gateway signs a statement authorizing the new public key with the
+old private key, verifies that proof against the configured old public key, and
+includes the proof in `welcome`. An agent that already pins the old key accepts
+and persists the successor only after verifying that signature. A forged,
+tampered, mismatched, or replayed proof cannot replace its current pin.
+
+Keep the previous triple configured for the intended grace period so agents
+that were offline during the deployment can migrate when they reconnect. Once
+the fleet has advanced to the new key, remove all three previous-key variables
+together. Agents that miss the entire overlap window intentionally fail closed
+and must be paired again rather than silently trusting an unrelated key.
