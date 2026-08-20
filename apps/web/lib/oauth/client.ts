@@ -2,11 +2,9 @@
  * The two POSTs of an authorization-code flow: registering a client when the
  * server offers it (RFC 7591), and redeeming the code for a token.
  *
- * No refresh handling yet. ponytail: the connectors in the catalog issue
- * long-lived tokens (CareerPack's are a year), so a refresh loop would be code
- * with nothing to exercise it. Add it when a connector returns `expires_in`
- * short enough to matter — the place to hang it is `refresh_token` from the
- * exchange below, which is currently read and dropped on purpose.
+ * Token responses preserve expiry and refresh-token material for the sealed
+ * connection record. The browser never sees either token; the gateway later
+ * renews an expiring credential under a control-plane lease.
  */
 import { toBase64Url } from "@cg/auth"
 
@@ -31,14 +29,20 @@ async function postJson(
       method: "POST",
       headers: { "content-type": contentType, accept: "application/json" },
       body,
-      redirect: "follow",
+      // A token POST must not carry a client secret or authorization code to a
+      // destination selected by an upstream redirect.
+      redirect: "manual",
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: "no-store",
     })
   } catch {
     throw new OAuthExchangeError("network_error")
   }
-  const text = (await response.text()).slice(0, MAX_BYTES)
+  if (response.status >= 300 && response.status < 400) {
+    throw new OAuthExchangeError("redirect_refused")
+  }
+
+  const text = await readBoundedText(response)
   let parsed: unknown
   try {
     parsed = JSON.parse(text)
@@ -53,6 +57,42 @@ async function postJson(
     throw new OAuthExchangeError(error, description)
   }
   return document
+}
+
+async function readBoundedText(response: Response): Promise<string> {
+  const declared = Number(response.headers.get("content-length"))
+  if (Number.isFinite(declared) && declared > MAX_BYTES) {
+    throw new OAuthExchangeError("invalid_response")
+  }
+  if (response.body === null) return ""
+
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value === undefined) continue
+      total += value.byteLength
+      if (total > MAX_BYTES) {
+        void reader.cancel().catch(() => {})
+        throw new OAuthExchangeError("invalid_response")
+      }
+      chunks.push(value)
+    }
+  } catch (error) {
+    if (error instanceof OAuthExchangeError) throw error
+    throw new OAuthExchangeError("network_error")
+  }
+
+  const joined = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    joined.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return new TextDecoder().decode(joined)
 }
 
 export type RegisteredClient = { readonly clientId: string; readonly clientSecret: string | null }
@@ -189,8 +229,19 @@ export type ExchangeParams = {
   readonly resource: string
 }
 
-/** The access token, and the expiry the caller may want to record later. */
-export type TokenResponse = { readonly accessToken: string; readonly expiresIn: number | null }
+/** Secrets and lifetime returned by a token endpoint. Never sent to the browser. */
+export type TokenResponse = {
+  readonly accessToken: string
+  readonly expiresIn: number | null
+  readonly refreshToken: string | null
+}
+
+/** Convert a valid relative lifetime to an absolute millisecond timestamp. */
+export function tokenExpiresAt(response: TokenResponse, now = Date.now()): number | null {
+  if (response.expiresIn === null) return null
+  const value = now + response.expiresIn * 1_000
+  return Number.isFinite(value) && value > now ? value : null
+}
 
 export async function exchangeCode(params: ExchangeParams): Promise<TokenResponse> {
   const body = new URLSearchParams({
@@ -220,5 +271,9 @@ function readToken(document: Record<string, unknown>): TokenResponse {
     throw new OAuthExchangeError("invalid_response", "no access_token")
   }
   const expires = document["expires_in"]
-  return { accessToken: token, expiresIn: typeof expires === "number" ? expires : null }
+  const expiresIn =
+    typeof expires === "number" && Number.isFinite(expires) && expires > 0 ? expires : null
+  const refresh = document["refresh_token"]
+  const refreshToken = typeof refresh === "string" && refresh.length > 0 ? refresh : null
+  return { accessToken: token, expiresIn, refreshToken }
 }

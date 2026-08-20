@@ -13,25 +13,20 @@ import { mutation } from "../../_generated/server"
 import { requireUser } from "../../_shared/auth"
 import { fail } from "../../_shared/errors"
 import { assertIdentifier } from "../../_shared/input"
+import { assertSealedEnvelope } from "../../_shared/sealed_envelope"
 import { MAX_CONNECTIONS_PER_CONNECTOR } from "../../_shared/limits"
 import { assertUpstreamUrl } from "../../_shared/upstream_url"
 import { authTypeValidator } from "../../_shared/validators"
 import type { Doc } from "../../_generated/dataModel"
 import type { MutationCtx } from "../../_generated/server"
 
-/**
- * `v1.<ivB64url>.<cipherB64url>` — the exact output of `@cg/auth` `seal`.
- * SHAPE ONLY: without the key nothing here can verify the tag, so this proves
- * "was produced by a sealer", never "decrypts to anything".
- */
-const SEALED_PATTERN = /^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22,}$/
-const MAX_TOKEN_CIPHER_LENGTH = 8192
-
 export const upsert = mutation({
   args: {
     connectorId: v.string(),
     baseUrl: v.string(),
     tokenCipher: v.string(),
+    tokenExpiresAt: v.optional(v.number()),
+    renewalCipher: v.optional(v.string()),
     authType: authTypeValidator,
   },
   returns: v.object({ connectionId: v.string() }),
@@ -41,6 +36,12 @@ export const upsert = mutation({
     // Validated before any read, so a rejected URL never touches the database.
     const baseUrl = assertUpstreamUrl(args.baseUrl)
     const tokenCipher = assertSealedEnvelope(args.tokenCipher)
+    const tokenExpiresAt = assertOptionalTimestamp(args.tokenExpiresAt)
+    const renewalCipher =
+      args.renewalCipher === undefined ? undefined : assertSealedEnvelope(args.renewalCipher)
+    if (renewalCipher !== undefined && tokenExpiresAt === undefined) {
+      fail("INVALID_INPUT", "A renewable credential must include its access-token expiry.")
+    }
 
     const existing = await ownedConnections(ctx, userId, connectorId)
     const current = existing[0]
@@ -51,6 +52,11 @@ export const upsert = mutation({
         authType: args.authType,
         baseUrl,
         tokenCipher,
+        tokenExpiresAt,
+        renewalCipher,
+        credentialVersion: (current.credentialVersion ?? 1) + 1,
+        refreshLeaseId: undefined,
+        refreshLeaseUntil: undefined,
         status: "active",
       })
       return { connectionId: current._id }
@@ -64,6 +70,9 @@ export const upsert = mutation({
       status: "active",
       baseUrl,
       tokenCipher,
+      credentialVersion: 1,
+      ...(tokenExpiresAt === undefined ? {} : { tokenExpiresAt }),
+      ...(renewalCipher === undefined ? {} : { renewalCipher }),
     })
     return { connectionId }
   },
@@ -103,10 +112,10 @@ async function ownedConnections(
     .take(MAX_CONNECTIONS_PER_CONNECTOR)
 }
 
-function assertSealedEnvelope(value: string): string {
-  if (value.length > MAX_TOKEN_CIPHER_LENGTH || !SEALED_PATTERN.test(value)) {
-    // No echo of the value: it is credential material even when malformed.
-    fail("INVALID_INPUT", "Credential is not a sealed envelope.")
+function assertOptionalTimestamp(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    fail("INVALID_INPUT", "Credential expiry is invalid.")
   }
   return value
 }

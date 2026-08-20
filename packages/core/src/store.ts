@@ -53,7 +53,8 @@ export interface PolicyStore {
 
 export interface ConnectionStore {
   listForUser(userId: string): Promise<Connection[]>
-  /** Decrypted credential for a cloud call. Never returned to a client. */
+  /** Gateway-internal credential for a cloud call. Its token may remain sealed
+   * until the executor opens it immediately before the adapter invocation. */
   resolveCredential(userId: string, connectorId: string): Promise<ConnectionCredential | null>
 }
 

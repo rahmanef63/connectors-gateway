@@ -35,6 +35,47 @@
       "pattern": "^https://",
       "maxLength": 2048
     },
+    "verification": {
+      "type": "object",
+      "required": [
+        "environment",
+        "resourceMetadata",
+        "authorizationServer",
+        "authorizationEndpoint",
+        "tokenEndpoint"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "environment": {
+          "const": "production"
+        },
+        "resourceMetadata": {
+          "type": "string",
+          "pattern": "^https://",
+          "maxLength": 2048
+        },
+        "authorizationServer": {
+          "type": "string",
+          "pattern": "^https://",
+          "maxLength": 2048
+        },
+        "authorizationEndpoint": {
+          "type": "string",
+          "pattern": "^https://",
+          "maxLength": 2048
+        },
+        "tokenEndpoint": {
+          "type": "string",
+          "pattern": "^https://",
+          "maxLength": 2048
+        },
+        "registrationEndpoint": {
+          "type": "string",
+          "pattern": "^https://",
+          "maxLength": 2048
+        }
+      }
+    },
     "auth": {
       "type": "object",
       "required": [

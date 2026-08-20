@@ -12,7 +12,6 @@ import {
   type PreloadedApiKeys,
 } from "@/components/api-keys"
 import { CopyField } from "@/components/copy-field"
-import { NotBuiltYet } from "@/components/not-built-yet"
 import { SectionCard } from "@/components/section-card"
 import {
   API_KEY_PLACEHOLDER,
@@ -94,10 +93,24 @@ export function SetupConsole({
         <CopyField label="Verify" value={verifyCommand(gatewayUrl, issued?.token)} />
       </SectionCard>
 
-      <NotBuiltYet
-        title="ChatGPT and Claude.ai cannot use a key"
-        blockedOn="Their connector forms have no field for one — a consumer AI host will only attach to an MCP server it can complete an OAuth flow against. That makes this gateway an OAuth provider, which is a different job from the OAuth client it needs for GitHub or Notion, and neither exists yet. Until then, use a host you configure with a file: Claude Code, Claude Desktop, Cursor, or mcp-remote."
-      />
+      <SectionCard
+        title="Connect ChatGPT or another OAuth-only host"
+        description="Use the same remote MCP endpoint without pasting an API key. The host discovers this gateway's OAuth server, sends you here to sign in and consent, then receives a scoped token."
+      >
+        <CopyField label="OAuth MCP endpoint" value={mcpEndpoint(gatewayUrl)} />
+        <ol className="list-decimal space-y-2 pl-5 text-sm leading-relaxed text-muted-foreground">
+          <li>Add the endpoint in the host&apos;s remote MCP or custom connector settings.</li>
+          <li>Choose read-only or read-and-write access when the consent screen opens.</li>
+          <li>Return to the host after authorization; no gateway key is copied or exposed.</li>
+        </ol>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          ChatGPT developer mode must register this endpoint before the repository can carry its
+          hosted app mapping. Keep <code className="font-mono text-foreground">plugin/.app.json</code>{" "}
+          absent until ChatGPT returns the real{" "}
+          <code className="font-mono text-foreground">plugin_asdk_app…</code> technical ID — a guessed
+          value would make the package look complete while remaining unusable.
+        </p>
+      </SectionCard>
     </>
   )
 }

@@ -20,11 +20,7 @@ import { requireUser } from "../../_shared/auth"
 import { fail } from "../../_shared/errors"
 import { assertDisplayName, assertIdentifier } from "../../_shared/input"
 import { apiKeyByKeyId } from "../../_shared/lookup"
-import {
-  API_KEY_ID_PREFIX,
-  MAX_ACTIVE_API_KEYS_PER_USER,
-  MAX_API_KEY_ROWS_SCANNED,
-} from "./limits"
+import { API_KEY_ID_PREFIX, MAX_ACTIVE_API_KEYS_PER_USER } from "./limits"
 
 export const issue = mutation({
   args: { label: v.string() },
@@ -96,20 +92,16 @@ function newKeyId(): string {
 }
 
 /**
- * The active-key cap. There is no `by_user_status` index, so the count comes
- * from a bounded scan of the newest rows; if that scan fills up we cannot prove
- * the user is under the cap, so we refuse. Fail closed — exceeding the cap
- * silently is worse than a very heavy user being told to revoke something.
- * TODO(rr): a `by_user_status` index would make this an exact, cheap count.
+ * Exact active-key cap. Revoked rows deliberately live forever so the gateway
+ * can distinguish "revoked" from "unknown"; the compound index keeps that
+ * audit history from making issuance slower or eventually blocking rotation.
  */
 async function assertUnderCap(ctx: MutationCtx, userId: string): Promise<void> {
-  const rows = await ctx.db
+  const active = await ctx.db
     .query("apiKeys")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .order("desc")
-    .take(MAX_API_KEY_ROWS_SCANNED)
-  const active = rows.filter((row) => row.status === "active").length
-  if (active >= MAX_ACTIVE_API_KEYS_PER_USER || rows.length >= MAX_API_KEY_ROWS_SCANNED) {
+    .withIndex("by_user_status", (q) => q.eq("userId", userId).eq("status", "active"))
+    .take(MAX_ACTIVE_API_KEYS_PER_USER)
+  if (active.length >= MAX_ACTIVE_API_KEYS_PER_USER) {
     fail("RATE_LIMITED", "Too many API keys. Revoke one before issuing another.")
   }
 }

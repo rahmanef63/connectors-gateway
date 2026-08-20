@@ -78,6 +78,22 @@ export type ConnectorAuth = {
   [key: string]: unknown
 }
 
+/**
+ * Expected OAuth discovery for a reviewed production endpoint.
+ *
+ * Runtime routing still uses `endpoint`; this block exists so CI can prove that
+ * a valid-looking URL has not drifted to a development deployment whose OAuth
+ * metadata points somewhere unusable. No credential belongs here.
+ */
+export type ConnectorEndpointVerification = {
+  environment: "production"
+  resourceMetadata: string
+  authorizationServer: string
+  authorizationEndpoint: string
+  tokenEndpoint: string
+  registrationEndpoint?: string
+}
+
 export type ConnectorManifest = {
   id: string
   name: string
@@ -92,6 +108,8 @@ export type ConnectorManifest = {
    * the same value is what OAuth discovery treats as the protected resource.
    */
   endpoint?: string
+  /** Machine-checked discovery expectations for a fixed production endpoint. */
+  verification?: ConnectorEndpointVerification
   auth: ConnectorAuth
   actions: ActionDefinition[]
 }

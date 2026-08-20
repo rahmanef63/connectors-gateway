@@ -69,6 +69,46 @@ export const REFS = {
   connectionsResolveCredential: query<WithToken<{ userId: string; connectorId: string }>>(
     "service/connections:resolveCredential",
   ),
+  connectionsBeginRefresh: mutation<
+    WithToken<{
+      userId: string
+      connectorId: string
+      connectionId: string
+      leaseId: string
+    }>
+  >("service/connections:beginRefresh"),
+  connectionsFinishRefresh: mutation<
+    WithToken<{
+      userId: string
+      connectorId: string
+      connectionId: string
+      expectedVersion: number
+      leaseId: string
+      tokenCipher: string
+      tokenExpiresAt?: number
+      renewalCipher: string
+    }>
+  >("service/connections:finishRefresh"),
+  connectionsAbortRefresh: mutation<
+    WithToken<{
+      userId: string
+      connectorId: string
+      connectionId: string
+      expectedVersion: number
+      leaseId: string
+      permanent: boolean
+    }>
+  >("service/connections:abortRefresh"),
+
+  gatewayLeaseAcquire: mutation<WithToken<{ holderId: string }>>(
+    "service/gateway_lease:acquire",
+  ),
+  gatewayLeaseRenew: mutation<WithToken<{ holderId: string }>>(
+    "service/gateway_lease:renew",
+  ),
+  gatewayLeaseRelease: mutation<WithToken<{ holderId: string }>>(
+    "service/gateway_lease:release",
+  ),
 
   auditAppend: mutation<WithToken<{ event: Record<string, unknown> }>>("service/audit:append"),
 

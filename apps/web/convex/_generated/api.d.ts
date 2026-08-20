@@ -23,6 +23,7 @@ import type * as _shared_lookup from "../_shared/lookup.js";
 import type * as _shared_pairing_record from "../_shared/pairing_record.js";
 import type * as _shared_policy_record from "../_shared/policy_record.js";
 import type * as _shared_redirect_uri from "../_shared/redirect_uri.js";
+import type * as _shared_sealed_envelope from "../_shared/sealed_envelope.js";
 import type * as _shared_upstream_url from "../_shared/upstream_url.js";
 import type * as _shared_validators from "../_shared/validators.js";
 import type * as auth from "../auth.js";
@@ -44,6 +45,7 @@ import type * as features_pairing_mutations from "../features/pairing/mutations.
 import type * as features_pairing_queries from "../features/pairing/queries.js";
 import type * as features_policy_mutations from "../features/policy/mutations.js";
 import type * as features_policy_queries from "../features/policy/queries.js";
+import type * as google_provider from "../google_provider.js";
 import type * as http from "../http.js";
 import type * as maintenance_oauth_sweep from "../maintenance/oauth_sweep.js";
 import type * as service_apiKeys from "../service/apiKeys.js";
@@ -51,6 +53,7 @@ import type * as service_approvals from "../service/approvals.js";
 import type * as service_audit from "../service/audit.js";
 import type * as service_connections from "../service/connections.js";
 import type * as service_devices from "../service/devices.js";
+import type * as service_gateway_lease from "../service/gateway_lease.js";
 import type * as service_oauth from "../service/oauth.js";
 import type * as service_pairing from "../service/pairing.js";
 import type * as service_policy from "../service/policy.js";
@@ -77,6 +80,7 @@ declare const fullApi: ApiFromModules<{
   "_shared/pairing_record": typeof _shared_pairing_record;
   "_shared/policy_record": typeof _shared_policy_record;
   "_shared/redirect_uri": typeof _shared_redirect_uri;
+  "_shared/sealed_envelope": typeof _shared_sealed_envelope;
   "_shared/upstream_url": typeof _shared_upstream_url;
   "_shared/validators": typeof _shared_validators;
   auth: typeof auth;
@@ -98,6 +102,7 @@ declare const fullApi: ApiFromModules<{
   "features/pairing/queries": typeof features_pairing_queries;
   "features/policy/mutations": typeof features_policy_mutations;
   "features/policy/queries": typeof features_policy_queries;
+  google_provider: typeof google_provider;
   http: typeof http;
   "maintenance/oauth_sweep": typeof maintenance_oauth_sweep;
   "service/apiKeys": typeof service_apiKeys;
@@ -105,6 +110,7 @@ declare const fullApi: ApiFromModules<{
   "service/audit": typeof service_audit;
   "service/connections": typeof service_connections;
   "service/devices": typeof service_devices;
+  "service/gateway_lease": typeof service_gateway_lease;
   "service/oauth": typeof service_oauth;
   "service/pairing": typeof service_pairing;
   "service/policy": typeof service_policy;

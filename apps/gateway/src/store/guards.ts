@@ -125,13 +125,75 @@ export function toConnections(value: unknown): Connection[] {
   return connections
 }
 
-/** `tokenCipher` stays ciphertext here — only @cg/auth's secret-box opens it. */
-export function toStoredCredential(
-  value: unknown,
-): { connectionId: string; baseUrl: string; tokenCipher: string } | null {
+export type StoredCredential = {
+  connectionId: string
+  baseUrl: string
+  tokenCipher: string
+  credentialVersion: number
+  tokenExpiresAt?: number
+  renewalCipher?: string
+}
+
+/** `*Cipher` fields stay ciphertext here — only @cg/auth's secret-box opens them. */
+export function toStoredCredential(value: unknown): StoredCredential | null {
   const row = asRecord(value)
   if (!row || !str(row.connectionId) || !str(row.baseUrl) || !str(row.tokenCipher)) return null
-  return { connectionId: row.connectionId, baseUrl: row.baseUrl, tokenCipher: row.tokenCipher }
+  const credentialVersion =
+    typeof row.credentialVersion === "number" &&
+    Number.isSafeInteger(row.credentialVersion) &&
+    row.credentialVersion > 0
+      ? row.credentialVersion
+      : 1
+  if (
+    row.tokenExpiresAt !== undefined &&
+    (typeof row.tokenExpiresAt !== "number" || !Number.isSafeInteger(row.tokenExpiresAt))
+  ) {
+    return null
+  }
+  if (row.renewalCipher !== undefined && !str(row.renewalCipher)) return null
+  if (row.renewalCipher !== undefined && row.tokenExpiresAt === undefined) return null
+
+  return {
+    connectionId: row.connectionId,
+    baseUrl: row.baseUrl,
+    tokenCipher: row.tokenCipher,
+    credentialVersion,
+    ...(typeof row.tokenExpiresAt === "number" ? { tokenExpiresAt: row.tokenExpiresAt } : {}),
+    ...(typeof row.renewalCipher === "string" ? { renewalCipher: row.renewalCipher } : {}),
+  }
+}
+
+export type RefreshDecision =
+  | { state: "ready"; credential: StoredCredential }
+  | { state: "refresh"; credential: StoredCredential }
+  | { state: "wait"; retryAfterMs: number }
+  | { state: "missing" }
+
+export function toRefreshDecision(value: unknown): RefreshDecision | null {
+  const row = asRecord(value)
+  if (!row || !str(row.state)) return null
+  if (row.state === "missing") return { state: "missing" }
+  if (row.state === "wait") {
+    if (
+      typeof row.retryAfterMs !== "number" ||
+      !Number.isFinite(row.retryAfterMs) ||
+      row.retryAfterMs <= 0 ||
+      row.retryAfterMs > 120_000
+    ) {
+      return null
+    }
+    return { state: "wait", retryAfterMs: row.retryAfterMs }
+  }
+  if (row.state === "ready" || row.state === "refresh") {
+    const credential = toStoredCredential(row.credential)
+    return credential === null ? null : { state: row.state, credential }
+  }
+  return null
+}
+
+export function toUpdateResult(value: unknown): boolean | null {
+  const row = asRecord(value)
+  return row !== null && typeof row.updated === "boolean" ? row.updated : null
 }
 
 export function toApiKeyRecord(value: unknown): ApiKeyRecord | null {

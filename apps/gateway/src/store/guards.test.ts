@@ -7,7 +7,9 @@ import {
   toDevices,
   toPairingChallenge,
   toPolicyRules,
+  toRefreshDecision,
   toStoredCredential,
+  toUpdateResult,
 } from "./guards"
 
 const DEVICE_ROW = {
@@ -108,12 +110,42 @@ describe("toConnections", () => {
   })
 })
 
-describe("toStoredCredential", () => {
-  test("requires the ciphertext field", () => {
-    expect(
-      toStoredCredential({ connectionId: "c1", baseUrl: "https://x", tokenCipher: "v1.a.b" }),
-    ).toMatchObject({ tokenCipher: "v1.a.b" })
+describe("connection refresh guards", () => {
+  const renewable = {
+    connectionId: "c1",
+    baseUrl: "https://x",
+    tokenCipher: "v1.a.b",
+    tokenExpiresAt: 1_700_000_000_000,
+    renewalCipher: "v1.c.d",
+    credentialVersion: 3,
+  }
+
+  test("requires ciphertext and validates renewable metadata as one row", () => {
+    expect(toStoredCredential(renewable)).toEqual(renewable)
     expect(toStoredCredential({ connectionId: "c1", baseUrl: "https://x", token: "plain" })).toBeNull()
+    expect(toStoredCredential({ ...renewable, tokenExpiresAt: "soon" })).toBeNull()
+    expect(toStoredCredential({ ...renewable, tokenExpiresAt: undefined })).toBeNull()
+  })
+
+  test("accepts only the four bounded refresh-decision variants", () => {
+    expect(toRefreshDecision({ state: "ready", credential: renewable })).toEqual({
+      state: "ready",
+      credential: renewable,
+    })
+    expect(toRefreshDecision({ state: "refresh", credential: renewable })?.state).toBe("refresh")
+    expect(toRefreshDecision({ state: "wait", retryAfterMs: 1_000 })).toEqual({
+      state: "wait",
+      retryAfterMs: 1_000,
+    })
+    expect(toRefreshDecision({ state: "missing" })).toEqual({ state: "missing" })
+    expect(toRefreshDecision({ state: "wait", retryAfterMs: 999_999 })).toBeNull()
+    expect(toRefreshDecision({ state: "ready", credential: { tokenCipher: "partial" } })).toBeNull()
+  })
+
+  test("commit responses are exact booleans, not truthy guesses", () => {
+    expect(toUpdateResult({ updated: true })).toBe(true)
+    expect(toUpdateResult({ updated: false })).toBe(false)
+    expect(toUpdateResult({ updated: 1 })).toBeNull()
   })
 })
 

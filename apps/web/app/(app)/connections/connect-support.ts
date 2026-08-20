@@ -5,7 +5,7 @@
  * functions — a shared type or a synchronous helper living there is a build
  * error, not a style choice.
  */
-import type { AuthType } from "@cg/core"
+import { encodeOAuthRenewal, type AuthType, type OAuthRenewal } from "@cg/core"
 import { fetchMutation, fetchQuery } from "convex/nextjs"
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server"
 
@@ -78,17 +78,29 @@ export function needsEndpoint(connectorId: string): boolean {
  * never returned to the browser, never logged, and Convex receives ciphertext
  * it has no key for.
  */
+export type ConnectionTokenOptions = {
+  /** Overrides `target.endpoint`; required when the manifest has none. */
+  readonly endpoint?: string
+  /** Absolute epoch milliseconds supplied by the upstream token response. */
+  readonly tokenExpiresAt?: number
+  /** Sealed as one document; Convex never sees its secrets. */
+  readonly renewal?: OAuthRenewal
+}
+
 export async function storeConnection(
   target: Connectable,
   plaintext: string,
   token: string,
-  /** Overrides `target.endpoint`; required when the manifest has none. */
-  endpoint?: string,
+  options: ConnectionTokenOptions = {},
 ): Promise<void> {
-  const baseUrl = endpoint ?? target.endpoint
+  const baseUrl = options.endpoint ?? target.endpoint
   if (baseUrl === null) {
     throw new Error("storeConnection called without an address")
   }
+  const renewalCipher =
+    options.renewal === undefined
+      ? undefined
+      : await sealCredential(encodeOAuthRenewal(options.renewal))
   await fetchMutation(
     api.features.connections.mutations.upsert,
     {
@@ -96,6 +108,8 @@ export async function storeConnection(
       baseUrl,
       tokenCipher: await sealCredential(plaintext),
       authType: target.authType,
+      ...(options.tokenExpiresAt === undefined ? {} : { tokenExpiresAt: options.tokenExpiresAt }),
+      ...(renewalCipher === undefined ? {} : { renewalCipher }),
     },
     { token },
   )

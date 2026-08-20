@@ -4,6 +4,14 @@
   "version": "0.1.0",
   "executor": "cloud",
   "endpoint": "https://proficient-dove-151.convex.site/mcp",
+  "verification": {
+    "environment": "production",
+    "resourceMetadata": "https://proficient-dove-151.convex.site/.well-known/oauth-protected-resource",
+    "authorizationServer": "https://proficient-dove-151.convex.site",
+    "authorizationEndpoint": "https://careerpack.org/oauth/authorize",
+    "tokenEndpoint": "https://careerpack.org/api/oauth/token",
+    "registrationEndpoint": "https://proficient-dove-151.convex.site/oauth/register"
+  },
   "auth": {
     "type": "bearer",
     "fields": [

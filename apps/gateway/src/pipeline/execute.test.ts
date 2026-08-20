@@ -216,6 +216,43 @@ describe("executeAction — allowed path", () => {
     expect(event?.errorCode).toBeUndefined()
   })
 
+  test("audits cloud attribution but never returns the connection id to the caller", async () => {
+    const executor = fakeExecutor({
+      status: "success",
+      output: { ok: true },
+      timingMs: 1,
+      connectionId: "conn_audit_1",
+    })
+    const { deps, result } = await run({ executor })
+
+    expect(deps.audit.events[0]?.connectionId).toBe("conn_audit_1")
+    expect("connectionId" in result).toBe(false)
+  })
+
+  test("audits local attribution but never returns the device id to the caller", async () => {
+    const executor = fakeExecutor({
+      status: "success",
+      output: { rendered: true },
+      timingMs: 1,
+      deviceId: "dev_audit_1",
+    })
+    const deps = await pipelineDeps({
+      executor,
+      devices: fakeDevices([makeDevice({ capabilities: ["testlocal:render"] })]),
+    })
+    const { token } = await testApiKey()
+    const result = await executeAction(deps, {
+      scope: scope(),
+      token,
+      connectorId: TEST_LOCAL_CONNECTOR,
+      actionId: "testlocal.render",
+      input: {},
+    })
+
+    expect(deps.audit.events[0]?.deviceId).toBe("dev_audit_1")
+    expect("deviceId" in result).toBe(false)
+  })
+
   test("a caller-supplied user_id is dropped before the executor sees it", async () => {
     const { deps } = await run({}, { user_id: "usr_attacker", workspaceId: "wrk_x", keep: "yes" })
     const input = deps.executor.requests[0]?.input as Record<string, unknown>

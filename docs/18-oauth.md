@@ -155,8 +155,8 @@ but they do not make an old service contract accept a new request shape.
 - Discovery documents are public, static, CORS-open, cacheable, and exempt from
   the shared edge limiter.
 - Registration and token endpoints have their own tighter OAuth limiter.
-- Expired codes and never-used clients are pruned by the bounded hourly OAuth
-  sweep; a client with `lastUsedAt` is retained.
+- Expired codes, never-used clients, and expired approval rows are pruned by one bounded
+  hourly maintenance pass; a client with `lastUsedAt` is retained.
 - Root runtime validation, the full Convex/web suite, and the production Next.js
   build run in CI.
 

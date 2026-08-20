@@ -105,15 +105,19 @@ export const request = mutation({
     }
 
     // A caller that can trigger REQUIRE_APPROVAL can trigger it in a loop, so
-    // the queue is bounded. Oldest pending rows go first: they are the ones the
-    // user has already declined to answer.
+    // make room BEFORE inserting. The `+ 1` handles a deployment that already
+    // drifted one row above the cap; `>=` is load-bearing because 100 existing
+    // rows plus one insert must still be 100, never 101.
     const pending = await ctx.db
       .query("approvals")
       .withIndex("by_owner_status", (q) => q.eq("ownerId", args.ownerId).eq("status", "pending"))
       .take(MAX_PENDING_APPROVALS_PER_OWNER + 1)
-    if (pending.length > MAX_PENDING_APPROVALS_PER_OWNER) {
-      const oldest = pending.sort((a, b) => a.requestedAt - b.requestedAt)[0]
-      if (oldest !== undefined) await ctx.db.delete(oldest._id)
+    const overflow = pending.length - MAX_PENDING_APPROVALS_PER_OWNER + 1
+    if (overflow > 0) {
+      const oldest = pending
+        .sort((a, b) => a.requestedAt - b.requestedAt)
+        .slice(0, overflow)
+      for (const row of oldest) await ctx.db.delete(row._id)
     }
 
     await ctx.db.insert("approvals", {

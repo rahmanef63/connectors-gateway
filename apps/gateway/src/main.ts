@@ -1,8 +1,10 @@
 /**
- * ONE Bun process serving HTTP (MCP + REST) and the device-relay WebSocket, so
- * dispatching a job to a paired device is an in-process function call rather
- * than a queue hop (docs/01, docs/12 "The relay can initially share the
- * gateway origin").
+ * ONE Bun process serving HTTP (MCP + REST) and the device-relay WebSocket.
+ *
+ * That topology is enforced by a Convex singleton lease before `Bun.serve`.
+ * The edge checks local lease validity on every request; loss also closes active
+ * connections and exits, so process-local sockets and rate buckets can never be
+ * split across two live production replicas.
  */
 import { createApp } from "./app"
 import { loadConfig } from "./config"
@@ -18,6 +20,8 @@ const server = Bun.serve({
   idleTimeout: 60,
 
   fetch(request, bunServer) {
+    if (!app.isPrimary()) return unavailable()
+
     const url = new URL(request.url)
     const clientKey = bunServer.requestIP(request)?.address ?? "unknown"
     if (url.pathname === DEVICE_PATH) {
@@ -44,12 +48,35 @@ app.logger.info("gateway listening", {
   connectors: app.deps.registry.list().length,
 })
 
-function shutdown(signal: string): void {
-  app.logger.info("shutting down", { signal })
-  app.stop()
-  void server.stop()
-  process.exit(0)
+let terminating = false
+
+async function terminate(reason: string, exitCode: number): Promise<void> {
+  if (terminating) return
+  terminating = true
+  app.logger.info("gateway process stopping", { reason, exitCode })
+
+  try {
+    // Stop accepting traffic and close existing WebSockets before releasing a
+    // voluntarily-held lease. On lease loss this also closes the stale relay.
+    await server.stop(true)
+  } catch {
+    app.logger.warn("gateway server close failed")
+  }
+  try {
+    await app.stop()
+  } catch {
+    app.logger.warn("gateway resource cleanup failed")
+  }
+  process.exit(exitCode)
 }
 
-process.on("SIGINT", () => shutdown("SIGINT"))
-process.on("SIGTERM", () => shutdown("SIGTERM"))
+void app.leaseLost.then((reason) => terminate(`lease_${reason}`, 1))
+process.on("SIGINT", () => void terminate("SIGINT", 0))
+process.on("SIGTERM", () => void terminate("SIGTERM", 0))
+
+function unavailable(): Response {
+  return new Response("Gateway is not the active primary.", {
+    status: 503,
+    headers: { "retry-after": "30" },
+  })
+}

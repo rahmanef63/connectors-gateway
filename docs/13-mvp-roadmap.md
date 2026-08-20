@@ -48,8 +48,9 @@ source (`profile_get`, `applications_create`) and live in each action's `x-upstr
 - [x] Presence / heartbeat.
 - [x] Signed job delivery.
 - [x] Timeout and cancellation.
-- [~] Remote revocation — a revoked device fails its next `hello` and can no longer be
-      selected for a job, but an already-open socket is not closed. See gap 1 below.
+- [x] Remote revocation — a revoked device fails its next `hello`, disappears from
+      dispatch immediately after relay revalidation, active jobs fail with `DEVICE_REVOKED`,
+      and the socket closes with code 4003. Revalidation runs every 30 seconds.
 - [x] Presence survives the gateway dying. `status: "online"` is a claim with an expiry,
       not a fact: the relay re-stamps `lastSeenAt` on a throttled heartbeat, and every
       reader treats a device as online only while that stamp is inside
@@ -93,20 +94,28 @@ have not been run against a real Blender install.
 - [x] Devices page.
 - [x] Connector permissions.
 - [x] Audit log.
-- [ ] Approval UI — the policy layer returns `REQUIRE_APPROVAL`, but no approval record is
-      persisted, so the action is refused at call time rather than queued. See gap 3.
+- [x] Approval UI — `REQUIRE_APPROVAL` creates one short-lived row keyed by connector,
+      action and canonicalised arguments. Approve/deny never executes the call; the next exact
+      retry atomically spends an approval once. The queue is capped and expired rows are swept.
 - [x] Setup page for AI clients.
+- [x] API-key issuance uses an indexed active-key cap; an arbitrarily long revoked-key
+      history remains queryable without blocking key rotation.
 
 ## Known gaps after wave 1
 
-1. **Revocation does not close a live socket.** The relay reads the control plane only at
-   connect time. The open session is inert — dispatch rejects with `DEVICE_REVOKED` and
-   presence updates are dropped — but `docs/04` is not literally satisfied. Needs a relay
-   sweep or a push channel.
-2. **Audit rows carry no `deviceId` / `connectionId`.** `ExecutionResult` does not carry
-   them back, so the pipeline cannot populate the optional fields `docs/10` allows.
-3. **No approval persistence.** `REQUIRE_APPROVAL` is evaluated and audited but never
-   queued, so there is nothing for an approvals screen to show.
+1. ~~**Revocation does not close a live socket.**~~ **Closed 2026-08-20.** The relay
+   revalidates connected device rows every 30 seconds. A missing/revoked row is removed from
+   the socket registry before close, all pending jobs fail as `DEVICE_REVOKED`, and the agent
+   receives close code 4003. Reads are reconnect-safe and a temporary control-plane error is
+   retried rather than disconnecting a healthy device.
+2. ~~**Audit rows carry no `deviceId` / `connectionId`.**~~ **Closed 2026-08-20.**
+   Executors return audit-only attribution after selecting a trusted connection or device. The
+   pipeline persists it, bounds the identifiers, and rebuilds the public result from an explicit
+   allowlist so neither identifier leaks through REST or MCP.
+3. ~~**No approval persistence.**~~ **Closed 2026-08-16; hardened 2026-08-20.** The gateway
+   queues an exact-call hash, the dashboard can approve or deny it, and the next matching call
+   consumes it atomically. A denial cannot be revived by retrying. The 100-row cap is enforced
+   before insertion, and expired rows are removed by bounded hourly maintenance.
 4. ~~**An MCP `tools/call` for a name outside the caller's catalog writes no audit row.**~~
    **Closed.** The refusal still happens before the execution pipeline — `tool-names.ts`
    ships no reverse function, so an invented name must not reach it — but the MCP handler
@@ -114,17 +123,21 @@ have not been run against a real Blender install.
    through `safeId`, and `executorKind: "none"`, a value a manifest cannot declare: the
    request never reached an executor, and writing `cloud` for it would be a lie in the one
    table that exists to be trusted.
-5. **No token refresh.** The exchange reads `expires_in` and drops `refresh_token`;
-   the connectors in the catalog issue long-lived tokens (CareerPack's last a year), so
-   there is nothing yet to exercise a refresh loop. A connector with short-lived tokens
-   needs one, plus the `connections` fields to store it.
-6. **A connector's `endpoint` must name a PRODUCTION deployment, and nothing checks that.**
-   CareerPack runs two Convex deployments — `effervescent-hedgehog-352` (dev, named by its
-   own `.env.local`) and `proficient-dove-151` (prod). The first manifest shipped the dev
-   one. Everything downstream was then correct about the wrong backend: discovery
-   succeeded, and dev has no `APP_URL`, so it truthfully advertised
-   `https://careerpack.local/oauth/authorize`. Fixed, but the class of mistake is open —
-   a manifest can point anywhere and only a human knows which host is the real one.
+5. ~~**No upstream token refresh.**~~ **Closed 2026-08-20.** Authorization-code and
+   client-credentials connects preserve expiry plus one sealed renewal document. The gateway
+   starts refresh one minute early, wins a 20-second Convex lease, exchanges directly with the
+   reviewed HTTPS token endpoint, seals access and rotated refresh tokens immediately, and
+   commits by credential generation. Concurrent gateways wait for the winner; stale commits
+   cannot overwrite it. `invalid_grant` / `invalid_client` expire the connection, while network,
+   429 and 5xx failures release the lease for retry. Redirects, local/private endpoints,
+   oversized bodies and malformed success documents fail closed without logging a secret.
+6. ~~**A connector's `endpoint` can silently name a development deployment.**~~
+   **Closed 2026-08-20.** Every shipped fixed endpoint now pins its reviewed production
+   resource-metadata URL, authorization server, browser authorization endpoint, token endpoint,
+   and registration endpoint. `bun run verify:remote-endpoints` performs an unauthenticated,
+   redirect-free, bounded live probe of the complete chain. It runs on relevant pull requests,
+   on changes to `main`, and every day. This specifically rejects the former
+   `https://careerpack.local/oauth/authorize` failure mode without reading any credential.
 7. **Rate limits, relay presence and the agent's replay guard are per-process.** A second
    gateway instance multiplies every limit and forgets seen job ids across a restart.
    Each site is marked `ponytail:`. Correct for a single-instance MVP, load-bearing before

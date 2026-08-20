@@ -1,14 +1,14 @@
 /**
- * In-memory replay guard: rejects a job id that was already delivered
- * (docs/14: replayed job).
+ * In-memory replay guard: useful for isolated tests and ephemeral callers.
  *
- * ponytail: single-process only — a Map in one relay instance. Horizontal
- * scaling needs a shared store (Convex table or Redis SETNX with the same TTL)
- * behind the same `ReplayGuard` port; nothing else in the codebase changes.
+ * The production local agent uses its durable, lock-protected implementation in
+ * `apps/agent/src/replay-store.ts`; restarting the agent must not forget a still
+ * valid signed job id.
  */
 import { GatewayError, type ReplayGuard } from "@cg/core"
 
-const DEFAULT_MAX_ENTRIES = 10_000
+export const MAX_REPLAY_ENTRIES = 10_000
+export const MAX_REPLAY_JOB_ID_LENGTH = 512
 
 export type MemoryReplayGuardOptions = {
   /** Hard bound on retained ids; the oldest are evicted first. */
@@ -18,7 +18,7 @@ export type MemoryReplayGuardOptions = {
 }
 
 export function createMemoryReplayGuard(options: MemoryReplayGuardOptions = {}): ReplayGuard {
-  const maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES
+  const maxEntries = options.maxEntries ?? MAX_REPLAY_ENTRIES
   if (!Number.isInteger(maxEntries) || maxEntries < 1) {
     throw new GatewayError("INVALID_INPUT", "maxEntries must be a positive integer.")
   }
@@ -28,10 +28,15 @@ export function createMemoryReplayGuard(options: MemoryReplayGuardOptions = {}):
 
   return {
     async remember(jobId: string, ttlMs: number): Promise<boolean> {
-      if (typeof jobId !== "string" || jobId.length === 0) {
-        throw new GatewayError("INVALID_INPUT", "A job id is required.")
+      if (
+        typeof jobId !== "string" ||
+        jobId.length === 0 ||
+        jobId.length > MAX_REPLAY_JOB_ID_LENGTH ||
+        hasControlCharacter(jobId)
+      ) {
+        throw new GatewayError("INVALID_INPUT", "A bounded job id is required.")
       }
-      if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
+      if (!Number.isSafeInteger(ttlMs) || ttlMs <= 0) {
         throw new GatewayError("INVALID_INPUT", "A positive replay ttl is required.")
       }
 
@@ -61,4 +66,12 @@ function sweep(seen: Map<string, number>, now: number): void {
   for (const [jobId, expiresAt] of seen) {
     if (expiresAt <= now) seen.delete(jobId)
   }
+}
+
+function hasControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
 }

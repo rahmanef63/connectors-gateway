@@ -38,6 +38,7 @@ describe("createCloudExecutor", () => {
 
     expect(result.status).toBe("success")
     expect(result.output).toEqual({ ok: true })
+    expect(result.connectionId).toBe("conn_1")
     expect(seen?.credential.token).toBe(PLAINTEXT)
     expect(seen?.requestId).toBe("req_test")
     expect(JSON.stringify(result)).not.toContain(PLAINTEXT)
@@ -83,6 +84,7 @@ describe("createCloudExecutor", () => {
 
     const result = await executor.execute(makeRequest("cloud"))
     expect(result.error?.code).toBe("CONNECTION_MISSING")
+    expect(result.connectionId).toBe("conn_1")
   })
 
   test("a thrown adapter error becomes UPSTREAM_ERROR without the token", async () => {
@@ -103,6 +105,7 @@ describe("createCloudExecutor", () => {
     expect(result.error?.message).not.toContain(PLAINTEXT)
     expect(result.error?.message).not.toContain(CIPHER)
     expect(result.error?.message).not.toContain("/home/user")
+    expect(result.connectionId).toBe("conn_1")
     expect(JSON.stringify(result)).not.toContain(PLAINTEXT)
   })
 

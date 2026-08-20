@@ -5,12 +5,14 @@
 import type { ControlPlane } from "@cg/core"
 import type { ApiKeyLookup } from "@cg/auth"
 import type { Logger } from "@cg/observability"
+import { open, seal } from "@cg/auth"
 import { createApiKeyLookup } from "./api-keys"
 import { createApprovalStore, type ApprovalStore } from "./approvals"
 import { createAuditSink } from "./audit"
 import { createControlPlaneClient } from "./client"
 import { createConnectionStore } from "./connections"
 import { createDeviceStore } from "./devices"
+import { createGatewayLease, type GatewayLease } from "./gateway-lease"
 import type { GatewayDeviceStore } from "./devices"
 import { createOAuthStore, type OAuthStore } from "./oauth"
 import { createPairingStore } from "./pairing"
@@ -22,22 +24,31 @@ export type GatewayControlPlane = ControlPlane & {
   apiKeys: ApiKeyLookup
   approvals: ApprovalStore
   oauth: OAuthStore
+  gatewayLease: GatewayLease
 }
 
 export function createConvexControlPlane(options: {
   url: string
   serviceToken: string
   logger: Logger
+  credentialEncryptionKey: string
 }): GatewayControlPlane {
   const client = createControlPlaneClient(options)
   return {
     devices: createDeviceStore(client),
     pairing: createPairingStore(client),
     policy: createPolicyStore(client),
-    connections: createConnectionStore(client),
+    connections: createConnectionStore(client, {
+      openCredential: (ciphertext) => open(ciphertext, options.credentialEncryptionKey),
+      sealCredential: (plaintext) => seal(plaintext, options.credentialEncryptionKey),
+      logger: options.logger,
+    }),
     audit: createAuditSink(client, options.logger),
     apiKeys: createApiKeyLookup(client),
     approvals: createApprovalStore(client),
     oauth: createOAuthStore(client),
+    gatewayLease: createGatewayLease(client, {
+      logger: options.logger.child({ scope: "gateway-lease" }),
+    }),
   }
 }

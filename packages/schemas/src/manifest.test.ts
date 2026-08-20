@@ -41,8 +41,8 @@ function expectInvalid(value: unknown): GatewayError {
 }
 
 describe("validateManifest", () => {
-  test("both shipped connector manifests validate against the frozen schema", () => {
-    for (const file of ["careerpack.connector.json", "composio.connector.json"]) {
+  test("all shipped connector manifests validate against the frozen schema", () => {
+    for (const file of ["careerpack.connector.json", "composio.connector.json", "mso.connector.json"]) {
       const manifest = validateManifest(loadShipped(file))
       expect(manifest.actions.length).toBeGreaterThan(0)
       for (const action of manifest.actions) {
@@ -53,6 +53,24 @@ describe("validateManifest", () => {
 
   test("accepts a minimal valid manifest", () => {
     expect(validateManifest(baseManifest()).id).toBe("demo")
+  })
+
+  test("validates the reviewed production discovery block", () => {
+    const manifest = baseManifest()
+    manifest["endpoint"] = "https://api.example.test/mcp"
+    manifest["verification"] = {
+      environment: "production",
+      resourceMetadata: "https://api.example.test/.well-known/oauth-protected-resource",
+      authorizationServer: "https://auth.example.test",
+      authorizationEndpoint: "https://app.example.test/oauth/authorize",
+      tokenEndpoint: "https://auth.example.test/oauth/token",
+    }
+    expect(validateManifest(manifest).verification?.environment).toBe("production")
+
+    const broken = structuredClone(manifest)
+    const verification = broken["verification"] as Record<string, unknown>
+    verification["authorizationEndpoint"] = "http://careerpack.local/oauth/authorize"
+    expect(expectInvalid(broken).message).toContain("/verification/authorizationEndpoint")
   })
 
   test("rejects an action with no inputSchema", () => {

@@ -10,13 +10,14 @@
  * ciphertext it cannot open.
  */
 import { NextResponse } from "next/server"
+import { encodeOAuthRenewal } from "@cg/core"
 import { fetchMutation } from "convex/nextjs"
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server"
 
 import { api } from "@convex/_generated/api"
 import { manifestFor } from "@/lib/catalog"
 import { sealCredential } from "@/lib/credentials"
-import { exchangeCode } from "@/lib/oauth/client"
+import { exchangeCode, tokenExpiresAt } from "@/lib/oauth/client"
 import { clearFlowState, readFlowState } from "@/lib/oauth/state"
 import type { ConnectErrorCode } from "@/components/connections/labels"
 
@@ -59,7 +60,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (token === undefined || token.length === 0) return failed(request, "not_signed_in")
 
   try {
-    const { accessToken } = await exchangeCode({
+    const issued = await exchangeCode({
       tokenEndpoint: flow.tokenEndpoint,
       code,
       redirectUri: flow.redirectUri,
@@ -68,6 +69,22 @@ export async function GET(request: Request): Promise<NextResponse> {
       verifier: flow.verifier,
       resource: flow.resource,
     })
+    const expiresAt = tokenExpiresAt(issued)
+    const renewalCipher =
+      issued.refreshToken === null || expiresAt === null
+        ? undefined
+        : await sealCredential(
+            encodeOAuthRenewal({
+              v: 1,
+              grantType: "refresh_token",
+              tokenEndpoint: flow.tokenEndpoint,
+              clientId: flow.clientId,
+              clientSecret: flow.clientSecret,
+              refreshToken: issued.refreshToken,
+              scope: flow.scope,
+              resource: flow.resource,
+            }),
+          )
 
     await fetchMutation(
       api.features.connections.mutations.upsert,
@@ -76,8 +93,10 @@ export async function GET(request: Request): Promise<NextResponse> {
         // From the manifest, never from the cookie or the URL: the address the
         // gateway will call is a property of the connector.
         baseUrl: manifest.endpoint,
-        tokenCipher: await sealCredential(accessToken),
+        tokenCipher: await sealCredential(issued.accessToken),
         authType: manifest.auth.type,
+        ...(expiresAt === null ? {} : { tokenExpiresAt: expiresAt }),
+        ...(renewalCipher === undefined ? {} : { renewalCipher }),
       },
       { token },
     )

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { CLOSE_CODES, PROTOCOL_VERSION } from "@cg/protocol"
+import { CLOSE_CODES, PROTOCOL_VERSION, createJobEnvelope } from "@cg/protocol"
+import type { Device } from "@cg/core"
 import { makeDevice, silentLogger } from "../__tests__/fixtures"
 import type { DeviceAuthResult, GatewayDeviceStore } from "../store/devices"
 import { createRelay } from "./relay"
@@ -28,15 +29,20 @@ function fakeSocket(state: SocketState): {
 
 type Presence = { deviceId: string; online: boolean; capabilities?: string[] }
 
-function deviceStore(result: DeviceAuthResult, presence: Presence[]): GatewayDeviceStore {
+function deviceStore(
+  result: DeviceAuthResult,
+  presence: Presence[],
+  overrides: Partial<GatewayDeviceStore> = {},
+): GatewayDeviceStore {
   return {
-    get: async () => null,
+    get: async () => (result.ok ? result.device : null),
     listForUser: async () => [],
     authenticate: async () => null,
     setPresence: async (deviceId, online, capabilities) => {
       presence.push(capabilities ? { deviceId, online, capabilities } : { deviceId, online })
     },
     authenticateDevice: async () => result,
+    ...overrides,
   }
 }
 
@@ -54,9 +60,13 @@ const HELLO = JSON.stringify({
 
 let relay: Relay | null = null
 
-function build(result: DeviceAuthResult, presence: Presence[] = []): Relay {
+function build(
+  result: DeviceAuthResult,
+  presence: Presence[] = [],
+  store: Partial<GatewayDeviceStore> = {},
+): Relay {
   relay = createRelay({
-    devices: deviceStore(result, presence),
+    devices: deviceStore(result, presence, store),
     logger: silentLogger,
     signingPublicKey: "cHVibGlj",
     keyId: "k1",
@@ -126,6 +136,94 @@ describe("relay websocket handlers", () => {
     expect(closed[0]?.code).toBe(CLOSE_CODES.REVOKED)
     expect(instance.sockets.get("dev_1")).toBeUndefined()
     expect(presence).toHaveLength(0)
+  })
+
+  test("an already-open socket is removed and closed when its durable row is revoked", async () => {
+    let current: Device | null = makeDevice()
+    const instance = build(
+      { ok: true, device: current },
+      [],
+      { get: async () => current },
+    )
+    const { socket, sent, closed } = fakeSocket(instance.newState())
+    await instance.websocket.message?.(socket, HELLO)
+
+    current = null
+    expect(await instance.revalidate()).toBe(1)
+
+    expect(instance.sockets.get("dev_1")).toBeUndefined()
+    expect(socket.data.authenticated).toBe(false)
+    expect(JSON.parse(sent.at(-1) ?? "{}")).toEqual({
+      type: "revoked",
+      reason: "Device access was revoked.",
+    })
+    expect(closed.at(-1)).toEqual({ code: CLOSE_CODES.REVOKED, reason: "device revoked" })
+  })
+
+  test("revocation rejects in-flight work as DEVICE_REVOKED before the close event", async () => {
+    let current: Device | null = makeDevice()
+    const instance = build(
+      { ok: true, device: current },
+      [],
+      { get: async () => current },
+    )
+    const { socket } = fakeSocket(instance.newState())
+    await instance.websocket.message?.(socket, HELLO)
+
+    const job = {
+      payload: createJobEnvelope({
+        connector: "blender",
+        action: "blender.scene.render",
+        input: {},
+        requestContext: { requestId: "req_revoke", userId: "usr_1" },
+      }),
+      signature: "c2ln",
+      keyId: "k1",
+    }
+    const pending = instance.dispatcher.dispatch("dev_1", job, 1_000)
+    current = null
+    await instance.revalidate()
+
+    await expect(pending).rejects.toMatchObject({ code: "DEVICE_REVOKED" })
+    expect(instance.dispatcher.pendingCount()).toBe(0)
+  })
+
+  test("a temporary control-plane failure leaves a healthy session connected for retry", async () => {
+    const live = makeDevice()
+    const instance = build(
+      { ok: true, device: live },
+      [],
+      { get: async () => { throw new Error("control plane unavailable") } },
+    )
+    const { socket, closed } = fakeSocket(instance.newState())
+    await instance.websocket.message?.(socket, HELLO)
+
+    expect(await instance.revalidate()).toBe(0)
+    expect(instance.sockets.get("dev_1")).toBe(socket)
+    expect(closed).toHaveLength(0)
+  })
+
+  test("an old revalidation read cannot close a replacement socket", async () => {
+    const live = makeDevice()
+    let release: ((value: Device | null) => void) | undefined
+    const waiting = new Promise<Device | null>((resolve) => { release = resolve })
+    const instance = build(
+      { ok: true, device: live },
+      [],
+      { get: async () => waiting },
+    )
+    const first = fakeSocket(instance.newState())
+    await instance.websocket.message?.(first.socket, HELLO)
+    const checking = instance.revalidate()
+
+    const second = fakeSocket(instance.newState())
+    await instance.websocket.message?.(second.socket, HELLO)
+    release?.(null)
+
+    expect(await checking).toBe(0)
+    expect(instance.sockets.get("dev_1")).toBe(second.socket)
+    expect(second.closed).toHaveLength(0)
+    expect(first.closed.at(-1)?.reason).toBe("replaced by a newer session")
   })
 
   test("a second hello on an authenticated socket is a protocol violation", async () => {

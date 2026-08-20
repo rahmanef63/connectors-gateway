@@ -35,6 +35,8 @@ export type Relay = {
   sockets: SocketRegistry
   /** State attached at upgrade time. */
   newState(): SocketState
+  /** Close sessions whose durable device row was revoked or removed. */
+  revalidate(): Promise<number>
   sweep(): number
   stop(): void
 }
@@ -189,6 +191,60 @@ export function createRelay(deps: RelayDeps): Relay {
     },
   }
 
+  /**
+   * Re-read the durable device row for every connected socket.
+   *
+   * Revocation happens in the web control plane, while sockets live in this Bun
+   * process. Polling at the same cadence as presence refresh gives revocation a
+   * bounded delay without adding a push broker. A control-plane outage does not
+   * disconnect a healthy workstation: the next pass retries. The registry
+   * identity check after `await` is load-bearing — a reconnect must never let an
+   * old sweep close the replacement socket.
+   */
+  let revalidationInFlight: Promise<number> | null = null
+  function revalidate(): Promise<number> {
+    if (revalidationInFlight !== null) return revalidationInFlight
+
+    revalidationInFlight = (async () => {
+      let closed = 0
+      for (const [deviceId, socket] of sockets.entries()) {
+        let current
+        try {
+          current = await deps.devices.get(deviceId)
+        } catch (cause) {
+          deps.logger.warn("device revalidation failed", {
+            deviceId,
+            error: cause instanceof Error ? cause.message : "unknown",
+          })
+          continue
+        }
+
+        // The socket may have reconnected while the control-plane read was in
+        // flight. Only act if this exact object still owns the device slot.
+        if (sockets.get(deviceId) !== socket) continue
+        if (current !== null) continue
+
+        // Remove first: dispatch must fail immediately even if the WebSocket
+        // implementation reports its close event on a later turn.
+        if (!sockets.remove(deviceId, socket)) continue
+        dispatcher.failDevice(
+          deviceId,
+          new GatewayError("DEVICE_REVOKED", "The device was revoked."),
+        )
+        sendMessage(socket, { type: "revoked", reason: "Device access was revoked." })
+        socket.data.authenticated = false
+        disconnect(socket, CLOSE_CODES.REVOKED, "device revoked")
+        deps.logger.info("revoked device disconnected", { deviceId })
+        closed += 1
+      }
+      return closed
+    })().finally(() => {
+      revalidationInFlight = null
+    })
+
+    return revalidationInFlight
+  }
+
   /** Closes sockets that stopped heartbeating (docs/05 "Heartbeats maintain presence"). */
   function sweep(): number {
     const deadline = now() - HEARTBEAT_TIMEOUT_MS
@@ -202,13 +258,20 @@ export function createRelay(deps: RelayDeps): Relay {
   }
 
   const heartbeat = setInterval(sweep, HEARTBEAT_INTERVAL_MS)
+  const revocation = setInterval(() => {
+    void revalidate()
+  }, PRESENCE_REFRESH_MS)
 
   return {
     websocket,
     dispatcher,
     sockets,
     newState: () => newSocketState(newId("nonce"), now()),
+    revalidate,
     sweep,
-    stop: () => clearInterval(heartbeat),
+    stop: () => {
+      clearInterval(heartbeat)
+      clearInterval(revocation)
+    },
   }
 }

@@ -32,6 +32,7 @@ import {
   createPkce,
   createState,
   registerClient,
+  tokenExpiresAt,
 } from "@/lib/oauth/client"
 import { discoverAuthServer } from "@/lib/oauth/discovery"
 import { writeFlowState } from "@/lib/oauth/state"
@@ -78,14 +79,30 @@ export async function startOAuthConnect(
       clientSecretInput.length > 0 &&
       server.grantTypes.includes("client_credentials")
     ) {
-      const { accessToken } = await clientCredentialsGrant({
+      const issued = await clientCredentialsGrant({
         tokenEndpoint: server.tokenEndpoint,
         clientId: clientIdInput,
         clientSecret: clientSecretInput,
         scope: server.scope,
         resource: server.resource,
       })
-      await storeConnection(target, accessToken, token)
+      const expiresAt = tokenExpiresAt(issued)
+      await storeConnection(target, issued.accessToken, token, {
+        ...(expiresAt === null ? {} : { tokenExpiresAt: expiresAt }),
+        ...(expiresAt === null
+          ? {}
+          : {
+              renewal: {
+                v: 1,
+                grantType: "client_credentials",
+                tokenEndpoint: server.tokenEndpoint,
+                clientId: clientIdInput,
+                clientSecret: clientSecretInput,
+                scope: server.scope,
+                resource: server.resource,
+              } as const,
+            }),
+      })
       return { error: null, connected: target.id }
     }
 
@@ -116,6 +133,7 @@ export async function startOAuthConnect(
       tokenEndpoint: server.tokenEndpoint,
       redirectUri: oauthRedirectUri(),
       resource: server.resource,
+      scope: server.scope,
     })
 
     destination = authorizeUrl({
@@ -163,7 +181,7 @@ export async function saveTokenConnection(
   if (endpoint === null || endpoint.length === 0) return fail("endpoint_required")
 
   try {
-    await storeConnection(target, collected.secret, token, endpoint)
+    await storeConnection(target, collected.secret, token, { endpoint })
   } catch {
     return fail("save_failed")
   }

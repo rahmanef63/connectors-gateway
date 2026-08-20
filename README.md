@@ -104,8 +104,9 @@ bun run dev:agent      # local agent (needs `bun run --cwd apps/agent pair` firs
 Checks:
 
 ```bash
-bun run validate       # typecheck + unit tests
-bun run test:convex    # convex-test + slice tests
+bun run validate                  # typecheck + unit tests
+bun run test:convex               # convex-test + slice tests
+bun run verify:remote-endpoints   # credential-free live OAuth discovery check
 ```
 
 The dashboard and the Convex functions need a Convex deployment; see
@@ -134,11 +135,12 @@ ChatGPT, Codex, and Claude; see
 ChatGPT must create a real `plugin_asdk_app...` technical ID before `.app.json` can be
 added and an end-to-end web round trip can be claimed.
 
-Phases 0–3 are implemented and unit-tested; Phase 4 is complete except the approvals
-screen. The cloud path is proven against the live stack — the gateway reaches Convex and
-the pairing challenge round-trips. No device has paired and no job has been dispatched
+Phases 0–4 are implemented and unit-tested. The approval queue binds consent to one exact
+call, spends it once, expires it after ten minutes, and removes stale rows in bounded hourly
+maintenance. The cloud path is proven against the live stack — the gateway reaches Convex
+and the pairing challenge round-trips. No device has paired and no job has been dispatched
 yet. [`docs/13-mvp-roadmap.md`](./docs/13-mvp-roadmap.md) tracks what is done, what is
-partial, what is proven, and the five known gaps.
+partial, what is proven, and the one remaining horizontal-scaling gap.
 [`docs/12-deployment.md`](./docs/12-deployment.md) has the deployment topology — note
 that the Dokploy application named `connectors-gateway` is the *dashboard*, and the
 gateway is `connect-gateway`.

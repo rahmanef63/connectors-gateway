@@ -41,5 +41,18 @@ type Connection = {
   ownerId: string
   authType: string
   status: "active" | "expired" | "revoked" | "error"
+  tokenCipher: string              // sealed access token
+  tokenExpiresAt?: number
+  renewalCipher?: string           // sealed refresh grant or client credentials
+  credentialVersion?: number       // compare-and-swap generation
+  refreshLeaseId?: string          // non-secret, short-lived coordinator
+  refreshLeaseUntil?: number
 }
 ```
+
+Convex never receives an encryption key. The dashboard seals tokens at connect time; the
+lease-holding gateway opens a renewal document only for the upstream token POST and seals the
+new access/refresh values before the CAS commit. Refresh begins 60 seconds before expiry. One
+20-second lease prevents duplicate provider calls, and a crashed holder cannot block rotation
+indefinitely. A permanent OAuth refusal marks the connection `expired`; transient provider or
+network failures keep it `active` and retryable.

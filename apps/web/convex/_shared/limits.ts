@@ -15,6 +15,8 @@ export const MAX_PENDING_APPROVALS_PER_OWNER = 100
 export const APPROVAL_TTL_MS = 10 * 60 * 1000
 /** Enough of the arguments to recognise the call, not enough to be a payload. */
 export const MAX_INPUT_PREVIEW_LENGTH = 300
+/** Rows reclaimed from the approval table per unattended maintenance pass. */
+export const APPROVAL_SWEEP_BATCH = 200
 
 /**
  * An authorization code is redeemed by a machine, immediately. Two minutes is

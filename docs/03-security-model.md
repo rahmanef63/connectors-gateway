@@ -31,7 +31,9 @@ Internet
 - Apply rate limits.
 - Log action, actor, connector, device, result status, latency.
 - Never return raw credentials.
-- Encrypt credentials at rest.
+- Encrypt access and renewal credentials at rest; the control plane stores ciphertext only.
+- Coordinate refresh with a short lease and credential generation so concurrent gateways cannot
+  reuse or overwrite a rotated refresh token.
 
 ### Local Agent
 

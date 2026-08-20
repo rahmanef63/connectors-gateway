@@ -8,8 +8,8 @@ import type {
   ConnectorManifest,
   Device,
   DeviceStore,
+  ExecutionOutcome,
   ExecutionRequest,
-  ExecutionResult,
   Executor,
   PairingStore,
   PolicyRule,
@@ -172,7 +172,7 @@ export function fakeAudit(): RecordingSink {
 
 export type RecordingExecutor = Executor & { requests: ExecutionRequest[] }
 
-export function fakeExecutor(result?: ExecutionResult): RecordingExecutor {
+export function fakeExecutor(result?: ExecutionOutcome): RecordingExecutor {
   const requests: ExecutionRequest[] = []
   return {
     requests,

@@ -10,7 +10,7 @@
  *
  * Secrets: this schema stores only opaque material — PBKDF2 hashes
  * (`credentialHash`, `secretHash`) and AES-256-GCM ciphertext
- * (`tokenCipher`). The gateway owns every key.
+ * (`tokenCipher`, `renewalCipher`). The gateway owns every key.
  */
 import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
@@ -88,7 +88,9 @@ export default defineSchema({
     audience: v.optional(v.string()),
   })
     .index("by_keyId", ["keyId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    // Exact active-key cap checks without scanning a user's revoked history.
+    .index("by_user_status", ["userId", "status"]),
 
   /**
    * OAuth clients, all self-registered through RFC 7591 (`service/oauth`).
@@ -160,8 +162,17 @@ export default defineSchema({
     authType: authTypeValidator,
     status: connectionStatusValidator,
     baseUrl: v.string(),
-    /** AES-256-GCM sealed upstream token. Only the gateway can open it. */
+    /** AES-256-GCM sealed upstream access token. Only the gateway can open it. */
     tokenCipher: v.string(),
+    /** Absolute epoch milliseconds from the upstream token response. */
+    tokenExpiresAt: v.optional(v.number()),
+    /** Sealed refresh token or client credentials plus non-secret grant metadata. */
+    renewalCipher: v.optional(v.string()),
+    /** CAS generation for multi-instance refresh commits. Optional for legacy rows. */
+    credentialVersion: v.optional(v.number()),
+    /** Short-lived refresh owner; never a credential. */
+    refreshLeaseId: v.optional(v.string()),
+    refreshLeaseUntil: v.optional(v.number()),
   })
     .index("by_owner", ["ownerType", "ownerId"])
     .index("by_owner_connector", ["ownerType", "ownerId", "connectorId"]),
@@ -209,7 +220,24 @@ export default defineSchema({
   })
     .index("by_owner_status", ["ownerId", "status"])
     // The lookup the gateway does on every gated call.
-    .index("by_owner_hash", ["ownerId", "requestHash"]),
+    .index("by_owner_hash", ["ownerId", "requestHash"])
+    // Expired rows are inert but still need bounded storage cleanup.
+    .index("by_expiresAt", ["expiresAt"]),
+
+  /**
+   * Enforced single-active-process lease.
+   *
+   * Relay sockets, rate buckets and agent replay state are not distributed yet.
+   * A durable lease makes that topology fail closed: a second replica cannot
+   * quietly double limits or own sockets the first process cannot dispatch to.
+   */
+  gatewayLeases: defineTable({
+    leaseName: v.string(),
+    holderId: v.string(),
+    acquiredAt: v.number(),
+    renewedAt: v.number(),
+    expiresAt: v.number(),
+  }).index("by_name", ["leaseName"]),
 
   auditLogs: defineTable({
     requestId: v.string(),

@@ -18,7 +18,8 @@
     "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
     "test": "bun test packages adapters apps/gateway apps/agent",
     "test:convex": "bun run --cwd apps/web test",
-    "validate": "bun run typecheck && bun run test"
+    "verify:remote-endpoints": "bun run adapters/remote-mcp/src/verify-endpoints.ts",
+    "validate": "bun run typecheck && bun run test && bun run test:convex"
   },
   "devDependencies": {
     "@types/bun": "1.3.14",

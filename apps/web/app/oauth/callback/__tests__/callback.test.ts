@@ -14,6 +14,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 
 import { open } from "@cg/auth"
+import { parseOAuthRenewal } from "@cg/core"
 
 const KEY = Buffer.alloc(32, 7).toString("base64")
 /** CareerPack PRODUCTION — the manifest is the source of truth for this. */
@@ -59,6 +60,7 @@ const FLOW = {
   tokenEndpoint: "https://careerpack.org/api/oauth/token",
   redirectUri: REDIRECT,
   resource: RESOURCE,
+  scope: "mcp.read mcp.write",
 }
 
 function callback(query: string): Request {
@@ -68,7 +70,17 @@ function callback(query: string): Request {
 function tokenServer(token = "cp_live_token"): void {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => new Response(JSON.stringify({ access_token: token }), { status: 200 })),
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            access_token: token,
+            expires_in: 3_600,
+            refresh_token: "cp_refresh_token",
+          }),
+          { status: 200 },
+        ),
+    ),
   )
 }
 
@@ -103,6 +115,21 @@ describe("oauth callback", () => {
     expect(args["tokenCipher"]).not.toBe("cp_live_token")
     expect(String(args["tokenCipher"])).toMatch(/^v1\./)
     expect(await open(String(args["tokenCipher"]), KEY)).toBe("cp_live_token")
+    expect(args["tokenExpiresAt"]).toEqual(expect.any(Number))
+    expect(Number(args["tokenExpiresAt"])).toBeGreaterThan(Date.now() + 3_500_000)
+    expect(String(args["renewalCipher"])).toMatch(/^v1\./)
+    const renewal = parseOAuthRenewal(await open(String(args["renewalCipher"]), KEY))
+    expect(renewal).toEqual({
+      v: 1,
+      grantType: "refresh_token",
+      tokenEndpoint: FLOW.tokenEndpoint,
+      clientId: FLOW.clientId,
+      clientSecret: null,
+      refreshToken: "cp_refresh_token",
+      scope: FLOW.scope,
+      resource: RESOURCE,
+    })
+    expect(JSON.stringify(args)).not.toContain("cp_refresh_token")
   })
 
   test("the flow is single-use — a replayed callback finds nothing", async () => {

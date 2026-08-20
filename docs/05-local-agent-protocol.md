@@ -13,7 +13,9 @@ Provide a secure bidirectional job channel between the cloud gateway and softwar
 5. Relay marks device online.
 6. Jobs are delivered only for allowed connectors.
 7. Heartbeats maintain presence.
-8. Disconnect marks the device offline.
+8. The relay revalidates active device rows every 30 seconds; revoked sessions receive a
+   `revoked` frame and WebSocket close code 4003, and may not settle pending jobs afterward.
+9. Disconnect marks the device offline.
 
 ## Job envelope
 

@@ -146,3 +146,9 @@ separate until an explicit, already-authenticated linking flow exists.
 A persistent relay is stateful by connection presence, but job metadata and device ownership should live in shared storage so multiple relay instances can coexist later.
 
 Do not optimize for global scale before MVP correctness and security.
+
+Upstream OAuth refresh is already safe across concurrent gateway processes because Convex owns
+its lease and credential generation. Relay socket routing, rate limits, presence ownership and
+the local agent replay cache are still single-process boundaries; do not raise the gateway
+replica count until those four state stores are made shared or a singleton deployment lease is
+enforced.

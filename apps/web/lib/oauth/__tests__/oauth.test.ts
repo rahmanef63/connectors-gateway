@@ -13,6 +13,7 @@ import {
   createState,
   exchangeCode,
   registerClient,
+  tokenExpiresAt,
   OAuthExchangeError,
 } from "../client"
 import { discoverAuthServer, DiscoveryError } from "../discovery"
@@ -204,7 +205,8 @@ describe("token exchange", () => {
       }),
     )
     const result = await exchangeCode({ ...base, clientSecret: null })
-    expect(result).toEqual({ accessToken: "tok_live", expiresIn: 3600 })
+    expect(result).toEqual({ accessToken: "tok_live", expiresIn: 3600, refreshToken: null })
+    expect(tokenExpiresAt(result, 1_000)).toBe(3_601_000)
 
     const sent = new URLSearchParams(calls[0]?.body ?? "")
     expect(sent.get("grant_type")).toBe("authorization_code")
@@ -224,6 +226,44 @@ describe("token exchange", () => {
     )
     await exchangeCode({ ...base, clientSecret: "shh" })
     expect(new URLSearchParams(bodies[0]).get("client_secret")).toBe("shh")
+  })
+
+  test("preserves a returned refresh token for sealed storage", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              access_token: "tok_live",
+              expires_in: 120,
+              refresh_token: "refresh_live",
+            }),
+            { status: 200 },
+          ),
+      ),
+    )
+    await expect(exchangeCode({ ...base, clientSecret: null })).resolves.toEqual({
+      accessToken: "tok_live",
+      expiresIn: 120,
+      refreshToken: "refresh_live",
+    })
+  })
+
+  test("refuses a token-endpoint redirect instead of forwarding the authorization code", async () => {
+    const calls: RequestInit[] = []
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: string | URL, init?: RequestInit) => {
+        calls.push(init ?? {})
+        return new Response(null, { status: 307, headers: { location: "https://evil.test/token" } })
+      }),
+    )
+    await expect(exchangeCode({ ...base, clientSecret: "secret_not_forwarded" })).rejects.toMatchObject({
+      code: "redirect_refused",
+    })
+    expect(calls[0]?.redirect).toBe("manual")
+    expect(calls).toHaveLength(1)
   })
 
   test("an OAuth error response becomes a typed failure, not a token", async () => {
@@ -266,7 +306,7 @@ describe("client credentials", () => {
       scope: "mcp.read",
       resource: RESOURCE,
     })
-    expect(result.accessToken).toBe("cc_tok")
+    expect(result).toEqual({ accessToken: "cc_tok", expiresIn: null, refreshToken: null })
 
     const sent = new URLSearchParams(bodies[0] ?? "")
     expect(sent.get("grant_type")).toBe("client_credentials")
@@ -332,6 +372,7 @@ describe("flow state", () => {
     tokenEndpoint: AS_DOCUMENT.token_endpoint,
     redirectUri: "https://connectors.example.com/oauth/callback",
     resource: RESOURCE,
+    scope: "mcp.read mcp.write",
     exp: 2_000,
   }
 
@@ -341,6 +382,11 @@ describe("flow state", () => {
 
   test("DENIED: expired", () => {
     expect(parseFlowState(JSON.stringify(flow), 2_000_001)).toBeNull()
+  })
+
+  test("accepts a ten-minute legacy cookie with no scope and normalizes it to null", () => {
+    const { scope: _legacyMissing, ...legacy } = flow
+    expect(parseFlowState(JSON.stringify(legacy), 1_000_000)?.scope).toBeNull()
   })
 
   test("DENIED: missing or wrongly typed fields", () => {

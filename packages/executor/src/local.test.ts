@@ -54,6 +54,7 @@ describe("createLocalExecutor", () => {
 
     expect(result.status).toBe("success")
     expect(result.output).toEqual({ frames: 1 })
+    expect(result.deviceId).toBe("dev_1")
     expect(dispatcher.deviceIds).toEqual(["dev_1"])
     expect(dispatcher.timeouts).toEqual([4_000])
 
@@ -205,6 +206,7 @@ describe("createLocalExecutor", () => {
 
     expect(result.error?.code).toBe("UPSTREAM_ERROR")
     expect(result.error?.message).not.toContain("/var/run")
+    expect(result.deviceId).toBe("dev_1")
   })
 
   test("a relay timeout becomes TIMEOUT", async () => {
@@ -271,6 +273,7 @@ describe("createLocalExecutor", () => {
     )
 
     expect(dispatcher.deviceIds).toEqual(["dev_target"])
+    expect(result.deviceId).toBe("dev_target")
     expect(result.files?.[0]?.name).toBe("frame.png")
     expect(JSON.stringify(result)).not.toContain("Users")
   })

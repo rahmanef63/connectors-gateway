@@ -30,6 +30,9 @@ export const credentialValidator = v.object({
   connectionId: v.string(),
   baseUrl: v.string(),
   tokenCipher: v.string(),
+  tokenExpiresAt: v.optional(v.number()),
+  renewalCipher: v.optional(v.string()),
+  credentialVersion: v.number(),
 })
 
 export type ConnectionRecord = Infer<typeof connectionRecordValidator>
@@ -62,5 +65,8 @@ export function toCredential(doc: Doc<"connections">): CredentialRecord {
     connectionId: doc._id,
     baseUrl: doc.baseUrl,
     tokenCipher: doc.tokenCipher,
+    credentialVersion: doc.credentialVersion ?? 1,
+    ...(doc.tokenExpiresAt === undefined ? {} : { tokenExpiresAt: doc.tokenExpiresAt }),
+    ...(doc.renewalCipher === undefined ? {} : { renewalCipher: doc.renewalCipher }),
   }
 }

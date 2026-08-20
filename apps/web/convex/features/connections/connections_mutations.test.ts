@@ -81,6 +81,55 @@ describe("features/connections/mutations:upsert", () => {
     expect((await connectionRows(t))[0]?.baseUrl).toBe(BASE_URL)
   })
 
+  test("stores renewable metadata sealed and resets it on a later token-paste reconnect", async () => {
+    const t = setupConvex()
+    const userId = await createUser(t)
+    const client = asUser(t, userId)
+    const expiresAt = Date.now() + 3_600_000
+
+    await client.mutation(api.features.connections.mutations.upsert, {
+      connectorId: "careerpack",
+      baseUrl: BASE_URL,
+      tokenCipher: SEALED,
+      tokenExpiresAt: expiresAt,
+      renewalCipher: SEALED_TWO,
+      authType: "bearer",
+    })
+    let stored = await t.run(async (ctx) => ctx.db.query("connections").first())
+    expect(stored).toMatchObject({
+      tokenExpiresAt: expiresAt,
+      renewalCipher: SEALED_TWO,
+      credentialVersion: 1,
+    })
+
+    await client.mutation(api.features.connections.mutations.upsert, {
+      connectorId: "careerpack",
+      baseUrl: BASE_URL,
+      tokenCipher: SEALED_TWO,
+      authType: "bearer",
+    })
+    stored = await t.run(async (ctx) => ctx.db.query("connections").first())
+    expect(stored?.credentialVersion).toBe(2)
+    expect(stored?.tokenExpiresAt).toBeUndefined()
+    expect(stored?.renewalCipher).toBeUndefined()
+    expect(stored?.refreshLeaseId).toBeUndefined()
+  })
+
+  test("refuses renewal ciphertext without a schedulable expiry", async () => {
+    const t = setupConvex()
+    const userId = await createUser(t)
+    await expectRejected(
+      asUser(t, userId).mutation(api.features.connections.mutations.upsert, {
+        connectorId: "careerpack",
+        baseUrl: BASE_URL,
+        tokenCipher: SEALED,
+        renewalCipher: SEALED_TWO,
+        authType: "bearer",
+      }),
+      "INVALID_INPUT",
+    )
+  })
+
   test("a second upsert updates the same row instead of duplicating it", async () => {
     const t = setupConvex()
     const userId = await createUser(t)
@@ -134,7 +183,7 @@ describe("features/connections/mutations:upsert", () => {
       `v1.${"A".repeat(8)}.${"B".repeat(24)}`,
       `v1.${"A".repeat(16)}.${"B".repeat(4)}`,
       `v1.${"A".repeat(16)}.${"B".repeat(20)}!!`,
-      `v1.${"A".repeat(16)}.${"B".repeat(9000)}`,
+      `v1.${"A".repeat(16)}.${"B".repeat(70 * 1024)}`,
     ]) {
       await expectRejected(
         client.mutation(api.features.connections.mutations.upsert, {

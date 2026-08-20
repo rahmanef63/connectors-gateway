@@ -37,6 +37,8 @@ export async function executeAction(
   let action: ActionDefinition | undefined
   let decision: PolicyDecision = "DENY"
   let result: ExecutionResult | undefined
+  let deviceId: string | undefined
+  let connectionId: string | undefined
 
   try {
     // 1. Identity comes only from the presented credential.
@@ -67,6 +69,8 @@ export async function executeAction(
       action,
       input,
     })
+    deviceId = executed.deviceId
+    connectionId = executed.connectionId
 
     // 6b. An upstream can echo back the header it was called with — a 401 body
     // quoting `Authorization`, an error naming the URL it was given. That would
@@ -105,6 +109,8 @@ export async function executeAction(
         action,
         decision,
         result,
+        deviceId,
+        connectionId,
         latencyMs: performance.now() - startedAt,
       })
     } catch {
@@ -184,6 +190,8 @@ type RecordInput = {
   action: ActionDefinition | undefined
   decision: PolicyDecision
   result: ExecutionResult | undefined
+  deviceId: string | undefined
+  connectionId: string | undefined
   latencyMs: number
 }
 
@@ -212,6 +220,8 @@ async function record(deps: PipelineDeps, input: RecordInput): Promise<void> {
     status: input.result?.status ?? "error",
     latencyMs: input.latencyMs,
     ...(input.result?.error ? { errorCode: input.result.error.code } : {}),
+    ...(input.deviceId === undefined ? {} : { deviceId: input.deviceId }),
+    ...(input.connectionId === undefined ? {} : { connectionId: input.connectionId }),
   })
 }
 
@@ -222,8 +232,12 @@ async function record(deps: PipelineDeps, input: RecordInput): Promise<void> {
  * and rewriting a filename would break the reference it exists to be.
  */
 function withoutCredentials(result: ExecutionResult): ExecutionResult {
-  const cleaned: ExecutionResult = { ...result }
+  // Explicit allowlist, not `{ ...result }`: executors also return audit-only
+  // deviceId/connectionId. A spread would silently expose those identifiers to
+  // REST and MCP as soon as attribution is added.
+  const cleaned: ExecutionResult = { status: result.status, timingMs: result.timingMs }
   if (result.output !== undefined) cleaned.output = stripCredentialsDeep(result.output)
+  if (result.files !== undefined) cleaned.files = result.files
   if (result.error) {
     cleaned.error = { code: result.error.code, message: stripCredentials(result.error.message) }
   }

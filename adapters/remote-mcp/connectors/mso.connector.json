@@ -4,6 +4,14 @@
   "version": "0.1.0",
   "executor": "cloud",
   "endpoint": "https://mso.rahmanef.com/mcp",
+  "verification": {
+    "environment": "production",
+    "resourceMetadata": "https://mso.rahmanef.com/.well-known/oauth-protected-resource",
+    "authorizationServer": "https://mso.rahmanef.com",
+    "authorizationEndpoint": "https://mso.rahmanef.com/oauth/authorize",
+    "tokenEndpoint": "https://mso.rahmanef.com/oauth/token",
+    "registrationEndpoint": "https://mso.rahmanef.com/oauth/register"
+  },
   "auth": {
     "type": "oauth2",
     "fields": []

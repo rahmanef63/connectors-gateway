@@ -3,7 +3,7 @@
  * Nothing here talks to the device directly; a JobDispatcher owns the socket.
  * The device credential and the signing key never enter this module.
  */
-import type { ExecutionRequest, ExecutionResult, Executor } from "@cg/core"
+import type { ExecutionOutcome, ExecutionRequest, Executor } from "@cg/core"
 import { DEFAULT_JOB_TTL_MS, createJobEnvelope } from "@cg/protocol"
 import { toExecutionResult } from "./agent-result"
 import { toFailureResult } from "./failure"
@@ -16,8 +16,9 @@ export function createLocalExecutor(deps: LocalExecutorDeps): Executor {
   const fallbackTimeout = deps.defaultTimeoutMs ?? DEFAULT_EXECUTION_TIMEOUT_MS
 
   return {
-    async execute(request: ExecutionRequest): Promise<ExecutionResult> {
+    async execute(request: ExecutionRequest): Promise<ExecutionOutcome> {
       const startedAt = performance.now()
+      let deviceId: string | undefined
       try {
         const { principal, requestId } = request.context
         // Only the authenticated user's own devices are ever candidates.
@@ -28,6 +29,7 @@ export function createLocalExecutor(deps: LocalExecutorDeps): Executor {
           requiredCapabilities: request.action.requiredCapabilities,
           deviceId: request.deviceId,
         })
+        deviceId = device.id
 
         // requestContext is attached server-side; an AI client can never supply it.
         const envelope = createJobEnvelope({
@@ -45,12 +47,18 @@ export function createLocalExecutor(deps: LocalExecutorDeps): Executor {
         const timeoutMs = request.timeoutMs ?? fallbackTimeout
         const raw = await deps.dispatcher.dispatch(device.id, signed, timeoutMs)
 
-        return toExecutionResult(raw, envelope.id, performance.now() - startedAt)
+        return {
+          ...toExecutionResult(raw, envelope.id, performance.now() - startedAt),
+          deviceId,
+        }
       } catch (cause) {
-        return toFailureResult(cause, {
-          timingMs: performance.now() - startedAt,
-          fallbackMessage: "The device could not complete this action.",
-        })
+        return {
+          ...toFailureResult(cause, {
+            timingMs: performance.now() - startedAt,
+            fallbackMessage: "The device could not complete this action.",
+          }),
+          ...(deviceId === undefined ? {} : { deviceId }),
+        }
       }
     },
   }

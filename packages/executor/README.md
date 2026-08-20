@@ -4,8 +4,11 @@ Execution abstractions.
 
 ```ts
 interface Executor {
-  execute(request: ExecutionRequest): Promise<ExecutionResult>
+  execute(request: ExecutionRequest): Promise<ExecutionOutcome>
 }
+
+// ExecutionOutcome = public ExecutionResult + audit-only deviceId/connectionId.
+// The gateway strips attribution before returning REST or MCP output.
 ```
 
 Expected implementations:

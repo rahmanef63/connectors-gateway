@@ -49,6 +49,17 @@ export type ExecutionResult = {
   timingMs: number
 }
 
+/**
+ * Internal executor result. Attribution is consumed by the gateway audit path
+ * and MUST be removed before an ExecutionResult reaches REST or MCP callers.
+ */
+export type ExecutionOutcome = ExecutionResult & {
+  /** Local execution target selected by the trusted device store. */
+  deviceId?: string
+  /** Cloud credential row selected by the trusted connection store. */
+  connectionId?: string
+}
+
 export interface Executor {
-  execute(request: ExecutionRequest): Promise<ExecutionResult>
+  execute(request: ExecutionRequest): Promise<ExecutionOutcome>
 }

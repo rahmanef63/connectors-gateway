@@ -219,16 +219,18 @@ Done since:
   offers it → code exchange, with `resource` (RFC 8707) on both legs. Connecting now asks for
   at most a client id and secret, and for a DCR-capable server for nothing. Every endpoint it
   learns from a third party's metadata goes through the SSRF gate before it is called.
-  Still missing from the plan below: **refresh** (`refresh_token` is read and dropped —
-  catalog tokens are long-lived), `iss` validation (RFC 9207), and the `connections` schema
-  delta (`refreshTokenCipher`, `expiresAt`, `scopes`, `issuer`, `clientId`).
+  Upstream refresh is now implemented: expiry and one encrypted renewal document are
+  stored per connection, and a generation-checked Convex lease coordinates refresh-token or
+  client-credentials renewal across gateway instances. Provider secrets remain ciphertext in
+  Convex and are opened only by the lease holder immediately before the token POST.
 
   Proving it against Linear or Notion first was the plan; discovery was proven against the
   live CareerPack server instead. That found a bug on THIS side, not theirs: the manifest
   named CareerPack's **dev** Convex deployment, which has no `APP_URL` and so advertises
-  `https://careerpack.local/oauth/authorize`. Production was always correct. A connector's
-  `endpoint` is the one field where a wrong-but-plausible value produces a flow that
-  discovers, registers and redirects perfectly — into nothing.
+  `https://careerpack.local/oauth/authorize`. Production was always correct. Fixed
+  endpoints now carry a reviewed `verification` block, and a credential-free live verifier
+  pins the MCP resource, authorization server, browser endpoint, token endpoint and DCR
+  endpoint. Relevant pull requests, `main`, and a daily schedule run the same check.
 
 - **Composio, plus a manifest-declared credential header.** Two shipped connectors now, one
   of them third-party, which is what actually proved the "connectors are data" claim — and
@@ -243,20 +245,14 @@ Done since:
 
 Next, in order:
 
-0. **The web test suite is not gated.** `bun run validate` runs
-   `packages adapters apps/gateway apps/agent` — `apps/web` has its own 624-test vitest suite
-   behind `test:convex`, and nothing runs it. Either add it to `validate` or accept that it
-   drifts; there is no third option where it stays honest on its own.
+0. ~~**The web test suite is not gated.**~~ **Closed 2026-08-20.** `bun run validate`
+   now runs root typecheck/tests and the complete `apps/web` Vitest/Convex suite. The pre-push
+   hook therefore cannot report a green validation while skipping the control plane and UI.
 
-   *Correction, same day:* the first version of this entry also claimed the suite failed 5
-   tests on a clean checkout. **It does not.** That reading came from `git stash`, which does
-   not stash untracked files without `-u`: a new test file stayed on disk while the tracked
-   code it exercised was reverted, so it ran against dependencies that no longer existed.
-   Verified after the fact — six full suites in parallel at load 39, plus the gateway suite,
-   624/624 every time. The gap is that nothing *runs* the suite, not that the suite is rotten.
-
-1. **Composio needs a real key against a real server.** Everything below it is untested against
-   Composio specifically: the manifest, the `x-api-key` path and the BYOK form are all written
+1. **Composio needs a real key against a real server.** Fixed production endpoints are now
+   machine-verified, but Composio is intentionally per-user and cannot be probed without a real
+   server URL plus key. Everything below is untested against Composio specifically: the
+   manifest, the `x-api-key` path and the BYOK form are all written
    and none has met a live Composio server. Its documented URL answered 307 to a probe and
    `mcp-client` refuses redirects on purpose, so that is the first thing to find out.
 
@@ -290,5 +286,6 @@ Next, in order:
 - **`ownerType: "workspace"`** is currently unreachable in every store path. Either implement
   it deliberately or narrow the type — a half-implemented sharing axis is how cross-tenant
   reads happen.
-- **Audit rows carry no `connectionId`.** With one tenant that is untidy; with several it is
-  the difference between "someone used a connector" and "whose credential was spent".
+- ~~**Audit rows carry no `connectionId`.**~~ Closed 2026-08-20. Cloud and local executors
+  return audit-only connection/device attribution; the pipeline persists it and strips both
+  identifiers from the public REST/MCP result through an explicit allowlist.

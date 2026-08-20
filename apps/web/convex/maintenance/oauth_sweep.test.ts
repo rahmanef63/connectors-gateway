@@ -116,7 +116,7 @@ describe("oauth sweep — clients", () => {
 describe("oauth sweep — safety", () => {
   test("is a no-op on an empty deployment", async () => {
     const t = setupConvex()
-    expect(await sweep(t)).toEqual({ codes: 0, clients: 0 })
+    expect(await sweep(t)).toEqual({ codes: 0, clients: 0, approvals: 0 })
   })
 
   test("touches nothing but its two tables", async () => {

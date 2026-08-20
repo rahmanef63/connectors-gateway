@@ -52,8 +52,8 @@ export function toAuditEvent(input: AuditInput): AuditEvent {
       ? { workspaceId: input.principal.workspaceId }
       : {}),
     ...(input.errorCode !== undefined ? { errorCode: input.errorCode } : {}),
-    ...(input.deviceId !== undefined ? { deviceId: input.deviceId } : {}),
-    ...(input.connectionId !== undefined ? { connectionId: input.connectionId } : {}),
+    ...(input.deviceId !== undefined ? { deviceId: safeId(input.deviceId) } : {}),
+    ...(input.connectionId !== undefined ? { connectionId: safeId(input.connectionId) } : {}),
   })
 }
 

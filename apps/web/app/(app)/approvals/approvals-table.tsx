@@ -15,7 +15,7 @@ import { useState } from "react"
 import { api } from "@convex/_generated/api"
 import type { Id } from "@convex/_generated/dataModel"
 import { SectionCard } from "@/components/section-card"
-import { StatusBadge } from "@/components/status-badge"
+import { StatusBadge, TONE_CLASSES } from "@/components/status-badge"
 
 export function ApprovalsTable({
   preloaded,
@@ -26,11 +26,17 @@ export function ApprovalsTable({
   const approve = useMutation(api.features.approvals.mutations.approve)
   const deny = useMutation(api.features.approvals.mutations.deny)
   const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const answer = async (id: Id<"approvals">, allow: boolean) => {
     setBusy(id)
+    setError(null)
     try {
       await (allow ? approve({ approvalId: id }) : deny({ approvalId: id }))
+    } catch {
+      // Raw Convex errors can include implementation details. The actionable
+      // truth is only that nothing changed and the user should refresh/retry.
+      setError("That approval could not be updated. Nothing was authorised; refresh and try again.")
     } finally {
       setBusy(null)
     }
@@ -41,6 +47,11 @@ export function ApprovalsTable({
       title="Pending approvals"
       description="Calls waiting on you. Each one is a single action with the arguments it will run with."
     >
+      {error === null ? null : (
+        <p role="alert" className={`text-sm ${TONE_CLASSES.danger.text}`}>
+          {error}
+        </p>
+      )}
       {pending.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Nothing is waiting. Actions classed R2 or higher appear here when an agent attempts one.
@@ -64,7 +75,7 @@ export function ApprovalsTable({
                 <button
                   type="button"
                   className="btn-primary"
-                  disabled={busy === row.id}
+                  disabled={busy !== null}
                   onClick={() => void answer(row.id, true)}
                 >
                   Approve once
@@ -72,7 +83,7 @@ export function ApprovalsTable({
                 <button
                   type="button"
                   className="btn-ghost"
-                  disabled={busy === row.id}
+                  disabled={busy !== null}
                   onClick={() => void answer(row.id, false)}
                 >
                   Deny

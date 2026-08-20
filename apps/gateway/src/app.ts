@@ -18,6 +18,7 @@ import type { GatewayDeps } from "./deps"
 import { createRateLimiter } from "./http/rate-limit"
 import { createRelay } from "./relay/relay"
 import { createConvexControlPlane } from "./store/convex"
+import type { GatewayLeaseLossReason } from "./store/gateway-lease"
 
 /** 5 code mints per 10 minutes per peer — docs/14 "pairing code brute force". */
 const PAIRING_LIMIT = 5
@@ -58,7 +59,11 @@ const OAUTH_WINDOW_MS = 60_000
 export type GatewayApp = {
   deps: GatewayDeps
   logger: Logger
-  stop(): void
+  /** Resolves only when this process may no longer serve. */
+  leaseLost: Promise<GatewayLeaseLossReason>
+  /** Checked before every HTTP request and WebSocket upgrade. */
+  isPrimary(): boolean
+  stop(): Promise<void>
 }
 
 export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
@@ -67,6 +72,7 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
     url: config.convexUrl,
     serviceToken: config.serviceToken,
     logger,
+    credentialEncryptionKey: config.credentialEncryptionKey,
   })
 
   // Boot-time gate: a manifest that fails its own contract stops the process.
@@ -74,12 +80,18 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
   const signingPrivateKey = await importPrivateKey(config.signing.privateKey)
   const keyId = config.signing.keyId
 
-  const relay = createRelay({
+  // This is the deployment topology gate, not a best-effort heartbeat. A second
+  // process must fail before it creates a relay or starts listening.
+  await controlPlane.gatewayLease.acquire()
+  let relayToStop: ReturnType<typeof createRelay> | null = null
+  try {
+    const relay = createRelay({
     devices: controlPlane.devices,
     logger: logger.child({ scope: "relay" }),
     signingPublicKey: config.signing.publicKey,
-    keyId,
-  })
+      keyId,
+    })
+    relayToStop = relay
 
   // Cloud adapters run IN this process. Local adapters never do: blender
   // contributes its MANIFEST only — registered above for catalog and policy —
@@ -123,5 +135,20 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
     logger,
   }
 
-  return { deps, logger, stop: () => relay.stop() }
+    controlPlane.gatewayLease.start()
+    return {
+      deps,
+      logger,
+      leaseLost: controlPlane.gatewayLease.lost,
+      isPrimary: () => controlPlane.gatewayLease.isValid(),
+      stop: async () => {
+        relay.stop()
+        await controlPlane.gatewayLease.stop()
+      },
+    }
+  } catch (cause) {
+    relayToStop?.stop()
+    await controlPlane.gatewayLease.stop()
+    throw cause
+  }
 }

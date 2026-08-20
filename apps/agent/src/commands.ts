@@ -2,7 +2,7 @@
  * The four CLI commands, as functions. `main.ts` only dispatches; everything
  * that can be tested lives here.
  */
-import { createMemoryReplayGuard } from "@cg/protocol"
+import type { ReplayGuard } from "@cg/core"
 import { createDefaultRegistry } from "./adapters"
 import type { AdapterRegistry } from "./adapters"
 import { deleteConfig, loadConfig, saveConfig, tryLoadConfig } from "./config"
@@ -16,6 +16,7 @@ import type { PinnedKey } from "./key-store"
 import { createLogger } from "./log"
 import type { Logger } from "./log"
 import { runPairing } from "./pairing"
+import { createPersistentReplayGuard } from "./replay-store"
 import { createSession } from "./session"
 import type { Session } from "./session"
 import { formatStatus } from "./status"
@@ -26,6 +27,8 @@ export type CommandDeps = {
   logger?: Logger
   /** Injected in tests so no adapter probes a real bridge. */
   registry?: AdapterRegistry
+  /** Tests may remain in-memory; production defaults to the durable cache. */
+  replay?: ReplayGuard
 }
 
 export async function pairCommand(deps: CommandDeps = {}): Promise<void> {
@@ -58,10 +61,11 @@ export async function runCommand(deps: CommandDeps = {}): Promise<Session> {
     initial: pinnedKeyOf(config),
     persist: (key) => void saveConfig(env.configDir, { ...stored, ...key }),
   })
+  const replay = deps.replay ?? await createPersistentReplayGuard({ directory: env.configDir })
   const runner = createJobRunner({
     registry,
     verify: keys.verify,
-    replay: createMemoryReplayGuard(),
+    replay,
     disabledActions: config.disabledActions,
   })
 

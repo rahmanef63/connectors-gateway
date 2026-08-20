@@ -47,7 +47,9 @@ type Device = {
 
 - Pairing codes are short-lived and one-time use.
 - A device credential is never shown to ChatGPT.
-- Revoking a device terminates its active session.
+- Revoking a device terminates its active session. The single-process relay polls durable
+  device status every 30 seconds, removes the socket from dispatch before closing it, fails
+  in-flight jobs with `DEVICE_REVOKED`, and closes the agent with WebSocket code 4003.
 - Device credentials should be rotatable.
 - A user can rename a device without changing its identity.
 - Reinstalling the agent should create a new device unless recovery is explicitly implemented.

@@ -33,6 +33,8 @@ export type OAuthFlowState = {
   readonly tokenEndpoint: string
   readonly redirectUri: string
   readonly resource: string
+  /** Scope originally requested; reused only by a future refresh grant. */
+  readonly scope: string | null
   /** Epoch seconds. Checked on the way back in — a cookie is not a clock. */
   readonly exp: number
 }
@@ -92,6 +94,10 @@ export function parseFlowState(json: string, nowMs: number): OAuthFlowState | nu
   }
   const secret = record["clientSecret"]
   if (secret !== null && typeof secret !== "string") return null
+  const scope = record["scope"]
+  // Compatibility for a flow cookie minted by the previous deployment during
+  // its ten-minute lifetime: missing scope means the server advertised none.
+  if (scope !== undefined && scope !== null && typeof scope !== "string") return null
 
-  return record as unknown as OAuthFlowState
+  return { ...(record as unknown as OAuthFlowState), scope: typeof scope === "string" ? scope : null }
 }

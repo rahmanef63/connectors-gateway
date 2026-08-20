@@ -138,6 +138,42 @@ describe("features/api_keys/mutations:issue", () => {
     SLOW,
   )
 
+  test(
+    "a long revoked-key history never blocks issuing a replacement",
+    async () => {
+      const t = setupConvex()
+      const userId = await createUser(t)
+
+      // Regression for the old bounded by_user scan: 500 historical rows made
+      // issuance fail closed even when not one credential was active.
+      await t.run(async (ctx) => {
+        for (let i = 0; i < 501; i += 1) {
+          await ctx.db.insert("apiKeys", {
+            keyId: `key_revoked_${i.toString().padStart(4, "0")}`,
+            userId,
+            scopes: [],
+            secretHash: "pbkdf2$sha256$210000$c2FsdA$aGFzaA",
+            status: "revoked",
+            label: `Old key ${i}`,
+          })
+        }
+      })
+
+      const issued = await issueKey(t, userId, "Replacement after history")
+      const active = await t.run(async (ctx) =>
+        ctx.db
+          .query("apiKeys")
+          .withIndex("by_user_status", (q) => q.eq("userId", userId).eq("status", "active"))
+          .take(MAX_ACTIVE_API_KEYS_PER_USER),
+      )
+
+      expect(issued.keyId).toMatch(/^key_[0-9a-f]{32}$/)
+      expect(active).toHaveLength(1)
+      expect(active[0]?.keyId).toBe(issued.keyId)
+    },
+    SLOW,
+  )
+
   test("one user's cap does not spend another user's", async () => {
     const t = setupConvex()
     const mine = await createUser(t)

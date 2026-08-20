@@ -13,14 +13,9 @@ import { ownedDevice } from "../../_shared/lookup"
 /**
  * Revocation is terminal and idempotent: the status flips to `revoked`, so the
  * device fails authentication on its next `hello` and can no longer be selected
- * for a job.
- *
- * It does NOT yet tear down a socket that is already open — the relay only reads
- * the control plane at connect time. The live session is inert (job dispatch
- * rejects with DEVICE_REVOKED and presence updates are dropped), but docs/04
- * "revoking a device terminates its active session" is not literally true until
- * the relay polls or the control plane can push.
- * TODO(rr): close open sockets on revoke — needs a relay sweep or a push channel.
+ * for a job. The relay also revalidates every live socket against this durable
+ * row every 30 seconds; once this status is visible it removes the socket from
+ * dispatch, fails in-flight work with DEVICE_REVOKED, and closes with code 4003.
  */
 export const revoke = mutation({
   args: { deviceId: v.string() },

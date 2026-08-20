@@ -10,14 +10,6 @@
  */
 export const MAX_ACTIVE_API_KEYS_PER_USER = 20
 
-/**
- * Revoked keys stay as rows forever (the gateway must be able to tell revoked
- * from unknown), so a user's row count only grows. `issue` counts the active
- * ones by scanning this many of the newest rows; a user who has burned through
- * more than this is refused rather than counted wrongly — see `mutations.ts`.
- */
-export const MAX_API_KEY_ROWS_SCANNED = 500
-
 /** Page size for the dashboard list. Newest first; no bare `.collect()`. */
 export const MAX_API_KEYS_PAGE = 200
 
