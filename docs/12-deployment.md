@@ -86,7 +86,13 @@ itself must then be **promoted to an immutable git-SHA image** from the Swarm ma
 
 ```bash
 ./scripts/release-gateway.sh <full-main-commit-sha>
+./scripts/release-dashboard.sh <full-main-commit-sha>
 ```
+
+Both release scripts read the semantic release from `VERSION`, stamp OCI
+`org.opencontainers.image.version` plus `org.opencontainers.image.revision`, and
+refuse dirty or non-`origin/main` revisions. `CHANGELOG.md` is the human release
+history; `bun run version:check` prevents workspace/plugin/runtime version drift.
 
 The release script rebuilds the reviewed commit as
 `connectors-gateway/gateway:git-<sha>`, stamps the OCI revision label, verifies the

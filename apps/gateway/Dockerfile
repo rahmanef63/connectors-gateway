@@ -5,7 +5,9 @@
 # image is the workspace plus its dependencies.
 FROM oven/bun:1.3.14-alpine
 ARG GATEWAY_REVISION=unknown
-LABEL org.opencontainers.image.revision=$GATEWAY_REVISION
+ARG APP_VERSION=unknown
+LABEL org.opencontainers.image.revision=$GATEWAY_REVISION \
+      org.opencontainers.image.version=$APP_VERSION
 RUN addgroup -g 1001 -S gateway && adduser -S gateway -u 1001
 WORKDIR /app
 

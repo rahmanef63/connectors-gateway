@@ -28,6 +28,10 @@ RUN cd apps/web && bun run build
 
 # Next's standalone server targets Node, so the runner is Node, not Bun.
 FROM node:22-alpine AS runner
+ARG APP_REVISION=unknown
+ARG APP_VERSION=unknown
+LABEL org.opencontainers.image.revision=$APP_REVISION \
+      org.opencontainers.image.version=$APP_VERSION
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

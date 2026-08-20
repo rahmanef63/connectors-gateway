@@ -17,6 +17,7 @@ IMAGE="${GATEWAY_IMAGE_REPOSITORY:-connectors-gateway/gateway}:git-${REVISION}"
 echo "building immutable gateway image for ${REVISION:0:12}"
 docker build --pull -f apps/gateway/Dockerfile \
   --build-arg "GATEWAY_REVISION=$REVISION" \
+  --build-arg "APP_VERSION=$VERSION" \
   -t "$IMAGE" . >/dev/null
 
 # Relay ownership and rate budgets are shared, so old and new replicas can
@@ -46,6 +47,10 @@ replicas="$(docker service ls --filter "name=$SERVICE" --format '{{.Replicas}}' 
 [ "$replicas" = "$wanted" ] || { echo "gateway replicas did not converge: $replicas" >&2; exit 1; }
 actual="$(docker service inspect "$SERVICE" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')"
 [ "$actual" = "$IMAGE" ] || { echo "service did not retain immutable image" >&2; exit 1; }
+image_version="$(docker image inspect "$IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.version"}}')"
+image_revision="$(docker image inspect "$IMAGE" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+[ "$image_version" = "$VERSION" ] || { echo "gateway image version label mismatch" >&2; exit 1; }
+[ "$image_revision" = "$REVISION" ] || { echo "gateway image revision label mismatch" >&2; exit 1; }
 status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 8 https://connect.rahmanef.com/healthz)"
 [ "$status" = "200" ] || { echo "health check failed after rollout" >&2; exit 1; }
 echo "gateway release verified: ${REVISION:0:12} (${replicas})"
