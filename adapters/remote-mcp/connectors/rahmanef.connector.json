@@ -1,0 +1,508 @@
+{
+  "id": "rahmanef",
+  "name": "rahmanef.com CMS",
+  "version": "0.1.0",
+  "executor": "cloud",
+  "endpoint": "https://rahmanef.com/mcp",
+  "verification": {
+    "environment": "production",
+    "resourceMetadata": "https://rahmanef.com/.well-known/oauth-protected-resource",
+    "authorizationServer": "https://rahmanef.com",
+    "authorizationEndpoint": "https://rahmanef.com/oauth/authorize",
+    "tokenEndpoint": "https://rahmanef.com/oauth/token",
+    "registrationEndpoint": "https://rahmanef.com/oauth/register"
+  },
+  "auth": {
+    "type": "oauth2",
+    "fields": []
+  },
+  "actions": [
+    {
+      "id": "rahmanef.posts.list",
+      "title": "List blog posts",
+      "description": "List published and draft blog posts.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "list_posts",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "rahmanef.post.read",
+      "title": "Read blog post",
+      "description": "Read one blog post by slug, including content.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "get_post",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "rahmanef.post.create",
+      "title": "Create blog post",
+      "description": "Create a blog post using the supplied CMS fields.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "create_post",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "rahmanef.post.update",
+      "title": "Update blog post",
+      "description": "Patch a blog post by id; only supplied fields are changed.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R2",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "update_post",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "rahmanef.post.delete",
+      "title": "Delete blog post",
+      "description": "Permanently delete a blog post by id.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "delete_post",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "rahmanef.projects.list",
+      "title": "List portfolio projects",
+      "description": "List portfolio projects and their status.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "list_projects",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "rahmanef.project.read",
+      "title": "Read portfolio project",
+      "description": "Read one portfolio project by id or slug.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "get_project",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "rahmanef.project.create",
+      "title": "Create portfolio project",
+      "description": "Create a portfolio project using supplied CMS fields.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "create_project",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "rahmanef.project.update",
+      "title": "Update portfolio project",
+      "description": "Patch a portfolio project by id.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R2",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "update_project",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "rahmanef.project.delete",
+      "title": "Delete portfolio project",
+      "description": "Permanently delete a portfolio project by id.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "delete_project",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "rahmanef.services.list",
+      "title": "List service offerings",
+      "description": "List service offerings and their ordering.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "list_services",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "rahmanef.service.create",
+      "title": "Create service offering",
+      "description": "Create a service offering using supplied CMS fields.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "create_service",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "rahmanef.service.update",
+      "title": "Update service offering",
+      "description": "Patch a service offering by id.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "fields"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R2",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "update_service",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "rahmanef.service.delete",
+      "title": "Delete service offering",
+      "description": "Permanently delete a service offering by id.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "delete_service",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "rahmanef.pages.list",
+      "title": "List CMS pages",
+      "description": "List CMS pages and their publish state.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "list_pages",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "rahmanef.page.read",
+      "title": "Read CMS page",
+      "description": "Read a CMS page by slug, including its stored HTML body.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "get_page",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "rahmanef.images.list",
+      "title": "List stored images",
+      "description": "List stored site images and metadata.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "list_images",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "rahmanef.image.delete",
+      "title": "Delete stored image",
+      "description": "Permanently delete a stored image; references to its media path may break.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "delete_image",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    }
+  ]
+}

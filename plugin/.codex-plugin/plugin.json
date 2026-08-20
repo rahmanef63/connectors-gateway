@@ -1,6 +1,6 @@
 {
   "name": "connectors-gateway",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "One OAuth-authenticated MCP gateway for cloud and local connectors, with per-user catalogs, policy, approvals, audit, and output redaction.",
   "author": {
     "name": "Rahman",

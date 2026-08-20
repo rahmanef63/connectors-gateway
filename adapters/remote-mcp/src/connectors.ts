@@ -12,7 +12,9 @@ import type { ConnectorManifest } from "@cg/core"
 import { validateManifest } from "@cg/schemas"
 import careerpack from "../connectors/careerpack.connector.json"
 import composio from "../connectors/composio.connector.json"
+import content from "../connectors/content.connector.json"
 import mso from "../connectors/mso.connector.json"
+import rahmanef from "../connectors/rahmanef.connector.json"
 
 /**
  * Validated HERE, at the JSON boundary, rather than cast: these files are data today and
@@ -23,5 +25,7 @@ import mso from "../connectors/mso.connector.json"
 export const REMOTE_MCP_MANIFESTS: readonly ConnectorManifest[] = Object.freeze([
   validateManifest(careerpack),
   validateManifest(composio),
+  validateManifest(content),
   validateManifest(mso),
+  validateManifest(rahmanef),
 ])

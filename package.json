@@ -1,7 +1,7 @@
 {
   "name": "connectors-gateway",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "description": "Universal connector runtime for AI agents, cloud apps, and local software.",
   "packageManager": "bun@1.3.14",

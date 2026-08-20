@@ -1,0 +1,496 @@
+{
+  "id": "content",
+  "name": "Content — Social Content OS",
+  "version": "0.1.0",
+  "executor": "cloud",
+  "endpoint": "https://cautious-dog-955.convex.site/mcp",
+  "verification": {
+    "environment": "production",
+    "resourceMetadata": "https://cautious-dog-955.convex.site/.well-known/oauth-protected-resource",
+    "authorizationServer": "https://content.rahmanef.com",
+    "authorizationEndpoint": "https://content.rahmanef.com/oauth/authorize",
+    "tokenEndpoint": "https://content.rahmanef.com/api/oauth/token",
+    "registrationEndpoint": "https://content.rahmanef.com/api/oauth/register"
+  },
+  "auth": {
+    "type": "oauth2",
+    "fields": []
+  },
+  "actions": [
+    {
+      "id": "content.context.read",
+      "title": "Read Content workspace context",
+      "description": "Return the token-bound workspace, brands, capabilities, publishing availability and quota. Use this first in a session.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "get_context",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "content.items.list",
+      "title": "List content items",
+      "description": "List content for a brand with optional workflow statuses and a bounded limit.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string"
+          },
+          "status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "idea",
+                "draft",
+                "review",
+                "approved",
+                "scheduled",
+                "posted",
+                "archived"
+              ]
+            }
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "list_content",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "content.item.read",
+      "title": "Read content item",
+      "description": "Read one content item including brief, caption versions, media, publish targets and recent comments.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "contentId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "get_content",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "content.item.create",
+      "title": "Create content item",
+      "description": "Create one planner item. This does not publish anything.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "brief": {
+            "type": "string"
+          },
+          "contentTypeKey": {
+            "type": "string"
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contentGoal": {
+            "type": "string"
+          },
+          "hook": {
+            "type": "string"
+          },
+          "cta": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "idea",
+              "draft"
+            ]
+          },
+          "dueAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "create_content",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "content.item.update",
+      "title": "Update content item",
+      "description": "Patch an existing content item; omitted fields remain unchanged.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "contentId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "brief": {
+            "type": "string"
+          },
+          "contentTypeKey": {
+            "type": "string"
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "contentGoal": {
+            "type": "string"
+          },
+          "hook": {
+            "type": "string"
+          },
+          "cta": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "contentId"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "update_content",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "content.status.set",
+      "title": "Move content through workflow",
+      "description": "Move a content item through the guarded workflow state machine.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "contentId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "idea",
+              "draft",
+              "review",
+              "approved",
+              "scheduled",
+              "posted",
+              "archived"
+            ]
+          }
+        },
+        "required": [
+          "contentId",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R2",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "set_content_status",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "content.caption.draft",
+      "title": "Save caption draft",
+      "description": "Append a caption version to a content item without publishing it.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "contentId": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "hook": {
+            "type": "string"
+          },
+          "cta": {
+            "type": "string"
+          },
+          "hashtags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "contentId",
+          "body"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "draft_caption",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "content.schedule.set",
+      "title": "Schedule content",
+      "description": "Set or clear when a content item should go out. This alone does not publish.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "contentId": {
+            "type": "string"
+          },
+          "scheduledAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "contentId"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R2",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "schedule_content",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "content.publish.queue",
+      "title": "Queue content for publishing",
+      "description": "Queue content to connected accounts at its scheduled time. It does not prove that the later platform post succeeded.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "contentId": {
+            "type": "string"
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "postType": {
+            "type": "string",
+            "enum": [
+              "text",
+              "image",
+              "video",
+              "album",
+              "story"
+            ]
+          },
+          "replace": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "contentId",
+          "accounts"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "queue_publish",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "content.inbox.list",
+      "title": "List social inbox",
+      "description": "List collected social comments, optionally filtered by brand and status.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "resolved",
+              "ignored"
+            ]
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "list_inbox",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    },
+    {
+      "id": "content.inbox.reply",
+      "title": "Reply to social comment",
+      "description": "Post a public immediate reply under the connected brand account and mark the comment resolved.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "commentId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "commentId",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "reply_inbox",
+      "requiredScopes": [
+        "mcp.write"
+      ]
+    },
+    {
+      "id": "content.metrics.read",
+      "title": "Read content metrics",
+      "description": "Read reach and engagement breakdowns for a brand over a bounded period.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string"
+          },
+          "days": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 365
+          }
+        },
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "get_metrics",
+      "requiredScopes": [
+        "mcp.read"
+      ]
+    }
+  ]
+}

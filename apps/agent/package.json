@@ -1,6 +1,6 @@
 {
   "name": "@cg/agent",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Local Connectors Agent: outbound-only device session, local allowlist, adapters.",

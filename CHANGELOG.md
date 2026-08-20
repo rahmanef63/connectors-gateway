@@ -4,6 +4,39 @@ All notable changes to Connectors Gateway are documented here. The repository us
 lockstep application/workspace version; connector manifest versions remain independent
 contract versions and change only when their connector contract changes.
 
+## [0.3.0] - 2026-08-20
+
+### Added
+
+- Added the verified **Content — Social Content OS** connector with OAuth discovery, content planning,
+  captions, scheduling, metrics, social inbox, and approval-gated publishing/reply actions.
+- Added the verified **rahmanef.com CMS** connector with OAuth-backed post, project, service, page,
+  and media-management actions. Destructive delete operations remain R3 approval-gated.
+- Production endpoint verification now covers four fixed connectors: CareerPack, Content, MSO, and
+  rahmanef.com.
+
+### Fixed
+
+- Fixed the mobile **All screens** dialog using an explicit dynamic-viewport height instead of
+  intrinsic dialog sizing, so it opens as a usable near-full-screen drawer on mobile while keeping
+  the existing navigation and sign-out flow unchanged.
+- Kept safe-area handling, scrollable drawer content, reduced-motion behavior, and the existing
+  mobile dock interaction unchanged.
+
+### Not included
+
+- Open Silong is not shipped as a connector in this release because its current production MCP host
+  fails normal TLS certificate verification. It can be added after the endpoint presents a valid
+  public certificate.
+
+### Validation
+
+- 1,117 runtime tests and 724 web/Convex tests pass, including new catalog and mobile-drawer
+  regressions.
+- Four fixed production MCP/OAuth discovery chains pass credential-free endpoint verification.
+- Production web build passes and the compiled mobile drawer measures 98.9% of the effective
+  390×844 browser viewport in a headless geometry smoke test.
+
 ## [0.2.1] - 2026-08-20
 
 ### Fixed

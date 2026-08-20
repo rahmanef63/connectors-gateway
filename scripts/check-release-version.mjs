@@ -31,6 +31,8 @@ const exactSources = [
   ["apps/gateway/src/mcp/server.ts", `version: "${expected}"`],
   ["apps/agent/src/identity.ts", `AGENT_VERSION = "${expected}"`],
   ["adapters/remote-mcp/src/mcp-client.ts", `name: "connectors-gateway", version: "${expected}"`],
+  ["adapters/remote-mcp/src/verify-endpoints.ts", `name: "connector-gateway-endpoint-verifier", version: "${expected}"`],
+  ["README.md", `**Current release: v${expected}**`],
   ["plugin/.codex-plugin/plugin.json", `"version": "${expected}"`],
   ["plugin/.claude-plugin/plugin.json", `"version": "${expected}"`],
 ]

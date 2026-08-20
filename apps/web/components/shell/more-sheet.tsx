@@ -12,7 +12,10 @@
 // w-full/max-w-none pin it to the bottom edge, and display comes from
 // `max-md:open:flex` — plain `open:flex` outranks `md:hidden` and would leak
 // onto desktop, while closed it falls through to the UA's display:none.
-// `text-foreground` is not decoration: the UA gives dialogs `color: canvastext`,
+// The height is explicit rather than max-height-only: native <dialog> otherwise
+// sizes to intrinsic content on some mobile engines, which can leave only a short
+// strip visible. `dvh` follows the live browser chrome and the safe-area keeps the
+// panel below a notch. `text-foreground` is not decoration: the UA gives dialogs `color: canvastext`,
 // which ignores our theme.
 import { useEffect, useRef } from "react"
 import Link from "next/link"
@@ -59,7 +62,7 @@ export function MoreSheet({
       onClick={(event) => {
         if (event.target === ref.current) onClose()
       }}
-      className="mobile-sheet m-0 mx-auto mt-auto max-h-[min(86dvh,44rem)] w-full max-w-[42rem] flex-col rounded-t-[1.75rem] border border-b-0 border-border bg-card pb-[calc(env(safe-area-inset-bottom)+1rem)] text-foreground max-md:open:flex md:hidden"
+      className="mobile-sheet m-0 mx-auto mt-auto h-[calc(100dvh-max(env(safe-area-inset-top),0.5rem))] max-h-none w-full max-w-[42rem] flex-col rounded-t-[1.75rem] border border-b-0 border-border bg-card pb-[calc(env(safe-area-inset-bottom)+1rem)] text-foreground max-md:open:flex md:hidden"
     >
       <div className="mx-auto mt-3 h-1 w-9 shrink-0 rounded-full bg-border" />
       <div className="px-5 pt-3 pb-4">
