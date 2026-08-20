@@ -19,12 +19,19 @@ function stubFetch(
 ): void {
   globalThis.fetch = ((input: unknown, init?: RequestInit) => {
     calls.push({ url: String(input), init: init ?? {} })
-    return Promise.resolve(
-      new Response(body, {
-        status: options.status ?? 200,
-        headers: { "content-type": options.contentType ?? "application/json", ...options.headers },
-      }),
-    )
+    let method = ""
+    try { method = (JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>)["method"] as string ?? "" } catch {}
+    if (method === "initialize") {
+      const request = JSON.parse(String(init?.body)) as Record<string, unknown>
+      return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: request["id"], result: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, serverInfo: { name: "test", version: "1" } } }), { headers: { "content-type": "application/json" } }))
+    }
+    if (method === "notifications/initialized") return Promise.resolve(new Response(null, { status: 202 }))
+    const request = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+    const responseBody = body.replace(/"id":1(?=[,}])/, `"id":${String(request["id"])}`)
+    return Promise.resolve(new Response(responseBody, {
+      status: options.status ?? 200,
+      headers: { "content-type": options.contentType ?? "application/json", ...options.headers },
+    }))
   }) as unknown as typeof fetch
 }
 
@@ -54,7 +61,7 @@ describe("callTool transport", () => {
 
     await call()
 
-    const sent = calls[0]
+    const sent = calls.at(-1)
     expect(sent?.url).toBe(BASE_URL)
     expect(sent?.init.method).toBe("POST")
     expect((sent?.init.headers as Record<string, string>)["MCP-Protocol-Version"]).toBe(MCP_PROTOCOL_VERSION)
@@ -181,7 +188,7 @@ describe("callTool never follows a redirect", () => {
       // Neither the attacker's host nor the bearer is echoed back to the caller.
       expect((error as GatewayError).message).not.toContain("evil.example.com")
       expect((error as GatewayError).message).not.toContain(TOKEN)
-      expect(calls).toHaveLength(1)
+      expect(calls).toHaveLength(3)
     })
   }
 })
@@ -222,6 +229,9 @@ describe("callTool caps the response body", () => {
     })
     globalThis.fetch = ((input: unknown, init?: RequestInit) => {
       calls.push({ url: String(input), init: init ?? {} })
+      const payload = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+      if (payload["method"] === "initialize") return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: payload["id"], result: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {} } }), { headers: { "content-type": "application/json" } }))
+      if (payload["method"] === "notifications/initialized") return Promise.resolve(new Response(null, { status: 202 }))
       return Promise.resolve(new Response(endless, { headers: { "content-type": "application/json" } }))
     }) as unknown as typeof fetch
 
@@ -322,5 +332,66 @@ describe("callTool response parsing", () => {
 
     expect((error as GatewayError).code).toBe("CANCELLED")
     expect(calls).toHaveLength(0)
+  })
+})
+
+describe("Streamable HTTP session lifecycle", () => {
+  test("initialize session id is propagated to initialized notification and tools/call", async () => {
+    globalThis.fetch = ((input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      const payload = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+      if (payload["method"] === "initialize") {
+        return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: payload["id"], result: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {} } }), {
+          headers: { "content-type": "application/json", "mcp-session-id": "sess_abc123" },
+        }))
+      }
+      if (payload["method"] === "notifications/initialized") return Promise.resolve(new Response(null, { status: 202 }))
+      return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: payload["id"], result: { structuredContent: { ok: true } } }), { headers: { "content-type": "application/json" } }))
+    }) as unknown as typeof fetch
+
+    await expect(call()).resolves.toEqual({ ok: true })
+    expect(calls).toHaveLength(3)
+    const initializedHeaders = calls[1]?.init.headers as Record<string, string>
+    const callHeaders = calls[2]?.init.headers as Record<string, string>
+    expect(initializedHeaders["Mcp-Session-Id"]).toBe("sess_abc123")
+    expect(callHeaders["Mcp-Session-Id"]).toBe("sess_abc123")
+  })
+
+  test("legacy server with method-not-found falls back to direct tools/call", async () => {
+    globalThis.fetch = ((input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      const payload = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+      if (payload["method"] === "initialize") return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: payload["id"], error: { code: -32601, message: "method not found" } }), { headers: { "content-type": "application/json" } }))
+      return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: payload["id"], result: { structuredContent: { legacy: true } } }), { headers: { "content-type": "application/json" } }))
+    }) as unknown as typeof fetch
+
+    await expect(call()).resolves.toEqual({ legacy: true })
+    expect(calls).toHaveLength(2)
+    expect(JSON.parse(String(calls[1]?.init.body)).method).toBe("tools/call")
+  })
+
+  test("invalid session identifiers fail closed and are never echoed", async () => {
+    const bad = "bad session id"
+    globalThis.fetch = ((input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      const payload = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+      return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: payload["id"], result: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {} } }), { headers: { "content-type": "application/json", "mcp-session-id": bad } }))
+    }) as unknown as typeof fetch
+    const error = await call().catch((cause: unknown) => cause)
+    expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
+    expect((error as GatewayError).message).not.toContain(bad)
+  })
+
+  test("SSE ignores progress/notification events and selects the matching JSON-RPC id", async () => {
+    globalThis.fetch = ((input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      const payload = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+      if (payload["method"] === "initialize") return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: payload["id"], result: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {} } }), { headers: { "content-type": "application/json" } }))
+      if (payload["method"] === "notifications/initialized") return Promise.resolve(new Response(null, { status: 202 }))
+      const wanted = JSON.stringify({ jsonrpc: "2.0", id: payload["id"], result: { structuredContent: { done: true } } })
+      const stream = `event: message\ndata: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":1}}\n\nevent: message\ndata: ${wanted}\n\nevent: message\ndata: {"jsonrpc":"2.0","method":"notifications/progress","params":{"progress":2}}\n\n`
+      return Promise.resolve(new Response(stream, { headers: { "content-type": "text/event-stream" } }))
+    }) as unknown as typeof fetch
+    await expect(call()).resolves.toEqual({ done: true })
   })
 })

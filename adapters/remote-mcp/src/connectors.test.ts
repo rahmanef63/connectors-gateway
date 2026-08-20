@@ -188,12 +188,13 @@ test("shipped careerpack data reaches the wire as profile_get", async () => {
   let sent = "{}"
   globalThis.fetch = ((_input: unknown, init?: RequestInit) => {
     sent = String(init?.body)
+    const request = JSON.parse(sent) as Record<string, unknown>
+    if (request["method"] === "initialize") {
+      return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: request["id"], result: { protocolVersion: "2025-06-18", capabilities: {} } }), { headers: { "content-type": "application/json" } }))
+    }
+    if (request["method"] === "notifications/initialized") return Promise.resolve(new Response(null, { status: 202 }))
     const result = { structuredContent: { ok: true } }
-    return Promise.resolve(
-      new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }), {
-        headers: { "content-type": "application/json" },
-      }),
-    )
+    return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: request["id"], result }), { headers: { "content-type": "application/json" } }))
   }) as unknown as typeof fetch
 
   try {

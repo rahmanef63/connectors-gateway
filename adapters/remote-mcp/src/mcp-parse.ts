@@ -17,24 +17,43 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * ponytail: only the last `data:` line is read — enough for one-shot tools/call.
  * Upgrade path is a real event-stream reader once we need progress notifications.
  */
-export function parseRpcBody(raw: string, contentType: string | null): unknown {
-  const text = contentType?.toLowerCase().includes("text/event-stream") ? lastSseData(raw) : raw.trim()
+export function parseRpcBody(raw: string, contentType: string | null, expectedId?: string | number): unknown {
+  const text = contentType?.toLowerCase().includes("text/event-stream") ? matchingSseData(raw, expectedId) : raw.trim()
   if (text.length === 0) {
     throw new GatewayError("UPSTREAM_ERROR", "The upstream server returned an empty response.")
   }
   try {
-    return JSON.parse(text)
-  } catch {
+    const parsed: unknown = JSON.parse(text)
+    if (expectedId !== undefined && (!isRecord(parsed) || parsed["id"] !== expectedId)) {
+      throw new GatewayError("UPSTREAM_ERROR", "The upstream server returned a response for a different request.")
+    }
+    return parsed
+  } catch (cause) {
+    if (cause instanceof GatewayError) throw cause
     throw new GatewayError("UPSTREAM_ERROR", "The upstream server returned a malformed response.")
   }
 }
 
-function lastSseData(raw: string): string {
+function matchingSseData(raw: string, expectedId?: string | number): string {
   const payloads: string[] = []
-  for (const line of raw.split(/\r?\n/)) {
-    if (line.startsWith("data:")) payloads.push(line.slice("data:".length).trim())
+  let data: string[] = []
+  const flush = () => {
+    if (data.length > 0) payloads.push(data.join("\n"))
+    data = []
   }
-  return payloads.at(-1) ?? ""
+  for (const line of raw.split(/\r?\n/)) {
+    if (line === "") { flush(); continue }
+    if (line.startsWith("data:")) data.push(line.slice("data:".length).replace(/^ /, ""))
+  }
+  flush()
+  if (expectedId === undefined) return payloads.at(-1) ?? ""
+  for (const payload of payloads) {
+    try {
+      const parsed: unknown = JSON.parse(payload)
+      if (isRecord(parsed) && parsed["id"] === expectedId) return payload
+    } catch { /* malformed events are ignored until no matching response remains */ }
+  }
+  return ""
 }
 
 /**

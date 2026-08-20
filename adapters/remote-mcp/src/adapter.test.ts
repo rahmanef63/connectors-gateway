@@ -55,12 +55,16 @@ let calls: StubCall[] = []
 function stubFetch(body: string, options: { status?: number; contentType?: string } = {}): void {
   globalThis.fetch = ((input: unknown, init?: RequestInit) => {
     calls.push({ url: String(input), init: init ?? {} })
-    return Promise.resolve(
-      new Response(body, {
-        status: options.status ?? 200,
-        headers: { "content-type": options.contentType ?? "application/json" },
-      }),
-    )
+    const request = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+    if (request["method"] === "initialize") {
+      return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: request["id"], result: { protocolVersion: "2025-06-18", capabilities: {}, serverInfo: { name: "fixture", version: "1" } } }), { headers: { "content-type": "application/json" } }))
+    }
+    if (request["method"] === "notifications/initialized") return Promise.resolve(new Response(null, { status: 202 }))
+    const responseBody = body.replace(/"id":1(?=[,}])/, `"id":${String(request["id"])}`)
+    return Promise.resolve(new Response(responseBody, {
+      status: options.status ?? 200,
+      headers: { "content-type": options.contentType ?? "application/json" },
+    }))
   }) as unknown as typeof fetch
 }
 
@@ -137,7 +141,7 @@ describe("remote-mcp adapter happy paths", () => {
 
     await adapter.execute(WRITE, { company: "Acme", notes: "referred" }, context())
 
-    const call = calls[0]
+    const call = calls.at(-1)
     expect(call).toBeDefined()
     const headers = call?.init.headers as Record<string, string>
     expect(headers["Authorization"]).toBe(`Bearer ${TOKEN}`)
@@ -265,7 +269,7 @@ describe("remote-mcp adapter failure paths", () => {
 
     await adapter.execute(WRITE, input, context())
 
-    const body = JSON.parse(String(calls[0]?.init.body)) as Record<string, Record<string, unknown>>
+    const body = JSON.parse(String(calls.at(-1)?.init.body)) as Record<string, Record<string, unknown>>
     expect(body["params"]?.["arguments"]).toEqual(input)
   })
 
@@ -355,4 +359,36 @@ describe("the bearer token never leaks", () => {
       expect(JSON.stringify(output ?? null)).not.toContain(TOKEN)
     })
   }
+})
+
+describe("remote-mcp transient retry policy", () => {
+  test("read-only action retries one transient transport failure", async () => {
+    let toolAttempts = 0
+    globalThis.fetch = ((input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      const request = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+      if (request["method"] === "initialize") return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: request["id"], result: { protocolVersion: "2025-06-18", capabilities: {} } }), { headers: { "content-type": "application/json" } }))
+      if (request["method"] === "notifications/initialized") return Promise.resolve(new Response(null, { status: 202 }))
+      toolAttempts += 1
+      if (toolAttempts === 1) return Promise.reject(new Error("temporary network failure"))
+      return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: request["id"], result: { structuredContent: { ok: true } } }), { headers: { "content-type": "application/json" } }))
+    }) as unknown as typeof fetch
+    await expect(adapter.execute(READ, {}, context())).resolves.toEqual({ output: { ok: true } })
+    expect(toolAttempts).toBe(2)
+  })
+
+  test("non-idempotent write is never replayed after an ambiguous transport failure", async () => {
+    let toolAttempts = 0
+    globalThis.fetch = ((input: unknown, init?: RequestInit) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      const request = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>
+      if (request["method"] === "initialize") return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: request["id"], result: { protocolVersion: "2025-06-18", capabilities: {} } }), { headers: { "content-type": "application/json" } }))
+      if (request["method"] === "notifications/initialized") return Promise.resolve(new Response(null, { status: 202 }))
+      toolAttempts += 1
+      return Promise.reject(new Error("connection reset after send"))
+    }) as unknown as typeof fetch
+    const error = await adapter.execute(WRITE, { company: "Acme" }, context()).catch((cause: unknown) => cause)
+    expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
+    expect(toolAttempts).toBe(1)
+  })
 })

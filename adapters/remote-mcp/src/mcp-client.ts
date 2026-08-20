@@ -1,49 +1,32 @@
 /**
- * Minimal remote-MCP client: one JSON-RPC 2.0 `tools/call` over HTTP POST.
+ * Remote MCP Streamable HTTP client.
  *
- * Server-agnostic on purpose — `baseUrl`, `token` and `name` are the only inputs, so the
- * same function reaches every remote MCP server in the catalog (docs/16).
- *
- * ponytail: no `initialize` handshake, no session id, no SSE streaming state, no retry.
- * The servers we connect answer a single-shot tools/call, which is all the MVP needs.
- * Upgrade path is the official MCP TypeScript SDK transport once sessions, sampling, or
- * progress notifications are required.
+ * It prefers the standard initialize -> notifications/initialized -> tools/call
+ * lifecycle, propagates Mcp-Session-Id when a server issues one, and accepts
+ * JSON or SSE responses. Older reviewed servers that explicitly do not expose
+ * initialize (HTTP 404/405 or JSON-RPC method-not-found) retain the historical
+ * single-shot tools/call compatibility path.
  */
 import { blockedRange, GatewayError, isLoopback } from "@cg/core"
 import { parseRpcBody, readToolResult } from "./mcp-parse"
 
-/** Pinned revision: streamable-HTTP servers reject calls carrying an unknown version. */
 export const MCP_PROTOCOL_VERSION = "2025-06-18"
-
-/**
- * A tools/call result is a record or an id, not a download. 1 MiB is far above anything
- * these servers return and far below what would matter if a compromised or impersonated
- * endpoint answered with an endless stream: without a cap, one call can exhaust the
- * gateway's memory for every other tenant.
- */
 export const MAX_RESPONSE_BYTES = 1_048_576
-/** Hard ceiling for the one reviewed tool that legitimately embeds a PNG. */
 export const MAX_LARGE_RESPONSE_BYTES = 8_388_608
-
+const MAX_SESSION_ID_LENGTH = 256
 let requestCounter = 0
 
-/**
- * Call one upstream MCP tool and return its payload.
- * `token` leaves this module only inside the Authorization header — never in a thrown
- * error, never in the returned value.
- */
-/**
- * Where the credential goes on the wire.
- *
- * `Authorization: Bearer <token>` unless the manifest says otherwise. A header
- * name is validated against the manifest schema before it reaches here, so it
- * cannot be used to inject a second header or a CRLF — but it is re-checked
- * below anyway, because this function is also reachable from tests and from a
- * future path where manifests are user-authored rows rather than shipped files.
- */
 export type CredentialHeader = { name: string; value: string }
-
 const HEADER_NAME = /^[A-Za-z0-9-]{1,64}$/
+const SESSION_ID = /^[\x21-\x7e]{1,256}$/
+
+type RpcResponse = { response: Response; raw: string; id: number }
+type InitResult = { mode: "session"; sessionId?: string } | { mode: "legacy" }
+
+class RetryableRemoteMcpError extends GatewayError {}
+export function isRetryableRemoteMcpError(cause: unknown): boolean {
+  return cause instanceof RetryableRemoteMcpError
+}
 
 export function credentialHeaderFor(
   auth: { header?: string; scheme?: string } | undefined,
@@ -53,8 +36,6 @@ export function credentialHeaderFor(
   if (!HEADER_NAME.test(name)) {
     throw new GatewayError("INVALID_INPUT", "The connector declares an unusable auth header.")
   }
-  // A bearer needs its prefix; a bare API-key header must NOT get one, or the
-  // upstream compares "Bearer sk-…" against "sk-…" and rejects a correct key.
   const fallback = name.toLowerCase() === "authorization" ? "Bearer " : ""
   const scheme = auth?.scheme ?? fallback
   return { name, value: `${scheme}${token}` }
@@ -71,79 +52,171 @@ export async function callTool(
 ): Promise<unknown> {
   const endpoint = endpointFor(baseUrl)
   const responseLimit = boundedResponseLimit(maxResponseBytes)
-  if (signal.aborted) {
-    throw new GatewayError("CANCELLED", "The upstream call was cancelled.")
-  }
-
+  if (signal.aborted) throw cancelled()
   const cred = credentialHeader ?? credentialHeaderFor(undefined, token)
 
-  requestCounter += 1
-  const body = JSON.stringify({
-    jsonrpc: "2.0",
-    id: requestCounter,
-    method: "tools/call",
-    params: { name, arguments: args },
-  })
+  const initialized = await initialize(endpoint, cred, signal, responseLimit)
+  if (initialized.mode === "session") {
+    await sendInitialized(endpoint, cred, signal, initialized.sessionId)
+  }
+  const call = await postRpc(
+    endpoint,
+    cred,
+    signal,
+    {
+      jsonrpc: "2.0",
+      id: nextRequestId(),
+      method: "tools/call",
+      params: { name, arguments: args },
+    },
+    responseLimit,
+    initialized.mode === "session" ? initialized.sessionId : undefined,
+  )
+  assertUsableResponse(call.response)
+  return readToolResult(parseRpcBody(call.raw, call.response.headers.get("content-type"), call.id), token)
+}
 
-  let response: Response
+async function initialize(
+  endpoint: URL,
+  cred: CredentialHeader,
+  signal: AbortSignal,
+  responseLimit: number,
+): Promise<InitResult> {
+  const id = nextRequestId()
+  const rpc = await postRpc(endpoint, cred, signal, {
+    jsonrpc: "2.0",
+    id,
+    method: "initialize",
+    params: {
+      protocolVersion: MCP_PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: { name: "connectors-gateway", version: "0.1.0" },
+    },
+  }, responseLimit, undefined, true)
+
+  if (rpc.response.status === 404 || rpc.response.status === 405) return { mode: "legacy" }
+  assertUsableResponse(rpc.response)
+  const envelope = parseRpcBody(rpc.raw, rpc.response.headers.get("content-type"), id)
+  if (isMethodNotFound(envelope)) return { mode: "legacy" }
+  assertInitializeResult(envelope)
+  const sessionId = readSessionId(rpc.response.headers.get("mcp-session-id"))
+  return sessionId === undefined ? { mode: "session" } : { mode: "session", sessionId }
+}
+
+async function sendInitialized(
+  endpoint: URL,
+  cred: CredentialHeader,
+  signal: AbortSignal,
+  sessionId?: string,
+): Promise<void> {
+  const response = await postNotification(endpoint, cred, signal, {
+    jsonrpc: "2.0",
+    method: "notifications/initialized",
+  }, sessionId)
+  // Notifications normally return 202/204, but servers may return an empty 200.
+  if (response.status >= 200 && response.status < 300) return
+  assertUsableResponse(response)
+}
+
+async function postRpc(
+  endpoint: URL,
+  cred: CredentialHeader,
+  signal: AbortSignal,
+  payload: Record<string, unknown>,
+  responseLimit: number,
+  sessionId?: string,
+  allowLegacyStatus = false,
+): Promise<RpcResponse> {
+  const id = payload["id"] as number
+  const response = await doFetch(endpoint, cred, signal, JSON.stringify(payload), sessionId)
+  if (allowLegacyStatus && (response.status === 404 || response.status === 405)) {
+    return { response, raw: "", id }
+  }
+  if (isRedirect(response)) throw redirectError()
+  if (!response.ok) return { response, raw: "", id }
+  const raw = await readCappedBody(response, responseLimit)
+  return { response, raw, id }
+}
+
+async function postNotification(
+  endpoint: URL,
+  cred: CredentialHeader,
+  signal: AbortSignal,
+  payload: Record<string, unknown>,
+  sessionId?: string,
+): Promise<Response> {
+  const response = await doFetch(endpoint, cred, signal, JSON.stringify(payload), sessionId)
+  if (isRedirect(response)) throw redirectError()
+  return response
+}
+
+async function doFetch(
+  endpoint: URL,
+  cred: CredentialHeader,
+  signal: AbortSignal,
+  body: string,
+  sessionId?: string,
+): Promise<Response> {
+  if (signal.aborted) throw cancelled()
+  const headers: Record<string, string> = {
+    [cred.name]: cred.value,
+    "Content-Type": "application/json",
+    Accept: "application/json, text/event-stream",
+    "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+  }
+  if (sessionId !== undefined) headers["Mcp-Session-Id"] = sessionId
   try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        [cred.name]: cred.value,
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
-      },
-      body,
-      signal,
-      // `manual` over `error` so a redirect is reported as a redirect rather than as an
-      // indistinguishable TypeError. Either way the hop is never taken: fetch replays the
-      // credential header on a cross-origin redirect in some runtimes, so following a
-      // 302 would hand this connection's secret to whatever host Location names.
-      redirect: "manual",
-    })
+    return await fetch(endpoint, { method: "POST", headers, body, signal, redirect: "manual" })
   } catch (cause) {
     throw transportError(cause)
   }
+}
 
-  // A runtime that returns an opaque redirect reports status 0, which is not a 3xx.
-  if (isRedirect(response)) {
-    // The Location value is deliberately not echoed: it is attacker-chosen text.
-    throw new GatewayError(
-      "UPSTREAM_ERROR",
-      "The upstream server redirected the call; the credential was not forwarded.",
-    )
+function assertInitializeResult(envelope: unknown): void {
+  if (!isRecord(envelope) || !isRecord(envelope["result"])) {
+    throw new GatewayError("UPSTREAM_ERROR", "The upstream MCP initialize response is malformed.")
   }
+  const result = envelope["result"]
+  if (typeof result["protocolVersion"] !== "string") {
+    throw new GatewayError("UPSTREAM_ERROR", "The upstream MCP initialize response has no protocol version.")
+  }
+}
 
+function isMethodNotFound(envelope: unknown): boolean {
+  return isRecord(envelope) && isRecord(envelope["error"]) && envelope["error"]["code"] === -32601
+}
+
+function readSessionId(value: string | null): string | undefined {
+  if (value === null) return undefined
+  if (value.length > MAX_SESSION_ID_LENGTH || !SESSION_ID.test(value)) {
+    throw new GatewayError("UPSTREAM_ERROR", "The upstream MCP server returned an invalid session identifier.")
+  }
+  return value
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function nextRequestId(): number { requestCounter += 1; return requestCounter }
+function isRedirect(response: Response): boolean { return (response.status >= 300 && response.status < 400) || response.type === "opaqueredirect" }
+function redirectError(): GatewayError { return new GatewayError("UPSTREAM_ERROR", "The upstream server redirected the call; the credential was not forwarded.") }
+function assertUsableResponse(response: Response): void {
+  if (isRedirect(response)) throw redirectError()
   if (!response.ok) {
-    // Only the status is surfaced: an upstream error body may repeat the bearer.
-    throw new GatewayError(
-      "UPSTREAM_ERROR",
-      `The upstream server refused the call (HTTP ${response.status}).`,
-    )
+    const message = `The upstream server refused the call (HTTP ${response.status}).`
+    if (response.status === 502 || response.status === 503 || response.status === 504) {
+      throw new RetryableRemoteMcpError("UPSTREAM_ERROR", message)
+    }
+    throw new GatewayError("UPSTREAM_ERROR", message)
   }
-
-  const raw = await readCappedBody(response, responseLimit)
-  return readToolResult(parseRpcBody(raw, response.headers.get("content-type")), token)
 }
 
-function isRedirect(response: Response): boolean {
-  return (response.status >= 300 && response.status < 400) || response.type === "opaqueredirect"
-}
-
-/**
- * Read at most MAX_RESPONSE_BYTES and fail rather than truncate: a silently cut JSON
- * body would surface as "malformed response", which sends the next reader hunting for a
- * parser bug instead of an oversized upstream.
- */
 async function readCappedBody(response: Response, maxBytes: number): Promise<string> {
   const declared = Number(response.headers.get("content-length"))
   if (Number.isFinite(declared) && declared > maxBytes) throw tooLarge()
-
   const body = response.body
   if (body === null) return ""
-
   const reader = body.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
@@ -153,8 +226,6 @@ async function readCappedBody(response: Response, maxBytes: number): Promise<str
       if (done) break
       if (value === undefined) continue
       total += value.byteLength
-      // Checked per chunk, so a stream with no end is dropped on the first chunk past
-      // the cap instead of being buffered to completion first.
       if (total > maxBytes) throw tooLarge()
       chunks.push(value)
     }
@@ -163,13 +234,9 @@ async function readCappedBody(response: Response, maxBytes: number): Promise<str
     if (cause instanceof GatewayError) throw cause
     throw transportError(cause)
   }
-
   const joined = new Uint8Array(total)
   let offset = 0
-  for (const chunk of chunks) {
-    joined.set(chunk, offset)
-    offset += chunk.byteLength
-  }
+  for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.byteLength }
   return new TextDecoder().decode(joined)
 }
 
@@ -177,36 +244,25 @@ function boundedResponseLimit(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) return MAX_RESPONSE_BYTES
   return Math.min(value, MAX_LARGE_RESPONSE_BYTES)
 }
+function tooLarge(): GatewayError { return new GatewayError("UPSTREAM_ERROR", "The upstream server returned an oversized response.") }
+function cancelled(): GatewayError { return new GatewayError("CANCELLED", "The upstream call was cancelled.") }
 
-function tooLarge(): GatewayError {
-  return new GatewayError("UPSTREAM_ERROR", "The upstream server returned an oversized response.")
-}
-
-/** The endpoint comes from stored connection config, but it is still validated. */
 function endpointFor(baseUrl: string): URL {
   let url: URL
-  try {
-    url = new URL(baseUrl)
-  } catch {
-    throw new GatewayError("UPSTREAM_ERROR", "This connection has an invalid endpoint URL.")
-  }
+  try { url = new URL(baseUrl) } catch { throw new GatewayError("UPSTREAM_ERROR", "This connection has an invalid endpoint URL.") }
   const loopback = isLoopback(url.hostname)
   if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
     throw new GatewayError("UPSTREAM_ERROR", "The upstream server must be reached over HTTPS.")
   }
   if (!loopback && blockedRange(url.hostname) !== null) {
-    throw new GatewayError(
-      "UPSTREAM_ERROR",
-      "The upstream server address is in a private, reserved, or non-global range.",
-    )
+    throw new GatewayError("UPSTREAM_ERROR", "The upstream server address is in a private, reserved, or non-global range.")
   }
   return url
 }
 
 function transportError(cause: unknown): GatewayError {
   const name = cause instanceof Error ? cause.name : ""
-  if (name === "AbortError") return new GatewayError("CANCELLED", "The upstream call was cancelled.")
+  if (name === "AbortError") return cancelled()
   if (name === "TimeoutError") return new GatewayError("TIMEOUT", "The upstream call timed out.")
-  // The raw network error is dropped: it can carry the request headers.
-  return new GatewayError("UPSTREAM_ERROR", "The upstream server is unreachable.")
+  return new RetryableRemoteMcpError("UPSTREAM_ERROR", "The upstream server is unreachable.")
 }

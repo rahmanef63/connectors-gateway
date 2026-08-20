@@ -14,6 +14,7 @@ import { defineCloudAdapter } from "@cg/sdk"
 import {
   callTool,
   credentialHeaderFor,
+  isRetryableRemoteMcpError,
   MAX_LARGE_RESPONSE_BYTES,
   MAX_RESPONSE_BYTES,
 } from "./mcp-client"
@@ -53,15 +54,15 @@ export function createRemoteMcpAdapter(manifest: ConnectorManifest): CloudAdapte
         manifest.id === "mso" && tool === "screen_capture"
           ? MAX_LARGE_RESPONSE_BYTES
           : MAX_RESPONSE_BYTES
-      const output = await callTool(
-        baseUrl,
-        token,
-        tool,
-        args,
-        context.signal,
-        cred,
-        maxResponseBytes,
-      )
+      const action = manifest.actions.find((entry) => entry.id === actionId)
+      const retrySafe = action?.annotations.readOnly === true || action?.annotations.idempotent === true
+      let output: unknown
+      try {
+        output = await callTool(baseUrl, token, tool, args, context.signal, cred, maxResponseBytes)
+      } catch (cause) {
+        if (!retrySafe || !isRetryableRemoteMcpError(cause) || context.signal.aborted) throw cause
+        output = await callTool(baseUrl, token, tool, args, context.signal, cred, maxResponseBytes)
+      }
       // Invariant 5 (AGENTS.md): a connector credential must never reach tool output,
       // not even when the upstream server echoes the Authorization header back at us.
       if (JSON.stringify(output ?? null).includes(token)) {
