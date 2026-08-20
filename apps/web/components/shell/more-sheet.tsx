@@ -59,7 +59,7 @@ export function MoreSheet({
       onClick={(event) => {
         if (event.target === ref.current) onClose()
       }}
-      className="m-0 mt-auto max-h-[85dvh] w-full max-w-none flex-col rounded-t-2xl border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)+1rem)] text-foreground backdrop:bg-black/50 backdrop:backdrop-blur-sm max-md:open:flex md:hidden"
+      className="mobile-sheet m-0 mx-auto mt-auto max-h-[min(86dvh,44rem)] w-full max-w-[42rem] flex-col rounded-t-[1.75rem] border border-b-0 border-border bg-card pb-[calc(env(safe-area-inset-bottom)+1rem)] text-foreground max-md:open:flex md:hidden"
     >
       <div className="mx-auto mt-3 h-1 w-9 shrink-0 rounded-full bg-border" />
       <div className="px-5 pt-3 pb-4">
@@ -72,7 +72,7 @@ export function MoreSheet({
             <p className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               {group.label}
             </p>
-            <div className="grid grid-cols-4 gap-x-2 gap-y-4">
+            <div className="grid grid-cols-3 gap-x-2 gap-y-4 min-[380px]:grid-cols-4">
               {group.items.map((item) => (
                 <SheetItem
                   key={item.slug}
@@ -112,7 +112,7 @@ function SheetItem({
     >
       <span
         className={cn(
-          "grid h-14 w-14 place-items-center rounded-2xl border shadow-sm transition-transform motion-safe:active:scale-95",
+          "sheet-item-icon grid h-12 w-12 place-items-center rounded-2xl border motion-safe:active:scale-95 min-[380px]:h-14 min-[380px]:w-14",
           active
             ? "border-accent/50 bg-accent/12 text-accent"
             : "border-border bg-card-hover text-foreground",

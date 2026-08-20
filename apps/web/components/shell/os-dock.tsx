@@ -19,10 +19,10 @@ export function OsDock({ onOpenMore }: { onOpenMore: () => void }) {
   const moreActive = !fabActive && !DOCK_TABS.some((tab) => tab.slug === activeSlug)
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+0.6rem)] pt-2 md:hidden">
+    <div className="mobile-dock-wrap pointer-events-none fixed inset-x-0 bottom-0 z-40 pb-[calc(env(safe-area-inset-bottom)+0.6rem)] pt-2 md:hidden">
       <nav
         aria-label="App dock"
-        className="pointer-events-auto mx-auto grid max-w-md grid-cols-5 items-end rounded-2xl border border-border bg-card/95 p-1.5 shadow-lg backdrop-blur"
+        className="mobile-dock pointer-events-auto mx-auto grid w-full max-w-[32rem] grid-cols-5 items-end rounded-[1.4rem] border border-border bg-card/90 p-1.5"
       >
         <DockTab item={DOCK_TABS[0]} activeSlug={activeSlug} />
         <DockTab item={DOCK_TABS[1]} activeSlug={activeSlug} />
@@ -32,7 +32,7 @@ export function OsDock({ onOpenMore }: { onOpenMore: () => void }) {
             href={FAB.href}
             aria-label={FAB.label}
             aria-current={fabActive ? "page" : undefined}
-            className="-mt-7 grid h-14 w-14 place-items-center rounded-full bg-accent text-accent-foreground shadow-lg ring-4 ring-background transition-transform motion-safe:active:scale-95"
+            className="dock-fab -mt-7 grid h-14 w-14 place-items-center rounded-full bg-accent text-accent-foreground ring-4 ring-background"
           >
             <Icon name={FAB.icon} className="h-6 w-6" />
           </Link>
@@ -59,7 +59,7 @@ export function OsDock({ onOpenMore }: { onOpenMore: () => void }) {
           aria-current={moreActive ? "page" : undefined}
           onClick={onOpenMore}
           className={cn(
-            "flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-medium transition-colors",
+            "dock-tab flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-medium",
             moreActive
               ? "bg-accent/12 text-foreground"
               : "text-muted-foreground hover:text-foreground",
@@ -84,7 +84,7 @@ function DockTab({ item, activeSlug }: { item: NavItem | undefined; activeSlug?:
       aria-label={item.label}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-medium transition-colors",
+        "dock-tab flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-medium",
         active ? "bg-accent/12 text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >

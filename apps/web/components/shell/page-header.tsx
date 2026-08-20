@@ -18,16 +18,16 @@ export function PageHeader() {
   if (!item) return null
 
   return (
-    <header className="pb-6">
+    <header className="pb-5 sm:pb-6">
       <p className="text-xs font-medium uppercase tracking-widest text-accent">
         {GROUP_LABEL[item.group]}
       </p>
-      <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight">{item.label}</h1>
+      <h1 className="mt-1.5 truncate text-[1.65rem] font-semibold tracking-[-0.025em] sm:text-3xl">{item.label}</h1>
       {/* The title truncates because a screen name is short and one line is the
           template's shape. The description must NOT: it is the sentence that
           says what the screen is for, and on a phone `truncate` was cutting it
           to "…this account has authorised the gate…". */}
-      <p className="text-sm text-muted-foreground">{item.sub}</p>
+      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">{item.sub}</p>
     </header>
   )
 }

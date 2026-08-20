@@ -46,7 +46,7 @@ export function NavUser({ email }: { email?: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center gap-2.5 rounded-xl bg-card/35 px-2 py-1.5 ring-1 ring-border/60">
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent text-accent-foreground">
         <Icon name="user" className="h-4 w-4" />
       </span>

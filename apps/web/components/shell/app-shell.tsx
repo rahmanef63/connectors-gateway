@@ -26,7 +26,7 @@ export function AppShell({ children, userLabel }: { children: ReactNode; userLab
   const [moreOpen, setMoreOpen] = useState(false)
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-background">
+    <div className="app-shell flex h-dvh overflow-hidden bg-background">
       {/* Measured: a keyboard user hits 11 chrome controls — six nav links, sign
           out, the sidebar toggle and three theme buttons — before reaching any
           page content. This is the standard escape, hidden until focused. */}
@@ -41,7 +41,7 @@ export function AppShell({ children, userLabel }: { children: ReactNode; userLab
         // reader can say *what* it expands. Renaming it breaks that link.
         id="os-sidebar"
         className={cn(
-          "hidden w-64 shrink-0 flex-col border-r border-border bg-card/40 p-4",
+          "shell-sidebar hidden w-64 shrink-0 flex-col border-r border-border bg-card/40 p-4",
           collapsed ? "md:hidden" : "md:flex",
         )}
       >
@@ -68,12 +68,12 @@ export function AppShell({ children, userLabel }: { children: ReactNode; userLab
         </div>
       </aside>
 
-      <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto p-5 sm:p-7">
+      <main id="main" tabIndex={-1} className="shell-main min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
         <Topbar collapsed={collapsed} onToggleSidebar={() => setCollapsed((value) => !value)} />
         <PageHeader />
         {children}
         {/* Clears the fixed dock so the last row of a page is never under it. */}
-        <div className="h-[calc(6rem+env(safe-area-inset-bottom))] md:hidden" />
+        <div className="h-[calc(6.5rem+env(safe-area-inset-bottom))] md:hidden" />
       </main>
 
       <OsDock onOpenMore={() => setMoreOpen(true)} />

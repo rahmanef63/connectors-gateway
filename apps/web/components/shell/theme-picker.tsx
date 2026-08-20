@@ -32,7 +32,7 @@ export function ThemePicker() {
     <div
       role="group"
       aria-label="Theme"
-      className="flex items-center gap-0.5 rounded-lg border border-border p-0.5"
+      className="theme-picker-surface flex items-center gap-0.5 rounded-xl border border-border p-0.5"
     >
       {OPTIONS.map((option) => {
         const active = mounted && theme === option.value

@@ -51,7 +51,7 @@ function NavLink({ item, active }: { item: NavItemType; active: boolean }) {
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors",
+        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-[transform,color,background-color] motion-safe:hover:translate-x-0.5",
         active
           ? "bg-accent/12 text-foreground"
           : "text-muted-foreground hover:bg-card-hover hover:text-foreground",
