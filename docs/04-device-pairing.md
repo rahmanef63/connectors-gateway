@@ -53,3 +53,20 @@ type Device = {
 - Device credentials should be rotatable.
 - A user can rename a device without changing its identity.
 - Reinstalling the agent should create a new device unless recovery is explicitly implemented.
+
+
+## Device CRUD lifecycle
+
+The dashboard exposes device CRUD without allowing arbitrary device-row creation:
+
+```text
+Create  = agent starts pairing -> human approves -> agent claims once
+Read    = signed-in owner lists their paired devices
+Update  = owner renames display metadata; identity/credential do not change
+Revoke  = terminal credential/session termination (security lifecycle)
+Delete  = owner may permanently forget only an already-revoked device
+```
+
+Delete never substitutes for revoke. `forget` refuses an online/offline device, removes the
+revoked device and any one stale relay route atomically, and retains the opaque device id in the
+audit trail. A forgotten machine must pair again and receives a new device identity/credential.

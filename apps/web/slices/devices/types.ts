@@ -62,6 +62,15 @@ export type DevicesLabels = {
     cancel: string
     success: string
   }
+  forget: {
+    action: string
+    title: string
+    description: string
+    confirm: string
+    pending: string
+    cancel: string
+    success: string
+  }
   /** Keyed by @cg/core `ErrorCode`; `fallback` is used for anything else. */
   errors: Record<string, string> & { fallback: string }
 }

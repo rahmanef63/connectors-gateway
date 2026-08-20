@@ -90,7 +90,7 @@ async function initialize(
     params: {
       protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},
-      clientInfo: { name: "connectors-gateway", version: "0.3.0" },
+      clientInfo: { name: "connectors-gateway", version: "0.4.0" },
     },
   }, responseLimit, undefined, true)
 

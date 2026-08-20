@@ -41,7 +41,10 @@ for (const [file, needle] of exactSources) {
 }
 
 const changelog = readFileSync("CHANGELOG.md", "utf8")
-if (!changelog.includes(`## [${expected}] - 2026-08-20`)) fail(`CHANGELOG.md has no ${expected} release entry`)
+const escapedVersion = expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+if (!new RegExp(`^## \\[${escapedVersion}\\] - \\d{4}-\\d{2}-\\d{2}$`, "m").test(changelog)) {
+  fail(`CHANGELOG.md has no dated ${expected} release entry`)
+}
 
 console.log(`release version ${expected}: consistent`)
 

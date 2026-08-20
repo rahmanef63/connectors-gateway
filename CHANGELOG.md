@@ -4,6 +4,25 @@ All notable changes to Connectors Gateway are documented here. The repository us
 lockstep application/workspace version; connector manifest versions remain independent
 contract versions and change only when their connector contract changes.
 
+## [0.4.0] - 2026-08-21
+
+### Added
+
+- Completed pairing-driven **Device CRUD** without allowing arbitrary browser-created device rows:
+  Create remains agent pairing, Read remains owner-scoped reactive device inventory, Update keeps
+  identity-safe rename, and permanent Delete is now an explicit **Forget device** action.
+- Added revoke-before-forget enforcement. Active/offline devices cannot be permanently deleted; a
+  device must first enter terminal `revoked` state so credential and session invalidation remain an
+  explicit security boundary.
+- Forgetting a revoked device atomically removes its durable device row and stale relay route while
+  retaining an opaque `device.forget` record in the audit trail.
+- Added dashboard confirmation UI for permanent device removal, visible only after revocation.
+
+### Validation
+
+- Added device CRUD contract tests covering owner isolation, revoke-before-delete, relay cleanup,
+  audit retention, transaction rollback on inconsistent routing state, and UI sequencing.
+
 ## [0.3.0] - 2026-08-20
 
 ### Added

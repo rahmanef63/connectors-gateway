@@ -7,6 +7,7 @@ import type { DeviceView, DevicesLabels } from "../types"
 import { CapabilityList } from "./capability-list"
 import { DeviceRenameField } from "./device-rename-field"
 import { DeviceStatusBadge } from "./device-status-badge"
+import { ForgetDeviceDialog } from "./forget-device-dialog"
 import { RevokeDeviceDialog } from "./revoke-device-dialog"
 
 export type DeviceCardProps = {
@@ -55,6 +56,7 @@ export function DeviceCard({ device, labels, dateFormat }: DeviceCardProps) {
           {renaming ? labels.rename.cancel : labels.rename.action}
         </button>
         <RevokeDeviceDialog device={device} labels={labels} disabled={revoked} />
+        {revoked ? <ForgetDeviceDialog device={device} labels={labels} /> : null}
       </footer>
     </article>
   )

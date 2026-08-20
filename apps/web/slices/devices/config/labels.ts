@@ -44,6 +44,16 @@ export const DEFAULT_DEVICES_LABELS: DevicesLabels = {
     cancel: "Cancel",
     success: "Device revoked.",
   },
+  forget: {
+    action: "Forget",
+    title: "Forget this device permanently?",
+    description:
+      "This removes the revoked machine from your device list. Audit history remains, and the machine must pair again as a new device to return.",
+    confirm: "Forget device",
+    pending: "Forgetting…",
+    cancel: "Cancel",
+    success: "Device forgotten.",
+  },
   errors: {
     fallback: "Something went wrong. Try again.",
     NOT_AUTHENTICATED: "Sign in again to continue.",

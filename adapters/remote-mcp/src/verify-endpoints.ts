@@ -102,7 +102,7 @@ export async function verifyRemoteEndpoint(
         params: {
           protocolVersion: PROTOCOL_VERSION,
           capabilities: {},
-          clientInfo: { name: "connector-gateway-endpoint-verifier", version: "0.3.0" },
+          clientInfo: { name: "connector-gateway-endpoint-verifier", version: "0.4.0" },
         },
       }),
     },

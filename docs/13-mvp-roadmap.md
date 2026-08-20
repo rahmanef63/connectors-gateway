@@ -91,7 +91,7 @@ have not been run against a real Blender install.
       at most a client id and a client secret, and for nothing at all where the server
       registers clients on demand. Credentials are sealed by the dashboard, so the old
       "SSH to the gateway host and run `seal`" step is gone.
-- [x] Devices page.
+- [x] Devices page — complete pairing-driven CRUD: create by pairing, read/list, rename update, terminal revoke, and revoke-before-forget permanent delete with audit retention.
 - [x] Connector permissions.
 - [x] Audit log.
 - [x] Approval UI — `REQUIRE_APPROVAL` creates one short-lived row keyed by connector,

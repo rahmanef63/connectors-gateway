@@ -29,6 +29,7 @@ export default async function DevicesPage() {
       <p className="mt-6 text-sm text-muted-foreground">
         A machine appears here after you approve its pairing code. Pairing always starts on the
         machine, in the Connectors Agent — this dashboard never issues a credential to an AI client.
+        Revoke a machine before forgetting it permanently.
       </p>
     </>
   )
