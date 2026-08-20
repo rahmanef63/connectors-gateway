@@ -17,6 +17,8 @@ export const APPROVAL_TTL_MS = 10 * 60 * 1000
 export const MAX_INPUT_PREVIEW_LENGTH = 300
 /** Rows reclaimed from the approval table per unattended maintenance pass. */
 export const APPROVAL_SWEEP_BATCH = 200
+/** Expired shared rate buckets reclaimed per hourly maintenance pass. */
+export const RATE_LIMIT_SWEEP_BATCH = 500
 
 /**
  * An authorization code is redeemed by a machine, immediately. Two minutes is

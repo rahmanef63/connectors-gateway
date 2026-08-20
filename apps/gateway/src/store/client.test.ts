@@ -73,6 +73,7 @@ describe("REFS", () => {
       "gatewayLeaseAcquire",
       "gatewayLeaseRenew",
       "gatewayLeaseRelease",
+      "rateLimitsConsume",
       "auditAppend",
       "apiKeysGetRecord",
       "oauthRegisterClient",

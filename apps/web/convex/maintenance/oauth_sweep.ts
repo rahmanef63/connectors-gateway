@@ -15,12 +15,13 @@ import {
   APPROVAL_SWEEP_BATCH,
   OAUTH_CLIENT_IDLE_MS,
   OAUTH_SWEEP_BATCH,
+  RATE_LIMIT_SWEEP_BATCH,
 } from "../_shared/limits"
 
 export const sweep = internalMutation({
   args: {},
-  returns: v.object({ codes: v.number(), clients: v.number(), approvals: v.number() }),
-  handler: async (ctx): Promise<{ codes: number; clients: number; approvals: number }> => {
+  returns: v.object({ codes: v.number(), clients: v.number(), approvals: v.number(), rateBuckets: v.number() }),
+  handler: async (ctx): Promise<{ codes: number; clients: number; approvals: number; rateBuckets: number }> => {
     const now = Date.now()
 
     const lapsedCodes = await ctx.db
@@ -52,6 +53,17 @@ export const sweep = internalMutation({
       .take(APPROVAL_SWEEP_BATCH)
     for (const row of lapsedApprovals) await ctx.db.delete(row._id)
 
-    return { codes: lapsedCodes.length, clients, approvals: lapsedApprovals.length }
+    const lapsedRateBuckets = await ctx.db
+      .query("rateLimitBuckets")
+      .withIndex("by_resetAt", (q) => q.lte("resetAt", now))
+      .take(RATE_LIMIT_SWEEP_BATCH)
+    for (const row of lapsedRateBuckets) await ctx.db.delete(row._id)
+
+    return {
+      codes: lapsedCodes.length,
+      clients,
+      approvals: lapsedApprovals.length,
+      rateBuckets: lapsedRateBuckets.length,
+    }
   },
 })

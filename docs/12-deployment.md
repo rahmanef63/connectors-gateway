@@ -80,9 +80,26 @@ to IPv6 — the `*.rahmanef.com` wildcard already covers every subdomain. And
 
 ### Redeploying
 
-`git push` is the whole procedure. Dokploy auto-deploys both applications, and the
-pre-push hook deploys Convex first whenever the push touches `convex/`. Do not run
-the Convex CLI by hand.
+A normal `git push` still lets Dokploy build the dashboard and gateway, and the
+pre-push hook deploys Convex first whenever the push touches `convex/`. The gateway
+itself must then be **promoted to an immutable git-SHA image** from the Swarm manager:
+
+```bash
+./scripts/release-gateway.sh <full-main-commit-sha>
+```
+
+The release script rebuilds the reviewed commit as
+`connectors-gateway/gateway:git-<sha>`, stamps the OCI revision label, verifies the
+commit belongs to `origin/main`, and updates only the `connect-gateway` Swarm service.
+It refuses a dirty worktree. Never treat Dokploy's mutable `:latest` build as the
+final production identity; the service spec after promotion must name `git-<sha>`.
+
+The gateway intentionally uses **`stop-first`** rollout while the durable singleton
+lease is active. `start-first` cannot be zero-downtime here: the replacement is
+correctly rejected while the old task still owns the lease, producing a failed task
+before Swarm retries. `stop-first` makes that hand-off explicit and bounded. True
+zero-downtime rolling deployment requires distributed relay/socket ownership first.
+Do not run the Convex CLI by hand.
 
 The one-off bootstrap, if the stack is ever rebuilt from nothing:
 
@@ -148,10 +165,12 @@ A persistent relay is stateful by connection presence, but job metadata and devi
 Do not optimize for global scale before MVP correctness and security.
 
 Upstream OAuth refresh is already safe across concurrent gateway processes because Convex owns
-its lease and credential generation. Relay socket routing, rate limits, presence ownership and
-the local agent replay cache are still single-process boundaries; do not raise the gateway
-replica count until those four state stores are made shared or a singleton deployment lease is
-enforced.
+its lease and credential generation. A transactional Convex rate-bucket service and gateway
+adapter also exist as a **disabled foundation** for distributed rate limiting; production keeps
+the in-memory limiter while only one gateway may serve, avoiding a control-plane round trip on
+every request for no benefit. Relay socket routing, presence ownership and local agent replay
+state are still single-process boundaries. Do not raise the gateway replica count until those
+remaining stores are shared and the singleton lease can be intentionally removed.
 
 ### Rotating the gateway job-signing key without re-pairing agents
 

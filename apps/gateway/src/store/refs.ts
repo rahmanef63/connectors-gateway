@@ -110,6 +110,13 @@ export const REFS = {
     "service/gateway_lease:release",
   ),
 
+  rateLimitsConsume: mutation<WithToken<{
+    bucket: string
+    keyDigest: string
+    limit: number
+    windowMs: number
+  }>>("service/rate_limits:consume"),
+
   auditAppend: mutation<WithToken<{ event: Record<string, unknown> }>>("service/audit:append"),
 
   apiKeysGetRecord: query<WithToken<{ keyId: string }>>("service/apiKeys:getRecord"),

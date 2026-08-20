@@ -113,10 +113,26 @@ describe("oauth sweep — clients", () => {
   })
 })
 
+
+describe("oauth sweep — shared rate buckets", () => {
+  test("reclaims expired rate buckets without touching live windows", async () => {
+    const t = setupConvex()
+    const now = Date.now()
+    await t.run(async (ctx) => {
+      await ctx.db.insert("rateLimitBuckets", { bucket: "edge", keyDigest: "a".repeat(64), count: 3, resetAt: now - 1 })
+      await ctx.db.insert("rateLimitBuckets", { bucket: "edge", keyDigest: "b".repeat(64), count: 1, resetAt: now + HOUR })
+    })
+    expect(await sweep(t)).toMatchObject({ rateBuckets: 1 })
+    const rows = await t.run(async (ctx) => ctx.db.query("rateLimitBuckets").take(10))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.keyDigest).toBe("b".repeat(64))
+  })
+})
+
 describe("oauth sweep — safety", () => {
   test("is a no-op on an empty deployment", async () => {
     const t = setupConvex()
-    expect(await sweep(t)).toEqual({ codes: 0, clients: 0, approvals: 0 })
+    expect(await sweep(t)).toEqual({ codes: 0, clients: 0, approvals: 0, rateBuckets: 0 })
   })
 
   test("touches nothing but its two tables", async () => {

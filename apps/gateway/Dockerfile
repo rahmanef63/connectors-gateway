@@ -4,6 +4,8 @@
 # There is no build step — Bun runs the TypeScript source directly, so the
 # image is the workspace plus its dependencies.
 FROM oven/bun:1.3.14-alpine
+ARG GATEWAY_REVISION=unknown
+LABEL org.opencontainers.image.revision=$GATEWAY_REVISION
 WORKDIR /app
 
 # ponytail: installs the whole workspace, so apps/web's Next/React land in this

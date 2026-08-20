@@ -239,6 +239,16 @@ export default defineSchema({
     expiresAt: v.number(),
   }).index("by_name", ["leaseName"]),
 
+  /** Future multi-instance shared fixed-window limiter. Raw peer addresses are never stored. */
+  rateLimitBuckets: defineTable({
+    bucket: v.string(),
+    keyDigest: v.string(),
+    count: v.number(),
+    resetAt: v.number(),
+  })
+    .index("by_bucket_key", ["bucket", "keyDigest"])
+    .index("by_resetAt", ["resetAt"]),
+
   auditLogs: defineTable({
     requestId: v.string(),
     timestamp: v.number(),
