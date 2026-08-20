@@ -6,7 +6,7 @@ import { hostname } from "node:os"
 import { GatewayError, type DevicePlatform } from "@cg/core"
 
 /** Announced in `hello`. Kept in sync with apps/agent/package.json by hand. */
-export const AGENT_VERSION = "0.2.0"
+export const AGENT_VERSION = "0.2.1"
 
 const MAX_DEVICE_NAME_LENGTH = 64
 const FALLBACK_DEVICE_NAME = "connectors-agent"

@@ -1,6 +1,6 @@
 # Connectors Gateway
 
-**Current release: v0.2.0** · See [`CHANGELOG.md`](./CHANGELOG.md) for release history.
+**Current release: v0.2.1** · See [`CHANGELOG.md`](./CHANGELOG.md) for release history.
 
 A runtime gateway that lets AI clients call both **cloud applications** and **local desktop software** through one normalized connector layer.
 

@@ -1,6 +1,6 @@
 {
   "name": "@cg/registry",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Trusted built-in connector registry and catalog resolution.",

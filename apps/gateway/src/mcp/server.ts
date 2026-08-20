@@ -46,7 +46,7 @@ export function negotiateProtocolVersion(requested: unknown): string {
     : MCP_PROTOCOL_VERSION
 }
 
-export const SERVER_INFO = { name: "connectors-gateway", version: "0.2.0" } as const
+export const SERVER_INFO = { name: "connectors-gateway", version: "0.2.1" } as const
 
 /** Shared guidance, front-loaded because ChatGPT prioritizes the first 512 chars. */
 export const SERVER_INSTRUCTIONS =

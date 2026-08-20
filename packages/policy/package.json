@@ -1,6 +1,6 @@
 {
   "name": "@cg/policy",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "description": "Action-level authorization and approval decisions.",

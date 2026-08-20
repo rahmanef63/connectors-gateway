@@ -4,6 +4,17 @@ All notable changes to Connectors Gateway are documented here. The repository us
 lockstep application/workspace version; connector manifest versions remain independent
 contract versions and change only when their connector contract changes.
 
+## [0.2.1] - 2026-08-20
+
+### Fixed
+
+- Fixed the immutable gateway release script so the semantic version is loaded before the
+  Docker build and OCI version-label verification.
+- Added semantic version + git revision OCI labels to both gateway and dashboard images.
+- Added a dedicated immutable dashboard release script with revision/version verification.
+- Added lockstep release checks covering workspace packages, Bun lockfile metadata, agent/runtime
+  advertisements, and ChatGPT/Codex/Claude plugin manifests.
+
 ## [0.2.0] - 2026-08-20
 
 ### Added

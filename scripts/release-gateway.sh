@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SERVICE="${GATEWAY_SWARM_SERVICE:-connect-gateway-s3ngfg}"
+VERSION="$(tr -d '\r\n ' < VERSION)"
 TARGET_REPLICAS="${GATEWAY_REPLICAS:-2}"
 REVISION="${1:-$(git rev-parse HEAD)}"
 case "$TARGET_REPLICAS" in (*[!0-9]*|'') echo "GATEWAY_REPLICAS must be a positive integer" >&2; exit 2;; esac

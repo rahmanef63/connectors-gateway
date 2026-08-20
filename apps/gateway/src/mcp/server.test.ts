@@ -4,6 +4,7 @@ import {
   handleMcpRequest,
   MCP_PROTOCOL_VERSION,
   MCP_PROTOCOL_VERSIONS,
+  SERVER_INFO,
   SERVER_INSTRUCTIONS,
   negotiateProtocolVersion,
   toToolResult,
@@ -203,7 +204,7 @@ describe("handleMcpRequest — MCP 2026-07-28", () => {
       cacheScope: "private",
       resultType: "complete",
       _meta: {
-        [MCP_META_KEYS.serverInfo]: { name: "connectors-gateway", version: "0.2.0" },
+        [MCP_META_KEYS.serverInfo]: SERVER_INFO,
       },
     })
   })
@@ -225,7 +226,7 @@ describe("handleMcpRequest — MCP 2026-07-28", () => {
     expect(result.cacheScope).toBe("private")
     expect(result.resultType).toBe("complete")
     expect(result._meta["com.rahmanef.connectors/toolset"]).toMatchObject({
-      version: "0.2.0",
+      version: SERVER_INFO.version,
     })
     const echo = result.tools.find((tool) => tool.name === "testcloud_echo")
     expect(echo).toMatchObject({

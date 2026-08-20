@@ -11,7 +11,7 @@
     },
     "adapters/blender": {
       "name": "@cg/adapter-blender",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
         "@cg/sdk": "workspace:*",
@@ -19,7 +19,7 @@
     },
     "adapters/remote-mcp": {
       "name": "@cg/adapter-remote-mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
         "@cg/schemas": "workspace:*",
@@ -28,7 +28,7 @@
     },
     "apps/agent": {
       "name": "@cg/agent",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/adapter-blender": "workspace:*",
         "@cg/core": "workspace:*",
@@ -38,7 +38,7 @@
     },
     "apps/gateway": {
       "name": "@cg/gateway",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/adapter-blender": "workspace:*",
         "@cg/adapter-remote-mcp": "workspace:*",
@@ -55,7 +55,7 @@
     },
     "apps/web": {
       "name": "@cg/web",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@auth/core": "0.41.3",
         "@cg/adapter-blender": "workspace:*",
@@ -83,18 +83,18 @@
     },
     "packages/auth": {
       "name": "@cg/auth",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
       },
     },
     "packages/core": {
       "name": "@cg/core",
-      "version": "0.2.0",
+      "version": "0.2.1",
     },
     "packages/executor": {
       "name": "@cg/executor",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
         "@cg/observability": "workspace:*",
@@ -103,28 +103,28 @@
     },
     "packages/observability": {
       "name": "@cg/observability",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
       },
     },
     "packages/policy": {
       "name": "@cg/policy",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
       },
     },
     "packages/protocol": {
       "name": "@cg/protocol",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
       },
     },
     "packages/registry": {
       "name": "@cg/registry",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
         "@cg/schemas": "workspace:*",
@@ -132,7 +132,7 @@
     },
     "packages/schemas": {
       "name": "@cg/schemas",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
         "ajv": "8.20.0",
@@ -140,7 +140,7 @@
     },
     "packages/sdk": {
       "name": "@cg/sdk",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@cg/core": "workspace:*",
       },
