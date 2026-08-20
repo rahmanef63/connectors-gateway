@@ -6,12 +6,16 @@
 FROM oven/bun:1.3.14-alpine
 ARG GATEWAY_REVISION=unknown
 LABEL org.opencontainers.image.revision=$GATEWAY_REVISION
+RUN addgroup -g 1001 -S gateway && adduser -S gateway -u 1001
 WORKDIR /app
 
 # ponytail: installs the whole workspace, so apps/web's Next/React land in this
 # image too (~unused weight). Split the lockfile per app if image size matters.
-COPY . .
+# Ownership is assigned while copying: recursively chowning node_modules after
+# install added ~74s to every release on the production builder.
+COPY --chown=gateway:gateway . .
 RUN bun install --frozen-lockfile
+USER gateway
 
 ENV NODE_ENV=production
 ENV GATEWAY_PORT=8787
@@ -19,10 +23,6 @@ ENV GATEWAY_PORT=8787
 # Everything else (CONVEX_URL, GATEWAY_SERVICE_TOKEN, JOB_SIGNING_*,
 # CREDENTIAL_ENCRYPTION_KEY) is a secret and arrives from the Dokploy
 # environment at runtime — never as a build arg, never baked into a layer.
-
-RUN addgroup -g 1001 -S gateway && adduser -S gateway -u 1001 \
-  && chown -R gateway:gateway /app
-USER gateway
 
 EXPOSE 8787
 
