@@ -172,3 +172,10 @@ but they do not make an old service contract accept a new request shape.
   revocable under API keys.
 - Unit, integration, package, and production-build verification are complete, but
   a real hosted ChatGPT OAuth round trip has not yet been completed.
+
+## Provider edge-case handling
+
+- A reconnect is a credential replacement for the existing `(user, connector)` identity, not a second account row. The credential generation increments so an older in-flight refresh cannot overwrite the reconnect; any historical duplicate rows are collapsed to the newest row during reconnect.
+- Refresh-token rotation is optional: when a provider omits `refresh_token`, the previously sealed refresh token is retained. When it returns a new one, the new value replaces it atomically with the access token.
+- If a refresh response explicitly returns `scope`, it must still contain every scope originally requested for the renewal grant. A scope reduction is terminal and marks the connection for reconnect rather than silently running with less authority.
+- Provider `invalid_grant`, `invalid_client`, `unauthorized_client`, `unsupported_grant_type`, and `invalid_scope` responses are terminal; network failures, rate limits, and 5xx failures remain retryable.

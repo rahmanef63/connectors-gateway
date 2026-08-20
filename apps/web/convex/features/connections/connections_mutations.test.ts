@@ -356,3 +356,26 @@ describe("features/connections/mutations:remove", () => {
     )
   })
 })
+
+test("reconnect repairs historical duplicate rows and keeps only the newest generation", async () => {
+  const t = setupConvex()
+  const userId = await createUser(t)
+  const older = await t.run(async (ctx) => ctx.db.insert("connections", {
+    connectorId: "careerpack", ownerType: "user", ownerId: userId, authType: "bearer",
+    status: "active", baseUrl: BASE_URL, tokenCipher: SEALED, credentialVersion: 3,
+  }))
+  const newer = await t.run(async (ctx) => ctx.db.insert("connections", {
+    connectorId: "careerpack", ownerType: "user", ownerId: userId, authType: "bearer",
+    status: "active", baseUrl: "https://newer.example.net/mcp", tokenCipher: SEALED_TWO, credentialVersion: 7,
+  }))
+  expect(older).not.toBe(newer)
+
+  const result = await asUser(t, userId).mutation(api.features.connections.mutations.upsert, {
+    connectorId: "careerpack", baseUrl: BASE_URL, tokenCipher: SEALED, authType: "bearer",
+  })
+  const rows = await t.run(async (ctx) => ctx.db.query("connections").collect())
+  expect(rows).toHaveLength(1)
+  expect(rows[0]?._id).toBe(newer)
+  expect(result.connectionId).toBe(newer)
+  expect(rows[0]?.credentialVersion).toBe(8)
+})

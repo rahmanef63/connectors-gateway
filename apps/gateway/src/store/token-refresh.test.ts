@@ -136,3 +136,21 @@ describe("credentialNeedsRefresh", () => {
     expect(credentialNeedsRefresh(NOW - 1, NOW)).toBe(true)
   })
 })
+
+test("a refresh response that reduces the requested provider scope fails permanently", async () => {
+  const renewal = { ...refresh, scope: "read write delete" }
+  const error = await refreshOAuthToken(renewal, {
+    fetcher: async () => response({ access_token: "next_access", expires_in: 3600, scope: "read write" }),
+  }).catch((cause: unknown) => cause)
+  expect(error).toBeInstanceOf(OAuthRefreshError)
+  expect((error as OAuthRefreshError).code).toBe("invalid_scope")
+  expect((error as OAuthRefreshError).permanent).toBe(true)
+})
+
+test("an omitted refresh scope preserves the originally-authorized scope", async () => {
+  const renewal = { ...refresh, scope: "read write" }
+  const result = await refreshOAuthToken(renewal, {
+    fetcher: async () => response({ access_token: "next_access", expires_in: 3600 }),
+  })
+  expect(result.renewal.scope).toBe("read write")
+})

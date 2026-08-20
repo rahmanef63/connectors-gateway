@@ -17,3 +17,8 @@ Transient transport failures are retried at most once only when the manifest mar
 Remote calls use the executor's single AbortSignal as the complete action budget. A safe retry therefore consumes the original deadline rather than creating a second timeout window. Only manifest-declared read-only or idempotent actions may retry, once, and without a sleep that could consume the remaining budget.
 
 Each connector/upstream origin has an in-process circuit breaker. Three consecutive transient transport/502/503/504 failures open it for 30 seconds; after that exactly one half-open probe is admitted. A successful response or a non-transient application/auth response closes the breaker because it proves transport reachability. Diagnostics expose the connector id, breaker state, failure count, and an irreversible short upstream reference only — never URL, host, token, response body, or tenant identity.
+
+
+## Operator diagnostics
+
+`GET /internal/diagnostics` is operator-only and requires the gateway service bearer token. It exposes only bounded circuit-breaker state (`connectorId`, irreversible upstream reference, state, consecutive failure count). It never returns upstream URLs, hostnames, credentials, headers, or response bodies. Public `/healthz` remains liveness-only.

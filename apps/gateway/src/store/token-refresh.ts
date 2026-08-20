@@ -89,6 +89,10 @@ export async function refreshOAuthToken(
   if (typeof accessToken !== "string" || accessToken.length === 0) {
     throw new OAuthRefreshError("invalid_response", false)
   }
+  // RFC 6749 §6: if a refresh response includes `scope`, it describes the
+  // access token that was actually issued. A provider silently dropping one of
+  // the scopes we require must never turn into a seemingly healthy connection.
+  assertNoScopeDowngrade(renewal.scope, document.scope)
   const expiresIn =
     typeof document.expires_in === "number" &&
     Number.isFinite(document.expires_in) &&
@@ -115,6 +119,24 @@ export async function refreshOAuthToken(
     ...(tokenExpiresAt === undefined ? {} : { tokenExpiresAt }),
     renewal: nextRenewal,
   }
+}
+
+function assertNoScopeDowngrade(requested: string | null, returned: unknown): void {
+  if (requested === null || returned === undefined) return
+  if (typeof returned !== "string") throw new OAuthRefreshError("invalid_scope", true)
+  const required = scopeSet(requested)
+  const granted = scopeSet(returned)
+  for (const scope of required) {
+    if (!granted.has(scope)) throw new OAuthRefreshError("invalid_scope", true)
+  }
+}
+
+function scopeSet(value: string): ReadonlySet<string> {
+  const scopes = value.trim().split(/\s+/).filter(Boolean)
+  if (scopes.some((scope) => /[\u0000-\u0020\u007f]/.test(scope))) {
+    throw new OAuthRefreshError("invalid_scope", true)
+  }
+  return new Set(scopes)
 }
 
 /** Shared predicate used before acquiring a control-plane lease. */

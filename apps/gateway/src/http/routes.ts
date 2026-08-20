@@ -8,6 +8,7 @@ import type { GatewayDeps } from "../deps"
 import { handleActionRoute } from "./handlers/actions"
 import { handleCatalog } from "./handlers/catalog"
 import { handleHealthz } from "./handlers/healthz"
+import { handleDiagnostics } from "./handlers/diagnostics"
 import { handleMcp } from "./handlers/mcp"
 import { handleOAuthRegister, handleOAuthToken } from "./handlers/oauth"
 import { handlePairClaim } from "./handlers/pair-claim"
@@ -42,6 +43,7 @@ const ASM = "/.well-known/oauth-authorization-server"
 
 export const ROUTES: readonly Route[] = Object.freeze([
   { method: "GET", pattern: "/healthz", handler: handleHealthz },
+  { method: "GET", pattern: "/internal/diagnostics", handler: handleDiagnostics },
   { method: "POST", pattern: "/mcp", handler: handleMcp },
 
   // Public, unauthenticated discovery. Listed before the authenticated routes

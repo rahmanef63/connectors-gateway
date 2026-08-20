@@ -44,7 +44,10 @@ export const upsert = mutation({
     }
 
     const existing = await ownedConnections(ctx, userId, connectorId)
-    const current = existing[0]
+    // Historical builds could leave duplicates. A reconnect is the safest time
+    // to repair them because the human is explicitly replacing this connector's
+    // credential. Keep the newest row and delete every older copy before return.
+    const current = [...existing].sort((a, b) => b._creationTime - a._creationTime)[0]
     if (current !== undefined) {
       // Re-connecting is an update, not a second row: the gateway resolves one
       // credential per (owner, connector) and a duplicate would be a coin flip.
@@ -59,6 +62,9 @@ export const upsert = mutation({
         refreshLeaseUntil: undefined,
         status: "active",
       })
+      for (const duplicate of existing) {
+        if (duplicate._id !== current._id) await ctx.db.delete(duplicate._id)
+      }
       return { connectionId: current._id }
     }
 
