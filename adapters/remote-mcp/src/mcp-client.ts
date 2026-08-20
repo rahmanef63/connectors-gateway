@@ -9,13 +9,11 @@
  * Upgrade path is the official MCP TypeScript SDK transport once sessions, sampling, or
  * progress notifications are required.
  */
-import { GatewayError } from "@cg/core"
+import { blockedRange, GatewayError, isLoopback } from "@cg/core"
 import { parseRpcBody, readToolResult } from "./mcp-parse"
 
 /** Pinned revision: streamable-HTTP servers reject calls carrying an unknown version. */
 export const MCP_PROTOCOL_VERSION = "2025-06-18"
-
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
 
 /**
  * A tools/call result is a record or an id, not a download. 1 MiB is far above anything
@@ -192,9 +190,15 @@ function endpointFor(baseUrl: string): URL {
   } catch {
     throw new GatewayError("UPSTREAM_ERROR", "This connection has an invalid endpoint URL.")
   }
-  const isLoopback = LOOPBACK_HOSTS.has(url.hostname)
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback)) {
+  const loopback = isLoopback(url.hostname)
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
     throw new GatewayError("UPSTREAM_ERROR", "The upstream server must be reached over HTTPS.")
+  }
+  if (!loopback && blockedRange(url.hostname) !== null) {
+    throw new GatewayError(
+      "UPSTREAM_ERROR",
+      "The upstream server address is in a private, reserved, or non-global range.",
+    )
   }
   return url
 }

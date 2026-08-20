@@ -79,6 +79,32 @@ describe("callTool transport", () => {
     await expect(call("http://127.0.0.1:8787/mcp")).resolves.toEqual({ ok: true })
   })
 
+  test("allows RFC localhost subdomains only as loopback development endpoints", async () => {
+    stubFetch(rpc({ structuredContent: { ok: true } }))
+
+    await expect(call("http://bridge.localhost:8787/mcp")).resolves.toEqual({ ok: true })
+  })
+
+  for (const endpoint of [
+    "https://10.0.0.1/mcp",
+    "https://100.64.0.1/mcp",
+    "https://169.254.169.254/latest/meta-data",
+    "https://192.0.2.1/mcp",
+    "https://198.18.0.1/mcp",
+    "https://224.0.0.1/mcp",
+    "https://[fc00::1]/mcp",
+    "https://[fe80::1]/mcp",
+    "https://[ff02::1]/mcp",
+  ]) {
+    test(`rejects non-global literal ${endpoint} before fetch`, async () => {
+      stubFetch(rpc({ structuredContent: {} }))
+      const error = await call(endpoint).catch((cause: unknown) => cause)
+      expect((error as GatewayError).code).toBe("UPSTREAM_ERROR")
+      expect((error as GatewayError).message).toContain("non-global")
+      expect(calls).toHaveLength(0)
+    })
+  }
+
   test("rejects an unparseable endpoint", async () => {
     stubFetch(rpc({ structuredContent: {} }))
 

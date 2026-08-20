@@ -118,7 +118,7 @@ describe("assertUpstreamUrl — accepted", () => {
       "https://172.32.0.1/mcp",
       "https://11.0.0.1/mcp",
       "https://192.167.0.1/mcp",
-      "https://[2001:db8::1]/mcp",
+      "https://[2606:4700:4700::1111]/mcp",
       "https://public-mcp.example.net:8443/mcp",
     ]) {
       expect(codeOf(value)).toBeNull()

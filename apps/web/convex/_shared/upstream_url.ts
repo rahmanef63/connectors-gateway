@@ -13,8 +13,8 @@
  *  - A public hostname whose A/AAAA record simply points at a private address.
  *    We never resolve, so `internal.evil.test -> 10.0.0.5` passes.
  * ponytail: the real fix is resolve-then-pin at fetch time, in the gateway —
- * resolve the host once, reject the resolved address against the same tables
- * (`ip_literal.ts`), and connect to that pinned IP. This validator is a ceiling
+ * resolve the host once, reject the resolved address against the same non-global
+ * address tables (`@cg/core`), and connect to that pinned IP. This validator is a ceiling
  * on how bad the stored value can be, not a guarantee about where the socket
  * lands.
  */
