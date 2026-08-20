@@ -12,13 +12,16 @@ import { createLogger } from "@cg/observability"
 import type { Logger } from "@cg/observability"
 import { importPrivateKey, importPublicKey, signJob, signKeyRotation, verifyKeyRotation } from "@cg/protocol"
 import type { JobEnvelope } from "@cg/protocol"
+import { randomToken } from "@cg/core"
 import { createRegistry } from "@cg/registry"
 import type { GatewayConfig } from "./config"
 import type { GatewayDeps } from "./deps"
-import { createRateLimiter } from "./http/rate-limit"
+import { createDistributedRateLimiter } from "./http/distributed-rate-limit"
 import { createRelay } from "./relay/relay"
+import { createRoutedDispatcher } from "./relay/routed-dispatch"
+import { handlePeerDispatch } from "./relay/peer-handler"
+import { detectInternalRelayUrl } from "./relay/internal-url"
 import { createConvexControlPlane } from "./store/convex"
-import type { GatewayLeaseLossReason } from "./store/gateway-lease"
 
 /** 5 code mints per 10 minutes per peer — docs/14 "pairing code brute force". */
 const PAIRING_LIMIT = 5
@@ -59,10 +62,8 @@ const OAUTH_WINDOW_MS = 60_000
 export type GatewayApp = {
   deps: GatewayDeps
   logger: Logger
-  /** Resolves only when this process may no longer serve. */
-  leaseLost: Promise<GatewayLeaseLossReason>
-  /** Checked before every HTTP request and WebSocket upgrade. */
-  isPrimary(): boolean
+  gatewayId: string
+  handlePeerDispatch(request: Request): Promise<Response>
   stop(): Promise<void>
 }
 
@@ -101,19 +102,28 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
     ? undefined
     : await createRotationProof(config.signing.previous, { keyId, publicKey: config.signing.publicKey })
 
-  // This is the deployment topology gate, not a best-effort heartbeat. A second
-  // process must fail before it creates a relay or starts listening.
-  await controlPlane.gatewayLease.acquire()
+  const gatewayId = `gw_${randomToken(18)}`
+  const internalUrl = detectInternalRelayUrl(config.port, { production: config.env === "production" })
   let relayToStop: ReturnType<typeof createRelay> | null = null
   try {
     const relay = createRelay({
-    devices: controlPlane.devices,
-    logger: logger.child({ scope: "relay" }),
-    signingPublicKey: config.signing.publicKey,
+      devices: controlPlane.devices,
+      logger: logger.child({ scope: "relay" }),
+      signingPublicKey: config.signing.publicKey,
       keyId,
+      gatewayId,
+      internalUrl,
+      routes: controlPlane.relayRoutes,
       ...(keyRotation === undefined ? {} : { keyRotation }),
     })
     relayToStop = relay
+    const routedDispatcher = createRoutedDispatcher({
+      gatewayId,
+      local: relay.dispatcher,
+      routes: controlPlane.relayRoutes,
+      serviceToken: config.serviceToken,
+      encryptionKey: config.credentialEncryptionKey,
+    })
 
   // Cloud adapters run IN this process. Local adapters never do: blender
   // contributes its MANIFEST only — registered above for catalog and policy —
@@ -134,7 +144,7 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
   })
   const local = createLocalExecutor({
     devices: controlPlane.devices,
-    dispatcher: relay.dispatcher,
+    dispatcher: routedDispatcher,
     signJob: (envelope: JobEnvelope) => signJob(envelope, { privateKey: signingPrivateKey, keyId }),
   })
 
@@ -148,29 +158,29 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
     audit: controlPlane.audit,
     pairing: controlPlane.pairing,
     oauth: controlPlane.oauth,
-    oauthLimiter: createRateLimiter({ limit: OAUTH_LIMIT, windowMs: OAUTH_WINDOW_MS }),
+    oauthLimiter: createDistributedRateLimiter(controlPlane.client, { bucket: "oauth", limit: OAUTH_LIMIT, windowMs: OAUTH_WINDOW_MS }),
     executor: createRouter({ cloud, local }),
-    pairingLimiter: createRateLimiter({ limit: PAIRING_LIMIT, windowMs: PAIRING_WINDOW_MS }),
-    claimLimiter: createRateLimiter({ limit: CLAIM_LIMIT, windowMs: CLAIM_WINDOW_MS }),
-    edgeLimiter: createRateLimiter({ limit: EDGE_LIMIT, windowMs: EDGE_WINDOW_MS }),
+    pairingLimiter: createDistributedRateLimiter(controlPlane.client, { bucket: "pairing_start", limit: PAIRING_LIMIT, windowMs: PAIRING_WINDOW_MS }),
+    claimLimiter: createDistributedRateLimiter(controlPlane.client, { bucket: "pairing_claim", limit: CLAIM_LIMIT, windowMs: CLAIM_WINDOW_MS }),
+    edgeLimiter: createDistributedRateLimiter(controlPlane.client, { bucket: "edge", limit: EDGE_LIMIT, windowMs: EDGE_WINDOW_MS }),
     relay,
     logger,
   }
 
-    controlPlane.gatewayLease.start()
     return {
       deps,
       logger,
-      leaseLost: controlPlane.gatewayLease.lost,
-      isPrimary: () => controlPlane.gatewayLease.isValid(),
-      stop: async () => {
-        relay.stop()
-        await controlPlane.gatewayLease.stop()
-      },
+      gatewayId,
+      handlePeerDispatch: (request: Request) => handlePeerDispatch(request, {
+        serviceToken: config.serviceToken,
+        encryptionKey: config.credentialEncryptionKey,
+        sockets: relay.sockets,
+        dispatcher: relay.dispatcher,
+      }),
+      stop: async () => { relay.stop() },
     }
   } catch (cause) {
     relayToStop?.stop()
-    await controlPlane.gatewayLease.stop()
     throw cause
   }
 }

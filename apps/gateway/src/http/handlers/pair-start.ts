@@ -36,7 +36,7 @@ function parsePlatform(value: unknown): DevicePlatform {
 
 export async function handlePairStart(context: RouteContext): Promise<Response> {
   try {
-    if (!context.deps.pairingLimiter.check(`start:${context.clientKey}`)) {
+    if (!await context.deps.pairingLimiter.check(`start:${context.clientKey}`)) {
       throw new GatewayError("RATE_LIMITED", "Too many pairing attempts. Try again shortly.")
     }
     const body = await readJsonBody(context.request)

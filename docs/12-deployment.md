@@ -94,12 +94,12 @@ commit belongs to `origin/main`, and updates only the `connect-gateway` Swarm se
 It refuses a dirty worktree. Never treat Dokploy's mutable `:latest` build as the
 final production identity; the service spec after promotion must name `git-<sha>`.
 
-The gateway intentionally uses **`stop-first`** rollout while the durable singleton
-lease is active. `start-first` cannot be zero-downtime here: the replacement is
-correctly rejected while the old task still owns the lease, producing a failed task
-before Swarm retries. `stop-first` makes that hand-off explicit and bounded. True
-zero-downtime rolling deployment requires distributed relay/socket ownership first.
-Do not run the Convex CLI by hand.
+The gateway now runs **two or more replicas** with a `start-first`, one-at-a-time
+rollout. Device-to-gateway WebSocket ownership is a short-lived Convex route, local
+jobs are routed to the owning replica over the private overlay, and rate budgets are
+transactional in Convex. This makes old/new replicas safe to overlap during a release.
+The former singleton lease implementation remains in the repository only as a rollback
+mechanism; it is no longer acquired by the serving path. Do not run the Convex CLI by hand.
 
 The one-off bootstrap, if the stack is ever rebuilt from nothing:
 
@@ -164,13 +164,17 @@ A persistent relay is stateful by connection presence, but job metadata and devi
 
 Do not optimize for global scale before MVP correctness and security.
 
-Upstream OAuth refresh is already safe across concurrent gateway processes because Convex owns
-its lease and credential generation. A transactional Convex rate-bucket service and gateway
-adapter also exist as a **disabled foundation** for distributed rate limiting; production keeps
-the in-memory limiter while only one gateway may serve, avoiding a control-plane round trip on
-every request for no benefit. Relay socket routing, presence ownership and local agent replay
-state are still single-process boundaries. Do not raise the gateway replica count until those
-remaining stores are shared and the singleton lease can be intentionally removed.
+Upstream OAuth refresh is safe across concurrent gateway processes because Convex owns its
+lease and credential generation. Rate limits are now shared fixed-window buckets in Convex;
+raw peer addresses never leave the gateway because only SHA-256 digests are stored.
+
+Device WebSockets remain local to the process that accepted them, but ownership is durable
+short-lived routing metadata in Convex (`device -> gateway + session + private endpoint`). Any
+replica can dispatch a local job: same-owner calls stay in-process; cross-owner calls carry an
+AES-GCM sealed signed job over the private Docker overlay and use HMAC request authentication,
+so neither the service token nor the job body travels in plaintext. Reconnect replaces route
+ownership atomically, and a stale socket can no longer mark its replacement offline. The agent's
+replay guard is per-device persistent SQLite and therefore is not a gateway-replica state store.
 
 ### Rotating the gateway job-signing key without re-pairing agents
 

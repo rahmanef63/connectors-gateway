@@ -15,15 +15,18 @@ export type RateLimiterOptions = {
 }
 
 export type RateLimiter = {
-  /** True when the call is allowed. Consumes one unit. */
-  check(key: string): boolean
+  /** True when the call is allowed. Shared implementations are asynchronous. */
+  check(key: string): boolean | Promise<boolean>
+}
+
+export type MemoryRateLimiter = RateLimiter & {
   reset(): void
   size(): number
 }
 
 const DEFAULT_MAX_KEYS = 10_000
 
-export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
+export function createRateLimiter(options: RateLimiterOptions): MemoryRateLimiter {
   const now = options.now ?? Date.now
   const maxKeys = options.maxKeys ?? DEFAULT_MAX_KEYS
   const windows = new Map<string, { resetAt: number; count: number }>()

@@ -67,3 +67,6 @@ export const MAX_DISPLAY_NAME_LENGTH = 64
 export const MIN_PAIRING_CODE_LENGTH = 6
 export const MAX_PAIRING_CODE_LENGTH = 32
 export const MAX_IDENTIFIER_LENGTH = 128
+
+/** Expired device-to-gateway route rows reclaimed per maintenance pass. */
+export const RELAY_ROUTE_SWEEP_BATCH = 200

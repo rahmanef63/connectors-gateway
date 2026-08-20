@@ -138,10 +138,13 @@ have not been run against a real Blender install.
    redirect-free, bounded live probe of the complete chain. It runs on relevant pull requests,
    on changes to `main`, and every day. This specifically rejects the former
    `https://careerpack.local/oauth/authorize` failure mode without reading any credential.
-7. **Rate limits, relay presence and the agent's replay guard are per-process.** A second
-   gateway instance multiplies every limit and forgets seen job ids across a restart.
-   Each site is marked `ponytail:`. Correct for a single-instance MVP, load-bearing before
-   horizontal scaling — `docs/12` already calls this out.
+7. ~~**Rate limits and relay socket routing are per-process.**~~ **Closed 2026-08-20.**
+   Rate buckets are transactional in Convex and keyed only by irreversible peer digests. Relay
+   ownership is a TTL-bound `(device, gateway, session)` route: reconnect atomically replaces the
+   owner, stale closes cannot overwrite fresh presence, and another gateway dispatches to the
+   owning task through an HMAC-authenticated private-overlay endpoint with AES-GCM sealed job/result
+   bodies. Ambiguous peer failures are never replayed. The agent replay guard is persistent SQLite
+   on the device and survives gateway scaling independently.
 
 ## What is proven against real systems
 

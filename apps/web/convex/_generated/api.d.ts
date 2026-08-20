@@ -58,6 +58,7 @@ import type * as service_oauth from "../service/oauth.js";
 import type * as service_pairing from "../service/pairing.js";
 import type * as service_policy from "../service/policy.js";
 import type * as service_rate_limits from "../service/rate_limits.js";
+import type * as service_relay_routes from "../service/relay_routes.js";
 
 import type {
   ApiFromModules,
@@ -116,6 +117,7 @@ declare const fullApi: ApiFromModules<{
   "service/pairing": typeof service_pairing;
   "service/policy": typeof service_policy;
   "service/rate_limits": typeof service_rate_limits;
+  "service/relay_routes": typeof service_relay_routes;
 }>;
 
 /**

@@ -117,6 +117,20 @@ export const REFS = {
     windowMs: number
   }>>("service/rate_limits:consume"),
 
+  relayRoutesClaim: mutation<WithToken<{
+    deviceId: string
+    gatewayId: string
+    sessionId: string
+    internalUrl: string
+  }>>("service/relay_routes:claim"),
+  relayRoutesRefresh: mutation<WithToken<{ deviceId: string; gatewayId: string; sessionId: string }>>(
+    "service/relay_routes:refresh",
+  ),
+  relayRoutesRelease: mutation<WithToken<{ deviceId: string; gatewayId: string; sessionId: string }>>(
+    "service/relay_routes:release",
+  ),
+  relayRoutesResolve: query<WithToken<{ deviceId: string }>>("service/relay_routes:resolve"),
+
   auditAppend: mutation<WithToken<{ event: Record<string, unknown> }>>("service/audit:append"),
 
   apiKeysGetRecord: query<WithToken<{ keyId: string }>>("service/apiKeys:getRecord"),

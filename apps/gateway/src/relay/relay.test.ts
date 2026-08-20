@@ -3,6 +3,7 @@ import { CLOSE_CODES, PROTOCOL_VERSION, createJobEnvelope } from "@cg/protocol"
 import type { Device } from "@cg/core"
 import { makeDevice, silentLogger } from "../__tests__/fixtures"
 import type { DeviceAuthResult, GatewayDeviceStore } from "../store/devices"
+import type { RelayRouteStore } from "../store/relay-routes"
 import { createRelay } from "./relay"
 import type { Relay } from "./relay"
 import type { RelaySocket, SocketState } from "./types"
@@ -60,17 +61,31 @@ const HELLO = JSON.stringify({
 
 let relay: Relay | null = null
 
+function routeStore(overrides: Partial<RelayRouteStore> = {}): RelayRouteStore {
+  return {
+    claim: async () => true,
+    refresh: async () => true,
+    release: async () => true,
+    resolve: async () => null,
+    ...overrides,
+  }
+}
+
 function build(
   result: DeviceAuthResult,
   presence: Presence[] = [],
   store: Partial<GatewayDeviceStore> = {},
   keyRotation?: { previousKeyId: string; nextKeyId: string; nextPublicKey: string; signature: string },
+  routes: RelayRouteStore = routeStore(),
 ): Relay {
   relay = createRelay({
     devices: deviceStore(result, presence, store),
     logger: silentLogger,
     signingPublicKey: "cHVibGlj",
     keyId: "k1",
+    gatewayId: "gw_testgateway111111",
+    internalUrl: "http://10.0.0.2:8787",
+    routes,
     ...(keyRotation === undefined ? {} : { keyRotation }),
   })
   return relay
@@ -263,6 +278,29 @@ describe("relay websocket handlers", () => {
 
     expect(instance.sockets.get("dev_1")).toBeUndefined()
     expect(presence.at(-1)).toEqual({ deviceId: "dev_1", online: false })
+  })
+
+  test("a cross-instance replacement closes the stale socket without marking the new owner offline", async () => {
+    const presence: Presence[] = []
+    let refreshes = 0
+    const instance = build(
+      { ok: true, device: makeDevice() },
+      presence,
+      {},
+      undefined,
+      routeStore({ refresh: async () => { refreshes += 1; return false }, release: async () => false }),
+    )
+    const { socket, closed } = fakeSocket(instance.newState())
+    await instance.websocket.message?.(socket, HELLO)
+    socket.data.presenceAt = 0
+    socket.data.lastSeenAt = 60_000
+    await instance.websocket.message?.(socket, JSON.stringify({ type: "heartbeat" }))
+    expect(refreshes).toBe(1)
+    expect(closed.at(-1)?.reason).toBe("replaced by a newer session")
+    instance.websocket.close?.(socket, 4001, "replaced")
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(presence.filter((entry) => entry.online === false)).toHaveLength(0)
   })
 
   test("the heartbeat sweep closes a socket that stopped sending frames", async () => {

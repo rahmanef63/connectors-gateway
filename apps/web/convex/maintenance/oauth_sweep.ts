@@ -16,12 +16,13 @@ import {
   OAUTH_CLIENT_IDLE_MS,
   OAUTH_SWEEP_BATCH,
   RATE_LIMIT_SWEEP_BATCH,
+  RELAY_ROUTE_SWEEP_BATCH,
 } from "../_shared/limits"
 
 export const sweep = internalMutation({
   args: {},
-  returns: v.object({ codes: v.number(), clients: v.number(), approvals: v.number(), rateBuckets: v.number() }),
-  handler: async (ctx): Promise<{ codes: number; clients: number; approvals: number; rateBuckets: number }> => {
+  returns: v.object({ codes: v.number(), clients: v.number(), approvals: v.number(), rateBuckets: v.number(), relayRoutes: v.number() }),
+  handler: async (ctx): Promise<{ codes: number; clients: number; approvals: number; rateBuckets: number; relayRoutes: number }> => {
     const now = Date.now()
 
     const lapsedCodes = await ctx.db
@@ -59,11 +60,18 @@ export const sweep = internalMutation({
       .take(RATE_LIMIT_SWEEP_BATCH)
     for (const row of lapsedRateBuckets) await ctx.db.delete(row._id)
 
+    const lapsedRelayRoutes = await ctx.db
+      .query("relayRoutes")
+      .withIndex("by_expiresAt", (q) => q.lte("expiresAt", now))
+      .take(RELAY_ROUTE_SWEEP_BATCH)
+    for (const row of lapsedRelayRoutes) await ctx.db.delete(row._id)
+
     return {
       codes: lapsedCodes.length,
       clients,
       approvals: lapsedApprovals.length,
       rateBuckets: lapsedRateBuckets.length,
+      relayRoutes: lapsedRelayRoutes.length,
     }
   },
 })

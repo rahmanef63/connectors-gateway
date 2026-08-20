@@ -13,6 +13,8 @@ import { createControlPlaneClient } from "./client"
 import { createConnectionStore } from "./connections"
 import { createDeviceStore } from "./devices"
 import { createGatewayLease, type GatewayLease } from "./gateway-lease"
+import { createRelayRouteStore, type RelayRouteStore } from "./relay-routes"
+import type { ControlPlaneClient } from "./client"
 import type { GatewayDeviceStore } from "./devices"
 import { createOAuthStore, type OAuthStore } from "./oauth"
 import { createPairingStore } from "./pairing"
@@ -25,6 +27,9 @@ export type GatewayControlPlane = ControlPlane & {
   approvals: ApprovalStore
   oauth: OAuthStore
   gatewayLease: GatewayLease
+  relayRoutes: RelayRouteStore
+  /** Internal cross-instance adapters share the authenticated client. */
+  client: ControlPlaneClient
 }
 
 export function createConvexControlPlane(options: {
@@ -35,6 +40,7 @@ export function createConvexControlPlane(options: {
 }): GatewayControlPlane {
   const client = createControlPlaneClient(options)
   return {
+    client,
     devices: createDeviceStore(client),
     pairing: createPairingStore(client),
     policy: createPolicyStore(client),
@@ -50,5 +56,6 @@ export function createConvexControlPlane(options: {
     gatewayLease: createGatewayLease(client, {
       logger: options.logger.child({ scope: "gateway-lease" }),
     }),
+    relayRoutes: createRelayRouteStore(client),
   }
 }

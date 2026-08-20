@@ -71,7 +71,7 @@ function field(fields: Record<string, unknown>, name: string): string | null {
  * into. Registering grants nothing — see the note on `service/oauth`.
  */
 export async function handleOAuthRegister(context: RouteContext): Promise<Response> {
-  if (!context.deps.oauthLimiter.check(context.clientKey)) {
+  if (!await context.deps.oauthLimiter.check(context.clientKey)) {
     return oauthError("invalid_request", "Too many registration attempts.", 429)
   }
 
@@ -155,7 +155,7 @@ export async function handleOAuthRegister(context: RouteContext): Promise<Respon
  * of a stolen code learn which parameter to change.
  */
 export async function handleOAuthToken(context: RouteContext): Promise<Response> {
-  if (!context.deps.oauthLimiter.check(context.clientKey)) {
+  if (!await context.deps.oauthLimiter.check(context.clientKey)) {
     return oauthError("invalid_request", "Too many token requests.", 429)
   }
 

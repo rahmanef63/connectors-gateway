@@ -53,7 +53,7 @@ export async function handleHttp(
   // BEFORE it knows whether the bearer token is real, so an anonymous caller can
   // otherwise buy ~28ms of gateway CPU and one control-plane query per request.
   // The pairing routes carry their own, much tighter limiter on top of this one.
-  if (pathname !== HEALTH_PATH && !isDiscoveryPath(pathname) && !deps.edgeLimiter.check(clientKey)) {
+  if (pathname !== HEALTH_PATH && !isDiscoveryPath(pathname) && !await deps.edgeLimiter.check(clientKey)) {
     return withRequestId(
       errorResponse("RATE_LIMITED", "Too many requests. Try again shortly."),
       scope.requestId,

@@ -132,7 +132,7 @@ describe("oauth sweep — shared rate buckets", () => {
 describe("oauth sweep — safety", () => {
   test("is a no-op on an empty deployment", async () => {
     const t = setupConvex()
-    expect(await sweep(t)).toEqual({ codes: 0, clients: 0, approvals: 0, rateBuckets: 0 })
+    expect(await sweep(t)).toEqual({ codes: 0, clients: 0, approvals: 0, rateBuckets: 0, relayRoutes: 0 })
   })
 
   test("touches nothing but its two tables", async () => {
@@ -152,5 +152,19 @@ describe("oauth sweep — safety", () => {
     await sweep(t)
     const keys = await t.run(async (ctx) => ctx.db.query("apiKeys").take(10))
     expect(keys).toHaveLength(1)
+  })
+})
+
+
+describe("maintenance sweep — relay routes", () => {
+  test("reclaims expired relay routes without touching a live owner", async () => {
+    const t = setupConvex()
+    await t.run(async (ctx) => {
+      await ctx.db.insert("relayRoutes", { deviceId: "dev_old", gatewayId: "gw_old111111111111", sessionId: "nce_old111111111111", internalUrl: "http://10.0.0.2:8787", updatedAt: Date.now() - HOUR, expiresAt: Date.now() - 1 })
+      await ctx.db.insert("relayRoutes", { deviceId: "dev_live", gatewayId: "gw_live11111111111", sessionId: "nce_live11111111111", internalUrl: "http://10.0.0.3:8787", updatedAt: Date.now(), expiresAt: Date.now() + HOUR })
+    })
+    expect(await sweep(t)).toMatchObject({ relayRoutes: 1 })
+    const rows = await t.run(async (ctx) => ctx.db.query("relayRoutes").take(10))
+    expect(rows.map((row) => row.deviceId)).toEqual(["dev_live"])
   })
 })

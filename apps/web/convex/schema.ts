@@ -249,6 +249,19 @@ export default defineSchema({
     .index("by_bucket_key", ["bucket", "keyDigest"])
     .index("by_resetAt", ["resetAt"]),
 
+  relayRoutes: defineTable({
+    deviceId: v.string(),
+    gatewayId: v.string(),
+    sessionId: v.string(),
+    /** Private Docker-overlay endpoint; never returned to browser clients. */
+    internalUrl: v.string(),
+    updatedAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_device", ["deviceId"])
+    .index("by_gateway", ["gatewayId"])
+    .index("by_expiresAt", ["expiresAt"]),
+
   auditLogs: defineTable({
     requestId: v.string(),
     timestamp: v.number(),

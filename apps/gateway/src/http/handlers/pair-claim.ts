@@ -15,7 +15,7 @@ const CHALLENGE_ID_RE = /^[A-Za-z0-9_-]{8,128}$/
 
 export async function handlePairClaim(context: RouteContext): Promise<Response> {
   try {
-    if (!context.deps.claimLimiter.check(`claim:${context.clientKey}`)) {
+    if (!await context.deps.claimLimiter.check(`claim:${context.clientKey}`)) {
       throw new GatewayError("RATE_LIMITED", "Too many claim attempts. Try again shortly.")
     }
     const body = await readJsonBody(context.request)

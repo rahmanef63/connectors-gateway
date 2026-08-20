@@ -2,10 +2,12 @@
 set -euo pipefail
 
 SERVICE="${GATEWAY_SWARM_SERVICE:-connect-gateway-s3ngfg}"
+TARGET_REPLICAS="${GATEWAY_REPLICAS:-2}"
 REVISION="${1:-$(git rev-parse HEAD)}"
+case "$TARGET_REPLICAS" in (*[!0-9]*|'') echo "GATEWAY_REPLICAS must be a positive integer" >&2; exit 2;; esac
+[ "$TARGET_REPLICAS" -ge 2 ] || { echo "multi-instance gateway release requires at least 2 replicas" >&2; exit 2; }
 case "$REVISION" in (*[!0-9a-f]*|'') echo "revision must be a lowercase git SHA" >&2; exit 2;; esac
 if [ "$(git rev-parse "$REVISION^{commit}")" != "$REVISION" ] 2>/dev/null; then
-  # Accept abbreviated input, but always promote the canonical full commit id.
   REVISION="$(git rev-parse "$REVISION^{commit}")"
 fi
 if [ -n "$(git status --porcelain)" ]; then echo "refusing release from a dirty worktree" >&2; exit 2; fi
@@ -17,27 +19,33 @@ docker build --pull -f apps/gateway/Dockerfile \
   --build-arg "GATEWAY_REVISION=$REVISION" \
   -t "$IMAGE" . >/dev/null
 
-# Singleton lease + start-first are incompatible: the replacement is supposed to
-# be rejected while the old process still owns the lease. Stop-first gives one
-# bounded hand-off instead of a failed task followed by an implicit retry.
-echo "updating $SERVICE with singleton-safe stop-first hand-off"
+# Relay ownership and rate budgets are shared, so old and new replicas can
+# overlap safely. Start-first turns release hand-off into a real zero-downtime
+# rolling update instead of the former singleton stop-first gap.
+echo "updating $SERVICE to $TARGET_REPLICAS replicas with start-first rollout"
 docker service update \
   --image "$IMAGE" \
-  --update-order stop-first \
+  --replicas "$TARGET_REPLICAS" \
+  --update-order start-first \
   --update-parallelism 1 \
+  --update-failure-action rollback \
+  --update-monitor 15s \
   --force "$SERVICE" >/dev/null
 
-for _ in $(seq 1 30); do
+wanted="${TARGET_REPLICAS}/${TARGET_REPLICAS}"
+for _ in $(seq 1 90); do
   replicas="$(docker service ls --filter "name=$SERVICE" --format '{{.Replicas}}' | head -n1)"
-  if [ "$replicas" = "1/1" ]; then
-    running="$(docker service ps "$SERVICE" --filter desired-state=running --format '{{.CurrentState}}' | head -n1)"
-    case "$running" in Running*) break;; esac
+  if [ "$replicas" = "$wanted" ]; then
+    running="$(docker service ps "$SERVICE" --filter desired-state=running --format '{{.CurrentState}}' | grep -c '^Running' || true)"
+    [ "$running" -ge "$TARGET_REPLICAS" ] && break
   fi
   sleep 1
 done
 
+replicas="$(docker service ls --filter "name=$SERVICE" --format '{{.Replicas}}' | head -n1)"
+[ "$replicas" = "$wanted" ] || { echo "gateway replicas did not converge: $replicas" >&2; exit 1; }
 actual="$(docker service inspect "$SERVICE" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}')"
 [ "$actual" = "$IMAGE" ] || { echo "service did not retain immutable image" >&2; exit 1; }
 status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 8 https://connect.rahmanef.com/healthz)"
 [ "$status" = "200" ] || { echo "health check failed after rollout" >&2; exit 1; }
-echo "gateway release verified: ${REVISION:0:12}"
+echo "gateway release verified: ${REVISION:0:12} (${replicas})"

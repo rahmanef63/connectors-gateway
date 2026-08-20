@@ -12,6 +12,7 @@ import { CLOSE_CODES, HEARTBEAT_INTERVAL_MS, HEARTBEAT_TIMEOUT_MS, PROTOCOL_VERS
 import type { AgentMessage, SignedKeyRotation } from "@cg/protocol"
 import type { WebSocketHandler } from "bun"
 import type { GatewayDeviceStore } from "../store/devices"
+import type { RelayRouteStore } from "../store/relay-routes"
 import { createDispatcher } from "./dispatch"
 import type { Dispatcher } from "./dispatch"
 import { authenticateHello, flattenCapabilities } from "./hello"
@@ -27,6 +28,10 @@ export type RelayDeps = {
   signingPublicKey: string
   keyId: string
   keyRotation?: SignedKeyRotation
+  /** Ephemeral process identity + private overlay address for cross-instance routing. */
+  gatewayId: string
+  internalUrl: string
+  routes: RelayRouteStore
   now?: () => number
 }
 
@@ -69,6 +74,21 @@ export function createRelay(deps: RelayDeps): Relay {
     }
 
     const deviceId = outcome.device.id
+    const sessionId = socket.data.socketId
+    let claimed = false
+    try {
+      claimed = await deps.routes.claim(deviceId, deps.gatewayId, sessionId, deps.internalUrl)
+    } catch {
+      // Control-plane routing is required for multi-instance correctness. A
+      // transient outage should make the agent retry, never create an unrouteable socket.
+      disconnect(socket, 1013, "relay routing unavailable")
+      return
+    }
+    if (!claimed) {
+      disconnect(socket, CLOSE_CODES.REVOKED, "device unavailable")
+      return
+    }
+
     clearHelloTimer(socket)
     socket.data.deviceId = deviceId
     socket.data.authenticated = true
@@ -77,7 +97,15 @@ export function createRelay(deps: RelayDeps): Relay {
     const displaced = sockets.set(deviceId, socket)
     if (displaced) displaced.close(CLOSE_CODES.UNAUTHORIZED, "replaced by a newer session")
 
-    await deps.devices.setPresence(deviceId, true, outcome.capabilities)
+    try {
+      await deps.devices.setPresence(deviceId, true, outcome.capabilities)
+    } catch {
+      sockets.remove(deviceId, socket)
+      socket.data.authenticated = false
+      void deps.routes.release(deviceId, deps.gatewayId, sessionId).catch(() => {})
+      disconnect(socket, 1013, "presence unavailable")
+      return
+    }
     socket.data.presenceAt = socket.data.lastSeenAt
     sendMessage(socket, {
       type: "welcome",
@@ -132,6 +160,14 @@ export function createRelay(deps: RelayDeps): Relay {
     // into a burst of identical writes.
     socket.data.presenceAt = at
     try {
+      const ownsRoute = await deps.routes.refresh(deviceId, deps.gatewayId, socket.data.socketId)
+      if (!ownsRoute) {
+        // Another replica accepted a newer session. The old close handler is
+        // session-bound, so it cannot mark that replacement offline.
+        socket.data.authenticated = false
+        disconnect(socket, CLOSE_CODES.UNAUTHORIZED, "replaced by a newer session")
+        return
+      }
       await deps.devices.setPresence(deviceId, true)
     } catch (cause) {
       socket.data.presenceAt = 0
@@ -186,9 +222,14 @@ export function createRelay(deps: RelayDeps): Relay {
       const deviceId = socket.data.deviceId
       if (!deviceId || !sockets.remove(deviceId, socket)) return
       dispatcher.failDevice(deviceId, new GatewayError("DEVICE_OFFLINE", "The device disconnected."))
-      deps.devices
-        .setPresence(deviceId, false)
-        .catch(() => deps.logger.error("presence update failed", { deviceId }))
+      void deps.routes
+        .release(deviceId, deps.gatewayId, socket.data.socketId)
+        .then(async (released) => {
+          // A stale socket from a previous replica/session must never write
+          // offline over the replacement's fresh online presence.
+          if (released) await deps.devices.setPresence(deviceId, false)
+        })
+        .catch(() => deps.logger.error("relay route release failed", { deviceId }))
       deps.logger.info("device offline", { deviceId })
     },
   }
@@ -233,6 +274,7 @@ export function createRelay(deps: RelayDeps): Relay {
           deviceId,
           new GatewayError("DEVICE_REVOKED", "The device was revoked."),
         )
+        void deps.routes.release(deviceId, deps.gatewayId, socket.data.socketId).catch(() => {})
         sendMessage(socket, { type: "revoked", reason: "Device access was revoked." })
         socket.data.authenticated = false
         disconnect(socket, CLOSE_CODES.REVOKED, "device revoked")
