@@ -19,6 +19,40 @@ import { DEFAULT_LANDING, signInPath } from "./lib/safe-redirect"
 const isSignInRoute = createRouteMatcher(["/sign-in"])
 
 /**
+ * The gateway edge (docs/20). These paths are served by
+ * `apps/web/lib/gateway/runtime.ts`, and they must reach it UNTOUCHED.
+ *
+ * They are machine-to-machine: an AI client calling `/oauth/register` or
+ * `/oauth/token` holds no session and by protocol cannot have one — those two
+ * endpoints are how it gets a credential in the first place. Redirecting them to
+ * a sign-in page does not fail loudly; it answers a JSON-RPC caller with HTML,
+ * and the client reports the server as not supporting OAuth at all. The
+ * `/.well-known` documents have the same property, and `/mcp` authenticates
+ * itself with a bearer token that a cookie session knows nothing about.
+ *
+ * Checked BEFORE `isAuthenticated()`, so these requests do not pay for a session
+ * lookup they will never use.
+ *
+ * NOTE the deliberate asymmetry inside `/oauth`: `authorize` and `callback` are
+ * the two halves that need a HUMAN and stay gated below. `register` and `token`
+ * are the two that need a machine and are listed here. Adding a `/oauth/*`
+ * route means deciding which of those it is.
+ */
+const isGatewayRoute = createRouteMatcher([
+  "/mcp",
+  "/healthz",
+  "/v1/(.*)",
+  "/internal/(.*)",
+  "/oauth/register",
+  "/oauth/token",
+  // The real path, and the rewrite destination Next serves it from
+  // (next.config.mjs) — middleware runs before an afterFiles rewrite, but
+  // matching both keeps this correct if that ordering ever changes.
+  "/.well-known/(.*)",
+  "/well-known/(.*)",
+])
+
+/**
  * Everything a signed-out visitor must not reach. The screens come from the nav
  * registry itself — restating them here is how a newly added screen ends up
  * ungated. `/` and `/pair` are not registry entries (one redirects, the other is
@@ -28,14 +62,22 @@ const isProtectedRoute = createRouteMatcher([
   "/",
   ...NAV_ROUTE_PATTERNS,
   "/pair(.*)",
-  // The OAuth callback writes a connection as the signed-in user. Gated here so
-  // a session that lapsed mid-consent lands on sign-in and comes BACK with the
-  // code intact (`signInPath` keeps the query string) rather than silently
-  // dropping a credential the user just approved.
-  "/oauth(.*)",
+  // The OAuth screens that need a human. The callback writes a connection as
+  // the signed-in user, so a session that lapsed mid-consent must land on
+  // sign-in and come BACK with the code intact (`signInPath` keeps the query
+  // string) rather than silently dropping a credential the user just approved.
+  //
+  // Named individually rather than as `/oauth(.*)`: the machine halves of the
+  // OAuth flow live under the same prefix and must NOT be gated
+  // (`isGatewayRoute` above).
+  "/oauth/authorize(.*)",
+  "/oauth/callback(.*)",
 ])
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
+  // First, and before any session work: the gateway edge answers for itself.
+  if (isGatewayRoute(request)) return undefined
+
   const authenticated = await convexAuth.isAuthenticated()
 
   if (isSignInRoute(request) && authenticated) {
