@@ -7,7 +7,7 @@ import { NotBuiltYet } from "@/components/not-built-yet"
 import { SectionCard } from "@/components/section-card"
 import { navTitleFor } from "@/components/shell/nav-items"
 import { convexOptions } from "@/lib/convex-server"
-import { agentEnvSnippet, normalizeGatewayUrl } from "@/lib/gateway-config"
+import { agentEnvSnippet, publicGatewayUrl } from "@/lib/gateway-config"
 import { SetupConsole } from "./setup-console"
 
 export const metadata: Metadata = { title: navTitleFor("/setup") }
@@ -23,14 +23,14 @@ async function preloadKeys(): Promise<PreloadedApiKeys | null> {
 }
 
 export default async function SetupPage() {
-  // Literal `process.env.NEXT_PUBLIC_*` member access: Next inlines it at build
-  // time, and a computed lookup would resolve to undefined in the bundle.
-  const gatewayUrl = normalizeGatewayUrl(process.env.NEXT_PUBLIC_GATEWAY_URL)
+  // On the single-origin Vercel deploy this resolves to the app's own
+  // production hostname; a split deployment sets NEXT_PUBLIC_GATEWAY_URL.
+  const gatewayUrl = publicGatewayUrl()
   if (gatewayUrl === null) {
     return (
       <NotBuiltYet
         title="Gateway address not configured"
-        blockedOn="NEXT_PUBLIC_GATEWAY_URL is unset or invalid for this deployment. It must be an https origin (plain http is accepted only for loopback during local development). See apps/web/.env.example."
+        blockedOn="This deployment could not work out its own gateway origin. On Vercel that means the system environment variables are switched off; anywhere else, set NEXT_PUBLIC_GATEWAY_URL to an https origin (plain http is accepted only for loopback during local development). See apps/web/.env.example."
       />
     )
   }

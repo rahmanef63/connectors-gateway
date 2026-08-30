@@ -58,6 +58,40 @@ export function normalizeGatewayUrl(raw: string | undefined | null): string | nu
   return `${url.origin}${path}`
 }
 
+/**
+ * The gateway origin this deployment should advertise, or null if it cannot be
+ * known.
+ *
+ * Three sources, in order of how much they are worth trusting:
+ *
+ * 1. `NEXT_PUBLIC_GATEWAY_URL` — set explicitly. The only one that can name a
+ *    SEPARATE gateway deployment (the Bun edge on its own domain), so it wins
+ *    unconditionally.
+ * 2. `NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL` — this project's stable
+ *    production hostname. Correct for the single-origin Vercel deploy of
+ *    docs/20, where the dashboard and the gateway are the same app.
+ * 3. `NEXT_PUBLIC_VERCEL_URL` — this ONE deployment's hostname. A preview
+ *    build's own address; useful for looking at a preview, never for a client
+ *    that has to keep working after the next push.
+ *
+ * Each is spelled as a literal `process.env.NEXT_PUBLIC_*` member access
+ * because that is what Next inlines at build time — a computed lookup resolves
+ * to undefined in the bundle. Every value is public by definition (they are all
+ * hostnames) and each is re-validated by `normalizeGatewayUrl`.
+ */
+export function publicGatewayUrl(): string | null {
+  const explicit = normalizeGatewayUrl(process.env.NEXT_PUBLIC_GATEWAY_URL)
+  if (explicit !== null) return explicit
+
+  const production = (process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL ?? "").trim()
+  if (production.length > 0) return normalizeGatewayUrl(`https://${production}`)
+
+  const preview = (process.env.NEXT_PUBLIC_VERCEL_URL ?? "").trim()
+  if (preview.length > 0) return normalizeGatewayUrl(`https://${preview}`)
+
+  return null
+}
+
 export function mcpEndpoint(gatewayUrl: string): string {
   return `${gatewayUrl}${MCP_PATH}`
 }
@@ -85,12 +119,20 @@ export function mcpClientConfig(gatewayUrl: string, apiKey?: string | null): str
   )
 }
 
-/** One-liner a user can paste into a terminal to prove the key works. */
+/**
+ * One-liner a user can paste into a terminal to prove the key works.
+ *
+ * `/v1/catalog`, not `/healthz`: the health probe is unauthenticated, so it
+ * answers 200 for a key that is expired, revoked, or simply mistyped — a check
+ * that passes whatever you paste is worse than no check. The catalog is the
+ * cheapest route that actually reads the token, and its answer doubles as "here
+ * is what this key can see".
+ */
 export function verifyCommand(gatewayUrl: string, apiKey?: string | null): string {
   return [
     "curl -sS",
     `-H "Authorization: Bearer ${apiKeyOrPlaceholder(apiKey)}"`,
-    `${gatewayUrl}/health`,
+    `${gatewayUrl}/v1/catalog`,
   ].join(" ")
 }
 
