@@ -4,14 +4,18 @@
  * the private Docker overlay and shared rate buckets preserve global budgets.
  */
 import { createApp } from "./app"
-import { loadConfig } from "./config"
+import { loadConfigWithSecrets } from "./config"
 import { handleHttp } from "./http/handle"
 
 export const DEVICE_PATH = "/device"
 export const INTERNAL_RELAY_PATH = "/internal/relay/dispatch"
 
-const config = loadConfig()
-const app = await createApp(config)
+const config = await loadConfigWithSecrets()
+// This process IS the long-lived edge, so it owns the relay. The serverless
+// mount in apps/web passes `{ relay: false }` instead.
+const app = await createApp(config, { relay: true })
+const relay = app.relay
+if (relay === null) throw new Error("The Bun edge requires a relay.")
 
 const server = Bun.serve({
   port: config.port,
@@ -29,14 +33,14 @@ const server = Bun.serve({
       if (!await app.deps.edgeLimiter.check(`ws:${clientKey}`)) {
         return new Response("Too many requests.", { status: 429 })
       }
-      const upgraded = bunServer.upgrade(request, { data: app.deps.relay.newState() })
+      const upgraded = bunServer.upgrade(request, { data: relay.newState() })
       if (upgraded) return undefined
       return new Response("Expected a WebSocket upgrade.", { status: 426 })
     }
     return handleHttp(app.deps, request, clientKey)
   },
 
-  websocket: app.deps.relay.websocket,
+  websocket: relay.websocket,
 })
 
 app.logger.info("gateway listening", {

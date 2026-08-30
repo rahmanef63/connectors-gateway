@@ -1,0 +1,107 @@
+{
+  "id": "example",
+  "name": "Example (template)",
+  "version": "0.1.0",
+  "executor": "cloud",
+  "endpoint": "https://mcp.example.com/mcp",
+  "auth": {
+    "type": "api_key",
+    "fields": [
+      {
+        "name": "apiKey",
+        "label": "API key",
+        "hint": "Replace this connector with your own — docs/21-add-a-connector.md.",
+        "secret": true,
+        "required": true,
+        "placeholder": "sk_…"
+      }
+    ]
+  },
+  "actions": [
+    {
+      "id": "example.item.list",
+      "title": "List items",
+      "description": "Return the items visible to the connected account. This is the shape of a read: no arguments the AI has to invent, no side effect, and a risk of R0 because nothing changes.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "How many to return. Defaults to 20 upstream."
+          }
+        },
+        "additionalProperties": false
+      },
+      "risk": "R0",
+      "annotations": {
+        "readOnly": true,
+        "destructive": false,
+        "idempotent": true
+      },
+      "x-upstream": "list_items",
+      "requiredScopes": ["mcp.read"]
+    },
+    {
+      "id": "example.item.create",
+      "title": "Create item",
+      "description": "Create one item. Write the description for the AI that will read it, not for a human browsing docs: say what the fields mean, which ones it must ask the user about rather than guess, and what the defaults are.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "What the item is called."
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "Free text. Optional."
+          }
+        },
+        "required": ["title"],
+        "additionalProperties": false
+      },
+      "risk": "R1",
+      "annotations": {
+        "readOnly": false,
+        "destructive": false,
+        "idempotent": false
+      },
+      "x-upstream": "create_item",
+      "requiredScopes": ["mcp.write"]
+    },
+    {
+      "id": "example.item.delete",
+      "title": "Delete item",
+      "description": "Permanently delete one item by id. Irreversible.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The item to delete."
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      },
+      "risk": "R3",
+      "annotations": {
+        "readOnly": false,
+        "destructive": true,
+        "idempotent": false
+      },
+      "x-upstream": "delete_item",
+      "requiredScopes": ["mcp.write"]
+    }
+  ]
+}

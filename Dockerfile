@@ -23,6 +23,10 @@ ENV NEXT_PUBLIC_CONVEX_URL=$NEXT_PUBLIC_CONVEX_URL
 ENV NEXT_PUBLIC_GATEWAY_URL=$NEXT_PUBLIC_GATEWAY_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# This image runs its own Node server, so it needs the standalone bundle. Vercel
+# builds the same app without it (next.config.mjs) — the platform produces its
+# own serverless output and a standalone server there is dead weight.
+ENV NEXT_OUTPUT=standalone
 
 RUN cd apps/web && bun run build
 

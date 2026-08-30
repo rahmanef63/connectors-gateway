@@ -6,15 +6,17 @@ import { AuthorizeRefusal } from "./refusal"
 import { api } from "@convex/_generated/api"
 import { convexOptions } from "@/lib/convex-server"
 import { parseAuthorizationRequest } from "@/lib/oauth-authorize"
-import { mcpEndpoint, normalizeGatewayUrl } from "@/lib/gateway-config"
+import { mcpEndpoint, publicGatewayUrl } from "@/lib/gateway-config"
 
 export const metadata: Metadata = { title: "Authorize access" }
 
 /**
- * The OAuth consent screen (docs/18). `proxy.ts` gates `/oauth(.*)`, so a
+ * The OAuth consent screen (docs/18). `proxy.ts` gates this route by name, so a
  * signed-out visitor lands on sign-in and comes back with the query string
  * intact — an authorization request must survive that detour or every first-
- * time connect fails.
+ * time connect fails. Its machine siblings, `/oauth/register` and
+ * `/oauth/token`, are deliberately NOT gated: a client reaching those holds no
+ * session and by protocol cannot have one.
  *
  * Nothing on this page redirects on failure. A malformed or unregistered
  * request is a dead end HERE, deliberately: bouncing the browser to an
@@ -26,7 +28,7 @@ export default async function AuthorizePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const gatewayUrl = normalizeGatewayUrl(process.env.NEXT_PUBLIC_GATEWAY_URL)
+  const gatewayUrl = publicGatewayUrl()
   if (gatewayUrl === null) return <AuthorizeRefusal reason="rejected" />
   const request = parseAuthorizationRequest(await searchParams, mcpEndpoint(gatewayUrl))
   if (request === null) return <AuthorizeRefusal reason="malformed" />

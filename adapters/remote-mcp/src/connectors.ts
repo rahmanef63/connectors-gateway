@@ -7,12 +7,22 @@
  *
  * Adding a connector is one JSON file plus one line below. No package, no adapter, no code.
  * This list is the file-backed stand-in for the `connectors` table of docs/16 step 3.
+ *
+ * WHAT A CLONE DOES WITH THIS LIST. Everything here is SHIPPED — compiled into
+ * the build — but shipped is not the same as served: `CONNECTORS_ENABLED`
+ * decides which of them a given deployment actually registers (@cg/core
+ * `selectConnectors`). That split is what lets a clone start with an empty or
+ * one-entry catalog without deleting files it would then conflict on at the next
+ * template merge. `example.connector.json` is the annotated starting point;
+ * docs/21-add-a-connector.md is the walkthrough. The rest are real, working
+ * manifests kept as reference — read them, then replace them.
  */
 import type { ConnectorManifest } from "@cg/core"
 import { validateManifest } from "@cg/schemas"
 import careerpack from "../connectors/careerpack.connector.json"
 import composio from "../connectors/composio.connector.json"
 import content from "../connectors/content.connector.json"
+import example from "../connectors/example.connector.json"
 import mso from "../connectors/mso.connector.json"
 import rahmanef from "../connectors/rahmanef.connector.json"
 
@@ -26,6 +36,7 @@ export const REMOTE_MCP_MANIFESTS: readonly ConnectorManifest[] = Object.freeze(
   validateManifest(careerpack),
   validateManifest(composio),
   validateManifest(content),
+  validateManifest(example),
   validateManifest(mso),
   validateManifest(rahmanef),
 ])

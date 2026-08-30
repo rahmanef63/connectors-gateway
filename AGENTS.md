@@ -15,6 +15,11 @@ Build a secure connector runtime that exposes a single remote gateway to AI clie
 4. `docs/06-connector-contract.md`
 5. `docs/13-mvp-roadmap.md`
 
+If you are working in a clone of this template — adding a connector, deploying
+it, or wondering why there are two hosts — read `docs/21-add-a-connector.md` and
+`docs/20-vercel-template.md` first. `CHECKLIST.md` is what must be true before
+a real AI client points at a real account; this file is how to build.
+
 If working on Blender, also read `docs/11-blender-reference.md`.
 
 If working on the local agent, also read:
@@ -37,6 +42,9 @@ If working on the local agent, also read:
 10. Protocol-specific details belong at adapters/edges; business-level action schemas stay normalized.
 11. `rahmanef63/connectors` remains the cookbook/SSOT. Do not duplicate long-form recipes here when a link/reference is enough. When a runtime fix here uncovers a reusable lesson: fix it here, write the recipe there, link back to this implementation — never explain it twice.
 12. Secrets, refresh tokens, device credentials, and raw OAuth tokens must never be committed to the repository.
+13. The gateway edge is ONE implementation. `apps/web` mounts `apps/gateway/src/edge.ts`; it never reimplements a route, an authentication path, or a policy check. A host may contribute only what it alone knows — the caller's peer address, and whether it may own a WebSocket. A second implementation of authorization is a second thing to get wrong.
+14. Bun globals live in `apps/gateway/src/main.ts` and the `scripts/` entry points, nowhere else. Everything under the edge runs on Bun and Node 22 alike, because it has to.
+15. Shipping a connector and serving it are separate. `CONNECTORS_ENABLED` selects; the registry is built from the selection, and so is the adapter map — an adapter for a connector the registry will not resolve is an open upstream client nobody audited.
 
 ## MVP boundary
 

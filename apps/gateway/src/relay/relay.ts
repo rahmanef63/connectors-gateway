@@ -10,7 +10,7 @@ import { GatewayError, PRESENCE_REFRESH_MS, newId } from "@cg/core"
 import type { Logger } from "@cg/observability"
 import { CLOSE_CODES, HEARTBEAT_INTERVAL_MS, HEARTBEAT_TIMEOUT_MS, PROTOCOL_VERSION, parseAgentMessage } from "@cg/protocol"
 import type { AgentMessage, SignedKeyRotation } from "@cg/protocol"
-import type { WebSocketHandler } from "bun"
+import type { RelayWebSocketHandler } from "./bun-socket"
 import type { GatewayDeviceStore } from "../store/devices"
 import type { RelayRouteStore } from "../store/relay-routes"
 import { createDispatcher } from "./dispatch"
@@ -36,7 +36,7 @@ export type RelayDeps = {
 }
 
 export type Relay = {
-  websocket: WebSocketHandler<SocketState>
+  websocket: RelayWebSocketHandler<SocketState>
   dispatcher: Dispatcher
   sockets: SocketRegistry
   /** State attached at upgrade time. */
@@ -178,7 +178,7 @@ export function createRelay(deps: RelayDeps): Relay {
     }
   }
 
-  const websocket: WebSocketHandler<SocketState> = {
+  const websocket: RelayWebSocketHandler<SocketState> = {
     open(socket) {
       socket.data.lastSeenAt = now()
       socket.data.helloTimer = setTimeout(() => {

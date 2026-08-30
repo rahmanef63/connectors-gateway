@@ -10,6 +10,7 @@
  * bundle, and the card data below is a deliberate subset — `x-upstream` and any other
  * internal field must never reach the client.
  */
+import { parseEnabledConnectors, selectConnectors } from "@cg/core"
 import type { ConnectorManifest, CredentialField } from "@cg/core"
 import { manifest as blenderManifest } from "@cg/adapter-blender"
 import { REMOTE_MCP_MANIFESTS } from "@cg/adapter-remote-mcp"
@@ -61,8 +62,23 @@ export function catalogEntries(): CatalogEntry[] {
   return manifests().map(toEntry).sort((a, b) => a.name.localeCompare(b.name))
 }
 
+/**
+ * The same selection the gateway boots with — `CONNECTORS_ENABLED`, read from
+ * the same variable, applied by the same function.
+ *
+ * It has to be the same or the dashboard lies: a card for a connector the
+ * gateway will not resolve invites a user to connect an account, store a
+ * credential, and then watch every call return CONNECTOR_NOT_FOUND. Deriving
+ * both sides from one function is what keeps that impossible.
+ *
+ * Server-only, like the rest of this module — no NEXT_PUBLIC_ prefix, so the
+ * value never reaches the browser.
+ */
 function manifests(): ConnectorManifest[] {
-  return [...REMOTE_MCP_MANIFESTS, blenderManifest]
+  return selectConnectors(
+    [...REMOTE_MCP_MANIFESTS, blenderManifest],
+    parseEnabledConnectors(process.env.CONNECTORS_ENABLED),
+  )
 }
 
 /**
