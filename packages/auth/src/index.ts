@@ -1,5 +1,6 @@
 export * from "./base64url"
 export * from "./caller"
+export * from "./derive"
 export * from "./device-credential"
 export * from "./hash"
 export * from "./secret-box"

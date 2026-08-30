@@ -11,5 +11,9 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@cg/core": "workspace:*"
+  },
+  "//devDependencies": "@cg/protocol is a TEST-only edge: derive.test.ts imports the derived job-signing pair through the same importPrivateKey/importPublicKey the gateway calls at boot, so a pair that derives but does not import fails here rather than at the first job dispatch. @cg/protocol depends only on @cg/core, so this adds no cycle.",
+  "devDependencies": {
+    "@cg/protocol": "workspace:*"
   }
 }

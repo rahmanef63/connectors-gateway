@@ -1,4 +1,14 @@
-/** Static skill export used by OpenAI Scan Tools and bundled plugin clients. */
+/**
+ * Static skill export used by OpenAI Scan Tools and bundled plugin clients.
+ *
+ * The file is read with `node:fs`, not `Bun.file`: this module also runs inside
+ * the Next.js mount in apps/web (docs/20), and that host has no Bun global. The
+ * path is resolved from `import.meta.url` so it survives both a Bun run from the
+ * repo root and a traced serverless bundle — apps/web's `next.config.mjs`
+ * declares the SKILL.md under `outputFileTracingIncludes`, because a tracer
+ * cannot see a filename that only exists as a `new URL(...)` at runtime.
+ */
+import { readFile } from "node:fs/promises"
 import { GatewayError } from "@cg/core"
 
 export const GATEWAY_SKILL_URI =
@@ -68,7 +78,7 @@ async function sha256(text: string): Promise<string> {
 
 export function loadGatewaySkill(): Promise<GatewaySkill> {
   cachedSkill ??= (async () => {
-    const text = await Bun.file(SKILL_FILE).text()
+    const text = await readFile(SKILL_FILE, "utf8")
     const frontmatter = parseFrontmatter(text)
     return {
       text,

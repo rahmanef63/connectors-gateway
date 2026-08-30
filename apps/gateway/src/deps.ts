@@ -38,6 +38,12 @@ export type GatewayDeps = PipelineDeps &
      * control-plane quota at will.
      */
     edgeLimiter: RateLimiter
-    relay: Relay
+    /**
+     * Present only on a host that can hold a device WebSocket open — the Bun
+     * edge in `main.ts`. Absent on a serverless deploy, where nothing may own a
+     * socket. No HTTP handler reads it; it travels here so `main.ts` can bind
+     * the upgrade path from the same wired object it serves from.
+     */
+    relay?: Relay
     logger: Logger
   }

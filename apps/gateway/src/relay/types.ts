@@ -3,8 +3,8 @@
  * A freshly opened socket is UNAUTHENTICATED and may send exactly one frame
  * type — `hello` — before the deadline closes it.
  */
-import type { ServerWebSocket } from "bun"
 import type { GatewayMessage } from "@cg/protocol"
+import type { RelayServerWebSocket } from "./bun-socket"
 
 /** A socket that has not said hello in time is closed, not left hanging. */
 export const HELLO_DEADLINE_MS = 10_000
@@ -24,7 +24,7 @@ export type SocketState = {
   helloTimer: ReturnType<typeof setTimeout> | null
 }
 
-export type RelaySocket = ServerWebSocket<SocketState>
+export type RelaySocket = RelayServerWebSocket<SocketState>
 
 export function newSocketState(socketId: string, now: number): SocketState {
   return {

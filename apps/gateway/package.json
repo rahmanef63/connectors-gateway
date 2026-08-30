@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "description": "Public runtime edge: MCP/REST for AI clients + device relay for local agents.",
+  "//exports": "Only ./edge is public. It is the host-agnostic surface apps/web mounts on Next.js (docs/20); main.ts stays unreachable from an import so no Bun global can enter a Next build.",
+  "exports": {
+    "./edge": "./src/edge.ts",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "dev": "bun --watch src/main.ts",
     "start": "bun src/main.ts",
