@@ -12,12 +12,13 @@ import { createLogger } from "@cg/observability"
 import type { Logger } from "@cg/observability"
 import { importPrivateKey, importPublicKey, signJob, signKeyRotation, verifyKeyRotation } from "@cg/protocol"
 import type { JobEnvelope } from "@cg/protocol"
-import { randomToken } from "@cg/core"
+import { GatewayError, randomToken, selectConnectors } from "@cg/core"
 import { createRegistry } from "@cg/registry"
 import type { GatewayConfig } from "./config"
 import type { GatewayDeps } from "./deps"
 import { createDistributedRateLimiter } from "./http/distributed-rate-limit"
 import { createRelay } from "./relay/relay"
+import type { Relay } from "./relay/relay"
 import { createRoutedDispatcher } from "./relay/routed-dispatch"
 import { handlePeerDispatch } from "./relay/peer-handler"
 import { detectInternalRelayUrl } from "./relay/internal-url"
@@ -63,8 +64,47 @@ export type GatewayApp = {
   deps: GatewayDeps
   logger: Logger
   gatewayId: string
+  /**
+   * The device relay, or null on a host that cannot hold a WebSocket open.
+   *
+   * Null is not a degraded relay — it is the ABSENCE of one, and the difference
+   * is visible where it matters: `createLocalExecutor` still runs, still reads
+   * the caller's devices, and still refuses a local action because that user has
+   * no device online. A serverless deploy therefore answers "no device" (true)
+   * rather than "no relay" (an internal detail the AI client cannot act on).
+   */
+  relay: Relay | null
   handlePeerDispatch(request: Request): Promise<Response>
   stop(): Promise<void>
+}
+
+export type CreateAppOptions = {
+  /**
+   * Whether this process may own device WebSockets. False on a serverless host
+   * (Vercel), where a long-lived socket cannot exist: the process would create a
+   * relay, register itself as the owner of a device route in Convex, and then be
+   * frozen — pointing every other replica's local jobs at an address that no
+   * longer answers. Refusing to create the relay at all is what keeps that route
+   * table honest.
+   *
+   * Defaults to true: apps/gateway's own `main.ts` is the long-lived Bun edge.
+   */
+  relay?: boolean
+}
+
+/** Cloud-only stand-in for the relay's dispatcher. Never reached in practice:
+ *  `selectDevice` fails first when the caller has no online device, which is
+ *  always the case on a host that cannot accept a device socket. Present so the
+ *  local executor is wired identically on both hosts rather than special-cased. */
+const NO_RELAY_DISPATCHER = {
+  dispatch(): Promise<never> {
+    return Promise.reject(
+      new GatewayError(
+        "DEVICE_OFFLINE",
+        "This deployment does not host the device relay. Deploy apps/gateway to reach local software.",
+      ),
+    )
+  },
 }
 
 async function createRotationProof(
@@ -82,7 +122,11 @@ async function createRotationProof(
   return proof
 }
 
-export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
+export async function createApp(
+  config: GatewayConfig,
+  options: CreateAppOptions = {},
+): Promise<GatewayApp> {
+  const withRelay = options.relay ?? true
   const logger = createLogger("gateway")
   const controlPlane = createConvexControlPlane({
     url: config.convexUrl,
@@ -92,7 +136,12 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
   })
 
   // Boot-time gate: a manifest that fails its own contract stops the process.
-  const registry = createRegistry([...REMOTE_MCP_MANIFESTS, blenderManifest])
+  // `selectConnectors` narrows to what CONNECTORS_ENABLED asked for and throws
+  // on an id this build does not ship — a typo in that variable must not read
+  // as "the connector disappeared".
+  const shipped = selectConnectors([...REMOTE_MCP_MANIFESTS, blenderManifest], config.connectors)
+  const registry = createRegistry(shipped)
+  const enabledIds = new Set(shipped.map((manifest) => manifest.id))
   const signingPrivateKey = await importPrivateKey(config.signing.privateKey)
   // Validate the public half too. A typo here would otherwise boot successfully,
   // announce an unusable trust anchor, and make every newly paired agent reject jobs.
@@ -103,27 +152,37 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
     : await createRotationProof(config.signing.previous, { keyId, publicKey: config.signing.publicKey })
 
   const gatewayId = `gw_${randomToken(18)}`
-  const internalUrl = detectInternalRelayUrl(config.port, { production: config.env === "production" })
-  let relayToStop: ReturnType<typeof createRelay> | null = null
+  let relayToStop: Relay | null = null
   try {
-    const relay = createRelay({
-      devices: controlPlane.devices,
-      logger: logger.child({ scope: "relay" }),
-      signingPublicKey: config.signing.publicKey,
-      keyId,
-      gatewayId,
-      internalUrl,
-      routes: controlPlane.relayRoutes,
-      ...(keyRotation === undefined ? {} : { keyRotation }),
-    })
+    const relay = withRelay
+      ? createRelay({
+          devices: controlPlane.devices,
+          logger: logger.child({ scope: "relay" }),
+          signingPublicKey: config.signing.publicKey,
+          keyId,
+          // Computed HERE, not above, and only when a relay is actually being
+          // built. `detectInternalRelayUrl` throws in production when no private
+          // interface exists — correct for the Bun edge, where an unroutable
+          // replica is a real fault, and fatal on a serverless host, which has no
+          // such interface and no relay to route to either. Hoisting it out of
+          // this branch broke every request on Vercel.
+          internalUrl: detectInternalRelayUrl(config.port, {
+            production: config.env === "production",
+          }),
+          routes: controlPlane.relayRoutes,
+          ...(keyRotation === undefined ? {} : { keyRotation }),
+        })
+      : null
     relayToStop = relay
-    const routedDispatcher = createRoutedDispatcher({
-      gatewayId,
-      local: relay.dispatcher,
-      routes: controlPlane.relayRoutes,
-      serviceToken: config.serviceToken,
-      encryptionKey: config.credentialEncryptionKey,
-    })
+    const routedDispatcher = relay === null
+      ? NO_RELAY_DISPATCHER
+      : createRoutedDispatcher({
+          gatewayId,
+          local: relay.dispatcher,
+          routes: controlPlane.relayRoutes,
+          serviceToken: config.serviceToken,
+          encryptionKey: config.credentialEncryptionKey,
+        })
 
   // Cloud adapters run IN this process. Local adapters never do: blender
   // contributes its MANIFEST only — registered above for catalog and policy —
@@ -132,8 +191,14 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
   //
   // Every remote MCP connector is the SAME adapter bound to a different manifest, so a
   // new one is a JSON file in @cg/adapter-remote-mcp and nothing here changes.
+  // Built from the SELECTED set, not the shipped one: an adapter for a
+  // connector the registry will not resolve is an executor with no way in, and
+  // an open upstream client nobody audited.
   const adapters = new Map<string, CloudAdapter>(
-    REMOTE_MCP_MANIFESTS.map((manifest) => [manifest.id, createRemoteMcpAdapter(manifest)]),
+    REMOTE_MCP_MANIFESTS.filter((manifest) => enabledIds.has(manifest.id)).map((manifest) => [
+      manifest.id,
+      createRemoteMcpAdapter(manifest),
+    ]),
   )
 
   const cloud = createCloudExecutor({
@@ -163,7 +228,7 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
     pairingLimiter: createDistributedRateLimiter(controlPlane.client, { bucket: "pairing_start", limit: PAIRING_LIMIT, windowMs: PAIRING_WINDOW_MS }),
     claimLimiter: createDistributedRateLimiter(controlPlane.client, { bucket: "pairing_claim", limit: CLAIM_LIMIT, windowMs: CLAIM_WINDOW_MS }),
     edgeLimiter: createDistributedRateLimiter(controlPlane.client, { bucket: "edge", limit: EDGE_LIMIT, windowMs: EDGE_WINDOW_MS }),
-    relay,
+    ...(relay === null ? {} : { relay }),
     logger,
   }
 
@@ -171,13 +236,18 @@ export async function createApp(config: GatewayConfig): Promise<GatewayApp> {
       deps,
       logger,
       gatewayId,
-      handlePeerDispatch: (request: Request) => handlePeerDispatch(request, {
-        serviceToken: config.serviceToken,
-        encryptionKey: config.credentialEncryptionKey,
-        sockets: relay.sockets,
-        dispatcher: relay.dispatcher,
-      }),
-      stop: async () => { relay.stop() },
+      relay,
+      // Cross-replica dispatch is meaningless without a socket to hand the job
+      // to. 404 rather than a 5xx: on this host the route does not exist.
+      handlePeerDispatch: (request: Request) => relay === null
+        ? Promise.resolve(new Response("Not found.", { status: 404 }))
+        : handlePeerDispatch(request, {
+            serviceToken: config.serviceToken,
+            encryptionKey: config.credentialEncryptionKey,
+            sockets: relay.sockets,
+            dispatcher: relay.dispatcher,
+          }),
+      stop: async () => { relay?.stop() },
     }
   } catch (cause) {
     relayToStop?.stop()
