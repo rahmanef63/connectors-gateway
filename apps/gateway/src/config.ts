@@ -6,7 +6,8 @@
  * before the process is allowed to serve traffic. Error messages name the
  * VARIABLE, never its value — a malformed secret must not land in a log line.
  */
-import { GatewayError } from "@cg/core"
+import { GatewayError, parseEnabledConnectors } from "@cg/core"
+import { resolveGatewaySecrets } from "@cg/auth"
 
 export type GatewayEnv = "development" | "production"
 
@@ -36,6 +37,12 @@ export type GatewayConfig = {
   }
   /** AES-256-GCM key for connection credentials at rest. */
   credentialEncryptionKey: string
+  /**
+   * Connector ids this deployment serves, or null for "every shipped one".
+   * See @cg/core `parseEnabledConnectors` for why null and [] are both
+   * meaningful and are not the same thing.
+   */
+  connectors: string[] | null
 }
 
 export type EnvSource = Record<string, string | undefined>
@@ -45,8 +52,10 @@ const DEFAULT_WEB_URL = "http://localhost:3000"
 const DEFAULT_PUBLIC_URL = "http://localhost:8787"
 const DEFAULT_KEY_ID = "k1"
 const MIN_SERVICE_TOKEN_LENGTH = 16
-/** One command prints all three crypto values at once. */
-const KEYGEN = "bun run --cwd apps/gateway keygen"
+/** Two ways to have this value. The derived one is first because it is the one
+ *  a clone takes: `GATEWAY_SECRET` expands into all four (packages/auth/derive). */
+const KEYGEN =
+  "set GATEWAY_SECRET (openssl rand -base64 48) to derive it, or mint one explicitly with `bun run --cwd apps/gateway keygen`"
 
 function fail(message: string): never {
   throw new GatewayError("INVALID_INPUT", message)
@@ -167,5 +176,22 @@ export function loadConfig(source: EnvSource = process.env): GatewayConfig {
         : {}),
     },
     credentialEncryptionKey: requireSecret(source, "CREDENTIAL_ENCRYPTION_KEY", KEYGEN),
+    connectors: parseEnabledConnectors(read(source, "CONNECTORS_ENABLED")),
   }
+}
+
+/**
+ * `loadConfig`, preceded by the one-secret expansion of docs/20.
+ *
+ * Split from `loadConfig` rather than folded into it because the expansion is
+ * async (HKDF is WebCrypto) and `loadConfig` is called from tests with a literal
+ * env object dozens of times — an async signature there would buy nothing and
+ * cost every one of those call sites. The rule stays the same either way: env is
+ * a trust boundary, and it is read exactly once, here.
+ *
+ * `GATEWAY_SECRET` unset is not an error. It is the shape every pre-docs/20
+ * deployment already has, and `loadConfig` still names whatever is missing.
+ */
+export async function loadConfigWithSecrets(source: EnvSource = process.env): Promise<GatewayConfig> {
+  return loadConfig(await resolveGatewaySecrets(source))
 }
