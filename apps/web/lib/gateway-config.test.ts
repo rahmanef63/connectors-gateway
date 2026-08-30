@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest"
+import { afterEach, beforeEach, describe, expect, test } from "vitest"
 import {
   agentEnvSnippet,
   API_KEY_PLACEHOLDER,
@@ -7,6 +7,7 @@ import {
   mcpClientConfig,
   mcpEndpoint,
   normalizeGatewayUrl,
+  publicGatewayUrl,
   verifyCommand,
 } from "./gateway-config"
 
@@ -118,5 +119,58 @@ describe("snippets", () => {
   test("agent env uses the outbound websocket relay path", () => {
     expect(agentEnvSnippet(base)).toBe("CG_GATEWAY_URL=wss://connect.example.com/device")
     expect(agentEnvSnippet("http://localhost:8787")).toBe("CG_GATEWAY_URL=ws://localhost:8787/device")
+  })
+})
+
+describe("publicGatewayUrl", () => {
+  const PLATFORM_KEYS = [
+    "NEXT_PUBLIC_GATEWAY_URL",
+    "NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL",
+    "NEXT_PUBLIC_VERCEL_URL",
+  ] as const
+  let saved: Record<string, string | undefined> = {}
+
+  beforeEach(() => {
+    saved = Object.fromEntries(PLATFORM_KEYS.map((key) => [key, process.env[key]]))
+    for (const key of PLATFORM_KEYS) delete process.env[key]
+  })
+
+  afterEach(() => {
+    for (const key of PLATFORM_KEYS) {
+      const value = saved[key]
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+  })
+
+  test("an explicit value wins — it is the only one that can name a separate gateway", () => {
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "https://connect.example.com/"
+    process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL = "app.vercel.app"
+    expect(publicGatewayUrl()).toBe("https://connect.example.com")
+  })
+
+  test("falls back to the project's STABLE production host, not this deployment's", () => {
+    // VERCEL_URL moves on every push; a client that registered against it would
+    // break at the next deploy.
+    process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL = "app.vercel.app"
+    process.env.NEXT_PUBLIC_VERCEL_URL = "app-git-branch-team.vercel.app"
+    expect(publicGatewayUrl()).toBe("https://app.vercel.app")
+  })
+
+  test("uses the per-deployment host only when nothing else is known", () => {
+    process.env.NEXT_PUBLIC_VERCEL_URL = "app-git-branch-team.vercel.app"
+    expect(publicGatewayUrl()).toBe("https://app-git-branch-team.vercel.app")
+  })
+
+  test("null when the deployment cannot know its own origin", () => {
+    expect(publicGatewayUrl()).toBeNull()
+  })
+
+  test("a malformed explicit value never reaches a caller", () => {
+    // It falls through to the platform sources rather than being returned; with
+    // none set that is null, and /setup says so instead of printing a broken
+    // MCP address a user would paste into their AI client.
+    process.env.NEXT_PUBLIC_GATEWAY_URL = "not a url"
+    expect(publicGatewayUrl()).toBeNull()
   })
 })
