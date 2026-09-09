@@ -25,3 +25,6 @@ agent-state/
 # Added by si-coder deploy (secret-leak guard)
 node_modules
 .next
+
+# Local MSO runtime state — never commit
+.mso/
