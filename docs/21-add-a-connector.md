@@ -121,12 +121,15 @@ before you trust any write.
 
 ## Removing the reference connectors
 
-`careerpack`, `composio`, `content`, `mso` and `rahmanef` are real, working
+`careerpack`, `composio`, `content` and `mso` are real, working
 manifests kept as reference material. Read them — between them they cover bearer
 auth, API keys, OAuth 2.0 with dynamic client registration, and a 20-action
 surface — then either leave them shipped-but-disabled (`CONNECTORS_ENABLED`
 without their ids, the low-conflict option) or delete the files and their import
 lines.
+
+Personal websites and private admin MCPs are not public reference connectors. Keep
+them in an owner-private installation rather than shipping them in this catalog.
 
 ## Local connectors
 

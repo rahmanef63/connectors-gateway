@@ -82,7 +82,6 @@ Six already run a live MCP server. Probed 2026-08-15:
 |---|---|---|---|---|
 | CareerPack | `…convex.site/mcp` | ~69 | **plaintext** token | biggest surface; the plaintext storage is worth fixing on its own |
 | open-silong | `coordinated-ptarmigan-140.convex.site/mcp` | 34 | sha256 | two deployments answer |
-| rahmanef-com | `rahmanef.com/mcp` | 19 | sha256, 1-yr | best value/effort of the set |
 | mso | `mso.rahmanef.com/mcp` | 17 | sha256, 90-day | 3-tier scope; `exec_run` is R4 — see below |
 | models-rahmanef-com | `models.rahmanef.com/mcp` | ~20 | sha256 + full OAuth 2.1 PKCE | workspace-scoped bearer |
 | codex (TemanUsaha) | `utmost-snake-682.convex.site/mcp` | 11 | sha256 | |

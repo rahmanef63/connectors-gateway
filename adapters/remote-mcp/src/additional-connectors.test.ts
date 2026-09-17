@@ -18,15 +18,19 @@ describe("additional production connectors", () => {
     }
   })
 
-  test("rahmanef.com CMS exposes source-backed CRUD without inventing the unsupported upload mapping", () => {
-    const manifest = byId("rahmanef")
-    expect(manifest?.endpoint).toBe("https://rahmanef.com/mcp")
-    expect(manifest?.auth.type).toBe("oauth2")
-    expect(manifest?.actions.length).toBe(18)
-    expect(manifest?.actions.some((action) => (action as typeof action & { "x-upstream"?: string })["x-upstream"] === "upload_image")).toBe(false)
-    for (const action of manifest?.actions.filter((item) => item.id.endsWith(".delete")) ?? []) {
-      expect(action.risk).toBe("R3")
-      expect(action.annotations.destructive).toBe(true)
+  test("the personal website is not distributed as a public connector", () => {
+    expect(byId("rahmanef")).toBeUndefined()
+    for (const manifest of REMOTE_MCP_MANIFESTS) {
+      if (manifest.endpoint) {
+        expect(new URL(manifest.endpoint).hostname).not.toBe("rahmanef.com")
+        expect(new URL(manifest.endpoint).hostname).not.toBe("www.rahmanef.com")
+      }
+      expect(manifest.actions.some((action) => action.id.startsWith("rahmanef."))).toBe(false)
+    }
+    // Public products on subdomains are distinct from the personal website.
+    expect(byId("mso")?.endpoint).toBe("https://mso.rahmanef.com/mcp")
+    for (const id of ["careerpack", "composio", "content", "example"]) {
+      expect(byId(id)).toBeDefined()
     }
   })
 })

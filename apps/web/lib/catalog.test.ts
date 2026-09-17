@@ -2,10 +2,9 @@ import { describe, expect, test } from "vitest"
 import { catalogEntries, manifestFor } from "./catalog"
 
 describe("shipped connector catalog", () => {
-  test("includes the additional production Content and rahmanef.com connectors", () => {
+  test("includes the public Content connector without the personal website", () => {
     const entries = catalogEntries()
     const content = entries.find((entry) => entry.id === "content")
-    const rahmanef = entries.find((entry) => entry.id === "rahmanef")
 
     expect(content).toMatchObject({
       name: "Content — Social Content OS",
@@ -15,14 +14,9 @@ describe("shipped connector catalog", () => {
       actionCount: 12,
       topRisk: "R3",
     })
-    expect(rahmanef).toMatchObject({
-      name: "rahmanef.com CMS",
-      executor: "cloud",
-      authType: "oauth2",
-      endpoint: "https://rahmanef.com/mcp",
-      actionCount: 18,
-      topRisk: "R3",
-    })
+    expect(entries.some((entry) => entry.id === "rahmanef")).toBe(false)
+    expect(entries.some((entry) => entry.endpoint === "https://rahmanef.com/mcp")).toBe(false)
+    expect(manifestFor("rahmanef")).toBeNull()
   })
 
   test("catalog ordering stays stable and hand-crafted ids still resolve to nothing", () => {

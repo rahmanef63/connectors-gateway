@@ -4,6 +4,15 @@ All notable changes to Connectors Gateway are documented here. The repository us
 lockstep application/workspace version; connector manifest versions remain independent
 contract versions and change only when their connector contract changes.
 
+## 2026-09-17 — Public connector catalog correction
+
+- Removed the personal website CMS from the shipped remote-MCP manifests, dashboard
+  catalog, public gateway adapter registry and current reference documentation.
+- Added regression coverage so the private website cannot reappear as a public
+  connector or resolve through a hand-crafted connector id.
+- Public product connectors remain unchanged. This removes only distribution through
+  Connectors Gateway; it does not modify the personal website or erase stored credentials.
+
 ## [0.4.0] - 2026-08-21
 
 ### Added

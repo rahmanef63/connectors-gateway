@@ -24,7 +24,6 @@ import composio from "../connectors/composio.connector.json"
 import content from "../connectors/content.connector.json"
 import example from "../connectors/example.connector.json"
 import mso from "../connectors/mso.connector.json"
-import rahmanef from "../connectors/rahmanef.connector.json"
 
 /**
  * Validated HERE, at the JSON boundary, rather than cast: these files are data today and
@@ -38,5 +37,4 @@ export const REMOTE_MCP_MANIFESTS: readonly ConnectorManifest[] = Object.freeze(
   validateManifest(content),
   validateManifest(example),
   validateManifest(mso),
-  validateManifest(rahmanef),
 ])

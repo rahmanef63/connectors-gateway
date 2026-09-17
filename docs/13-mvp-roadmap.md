@@ -134,7 +134,7 @@ have not been run against a real Blender install.
 6. ~~**A connector's `endpoint` can silently name a development deployment.**~~
    **Closed 2026-08-20.** Every shipped fixed endpoint now pins its reviewed production
    resource-metadata URL, authorization server, browser authorization endpoint, token endpoint,
-   and registration endpoint. The current fixed set is CareerPack, Content, MSO and rahmanef.com;
+   and registration endpoint. The current fixed set is CareerPack, Content and MSO;
    Composio remains per-user/dynamic. `bun run verify:remote-endpoints` performs an unauthenticated,
    redirect-free, bounded live probe of the complete chain. It runs on relevant pull requests,
    on changes to `main`, and every day. This specifically rejects the former

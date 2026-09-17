@@ -114,7 +114,7 @@ including the part that actually matters, which is that an action's
 human.
 
 Shipped as reference: `example` (annotated starting point), `careerpack`
-(bearer), `composio` (API key), `content`, `mso`, `rahmanef` (OAuth 2.1 with
+(bearer), `composio` (API key), `content` and `mso` (OAuth 2.1 with
 dynamic registration), and `blender` (local, through the agent). Shipping and
 serving are separate, so you can leave them in the tree and serve none of them.
 
