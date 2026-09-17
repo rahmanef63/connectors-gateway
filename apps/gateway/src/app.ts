@@ -156,6 +156,7 @@ export async function createApp(
   try {
     const relay = withRelay
       ? createRelay({
+          gatewayId,
           devices: controlPlane.devices,
           logger: logger.child({ scope: "relay" }),
           signingPublicKey: config.signing.publicKey,

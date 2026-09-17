@@ -242,6 +242,7 @@ export function fakePairing(overrides: Partial<PairingStore> = {}): PairingStore
 }
 
 export const testConfig: GatewayConfig = {
+  connectors: null,
   env: "development",
   port: 8787,
   webPublicUrl: "http://localhost:3000",

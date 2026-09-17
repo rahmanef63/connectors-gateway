@@ -69,7 +69,7 @@ export async function verifyJob(signed: SignedJob, options: VerifyJobOptions): P
 }
 
 /** A malformed signature is an auth failure, not an input error — same response either way. */
-function safeSignatureBytes(signature: string): Uint8Array {
+function safeSignatureBytes(signature: string): Uint8Array<ArrayBuffer> {
   try {
     return fromBase64Url(signature, "The job signature")
   } catch {
@@ -81,6 +81,6 @@ function notAuthorized(): GatewayError {
   return new GatewayError("NOT_AUTHORIZED", "The job signature is not valid.")
 }
 
-function encode(text: string): Uint8Array {
+function encode(text: string): Uint8Array<ArrayBuffer> {
   return new TextEncoder().encode(text)
 }

@@ -42,7 +42,7 @@ export async function verifyKeyRotation(
   const record = asRecord(proof, "The key rotation proof")
   const statement = parseStatement(record)
   if (typeof record.signature !== "string") throw notAuthorized()
-  let signature: Uint8Array
+  let signature: Uint8Array<ArrayBuffer>
   try {
     signature = fromBase64Url(record.signature, "The key rotation signature")
   } catch {

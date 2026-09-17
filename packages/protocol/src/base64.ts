@@ -15,7 +15,7 @@ export function toBase64(bytes: ArrayBuffer | Uint8Array): string {
 }
 
 /** Strict: rejects whitespace and non-alphabet characters that `atob` tolerates. */
-export function fromBase64(text: string, what: string): Uint8Array {
+export function fromBase64(text: string, what: string): Uint8Array<ArrayBuffer> {
   if (text.length === 0 || text.length % 4 !== 0 || !BASE64_RE.test(text)) {
     throw new GatewayError("INVALID_INPUT", `${what} is not valid base64.`)
   }
@@ -26,7 +26,7 @@ export function toBase64Url(bytes: ArrayBuffer | Uint8Array): string {
   return toBase64(bytes).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "")
 }
 
-export function fromBase64Url(text: string, what: string): Uint8Array {
+export function fromBase64Url(text: string, what: string): Uint8Array<ArrayBuffer> {
   if (text.length === 0 || text.length % 4 === 1 || !BASE64URL_RE.test(text)) {
     throw new GatewayError("INVALID_INPUT", `${what} is not valid base64url.`)
   }
@@ -34,7 +34,7 @@ export function fromBase64Url(text: string, what: string): Uint8Array {
   return decode(padded, what)
 }
 
-function decode(text: string, what: string): Uint8Array {
+function decode(text: string, what: string): Uint8Array<ArrayBuffer> {
   let binary: string
   try {
     binary = atob(text)
